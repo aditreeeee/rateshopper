@@ -61,6 +61,23 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
     refreshComparisonGrid();
     parentSel.onchange = refreshComparisonGrid; // Parent Property choice excludes itself from the grid below
+
+    document.getElementById('benchmarkAssignmentCard').classList.toggle('d-none', !needsBenchmark);
+    if(needsBenchmark) refreshBenchmarkUI();
+
+    document.getElementById('permissionsCard').classList.toggle('d-none', !needsPermissions);
+    if(needsPermissions){
+      const grant = (existing && existing.permissions) || {};
+      document.getElementById('permissionsBody').innerHTML = RBAC.ASSIGNABLE_MODULES.map(mod=>{
+        const g = grant[mod] || {view:true, create:false, edit:false, delete:false};
+        return `<tr>
+          <td class="fw-semibold">${RBAC.MODULE_LABELS[mod]}</td>
+          ${['view','create','edit','delete'].map(action=>`
+            <td class="text-center"><input type="checkbox" class="form-check-input perm-check" data-mod="${mod}" data-action="${action}" ${g[action]?'checked':''}></td>
+          `).join('')}
+        </tr>`;
+      }).join('');
+    }
   }
 
   function refreshComparisonGrid(){
@@ -79,23 +96,6 @@ document.addEventListener('DOMContentLoaded', ()=>{
         </label>
       </div>`;
     }).join('') : `<div class="col-12 text-muted small">No properties available to assign.</div>`;
-
-    document.getElementById('benchmarkAssignmentCard').classList.toggle('d-none', !needsBenchmark);
-    if(needsBenchmark) refreshBenchmarkUI();
-
-    document.getElementById('permissionsCard').classList.toggle('d-none', !needsPermissions);
-    if(needsPermissions){
-      const grant = (existing && existing.permissions) || {};
-      document.getElementById('permissionsBody').innerHTML = RBAC.ASSIGNABLE_MODULES.map(mod=>{
-        const g = grant[mod] || {view:true, create:false, edit:false, delete:false};
-        return `<tr>
-          <td class="fw-semibold">${RBAC.MODULE_LABELS[mod]}</td>
-          ${['view','create','edit','delete'].map(action=>`
-            <td class="text-center"><input type="checkbox" class="form-check-input perm-check" data-mod="${mod}" data-action="${action}" ${g[action]?'checked':''}></td>
-          `).join('')}
-        </tr>`;
-      }).join('');
-    }
   }
 
   function refreshBenchmarkUI(){
