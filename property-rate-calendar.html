@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rate Calendar | Rate Shopper IQ</title>
+<link rel="icon" href="data:,">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="css/style.css" rel="stylesheet">
+<link href="css/portal.css" rel="stylesheet">
+</head>
+<body>
+<div id="app-shell">
+
+<div class="cal-toolbar">
+  <div class="d-flex align-items-center gap-2 flex-wrap">
+    <button class="icon-btn" id="prevPeriod"><i class="bi bi-chevron-left"></i></button>
+    <h5 class="mb-0 fw-bold" id="periodLabel" style="min-width:180px">-</h5>
+    <button class="icon-btn" id="nextPeriod"><i class="bi bi-chevron-right"></i></button>
+    <button class="btn btn-soft btn-sm ms-2" id="btnToday">Today</button>
+    <div class="btn-group btn-group-sm ms-2" id="rangeFilter" role="group">
+      <button type="button" class="btn btn-outline-primary" data-days="7">7 Days</button>
+      <button type="button" class="btn btn-soft" data-days="14">14 Days</button>
+      <button type="button" class="btn btn-outline-primary" data-days="30">30 Days</button>
+    </div>
+    <select class="form-select form-select-sm ms-2" id="channelFilter" style="width:auto;min-width:170px"></select>
+    <select class="form-select form-select-sm ms-2" id="roomFilter" style="width:auto;min-width:170px"></select>
+  </div>
+  <div class="d-flex align-items-center gap-2 flex-wrap">
+    <button class="btn btn-primary btn-sm" id="btnBulkUpdate" data-bs-toggle="modal" data-bs-target="#bulkModal"><i class="bi bi-sliders me-1"></i>Bulk Update</button>
+    <button class="btn btn-outline-primary btn-sm" id="btnUndo" disabled><i class="bi bi-arrow-counterclockwise me-1"></i>Undo</button>
+  </div>
+</div>
+
+<div class="text-muted small mb-2" id="parityHint"><i class="bi bi-info-circle me-1"></i>Click <i class="bi bi-bar-chart-line"></i> next to any occupancy row to compare its rate against other channels.</div>
+
+<div class="section-card">
+  <div id="gridHost"></div>
+</div>
+
+<div class="d-flex justify-content-end gap-2 mt-3">
+  <button class="btn btn-light" id="btnCancelChanges">Cancel Changes</button>
+  <button class="btn btn-primary" id="btnSaveChanges" disabled><i class="bi bi-save me-1"></i>Save Changes</button>
+</div>
+
+</div>
+
+<!-- Bulk Update Modal -->
+<div class="modal fade" id="bulkModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content" style="border-radius:18px;border:none">
+      <div class="modal-header border-0">
+        <h5 class="modal-title fw-bold"><i class="bi bi-sliders me-2"></i>Bulk Update Rates</h5>
+        <button class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body pt-0">
+        <div class="row g-2 mb-3">
+          <div class="col-md-4">
+            <label class="form-label">Channel</label>
+            <select class="form-select" id="bu_channel"><option value="">All Channels</option></select>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Room</label>
+            <select class="form-select" id="bu_room"><option value="">All Rooms</option></select>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Rate Plan</label>
+            <select class="form-select" id="bu_ratePlan"><option value="">All Rate Plans</option></select>
+          </div>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label">Apply To</label>
+          <select class="form-select" id="bu_scope">
+            <option value="single">Single Date</option>
+            <option value="range">Date Range</option>
+            <option value="visible">Currently Visible Dates</option>
+            <option value="weekdays">Selected Weekdays</option>
+            <option value="weekends">Weekends Only (Fri/Sat)</option>
+          </select>
+        </div>
+
+        <div class="row g-2 mb-3" id="bu_singleWrap">
+          <div class="col-md-6">
+            <label class="form-label">Date</label>
+            <input type="date" class="form-control" id="bu_singleDate">
+          </div>
+        </div>
+        <div class="row g-2 mb-3 d-none" id="bu_rangeWrap">
+          <div class="col-md-6"><label class="form-label">From</label><input type="date" class="form-control" id="bu_fromDate"></div>
+          <div class="col-md-6"><label class="form-label">To</label><input type="date" class="form-control" id="bu_toDate"></div>
+        </div>
+        <div class="mb-3 d-none" id="bu_weekdaysWrap">
+          <label class="form-label d-block">Weekdays</label>
+          <div class="btn-group flex-wrap" role="group" id="bu_weekdayBtns"></div>
+          <div class="row g-2 mt-2">
+            <div class="col-md-6"><label class="form-label">From</label><input type="date" class="form-control" id="bu_wdFrom"></div>
+            <div class="col-md-6"><label class="form-label">To</label><input type="date" class="form-control" id="bu_wdTo"></div>
+          </div>
+        </div>
+
+        <hr>
+        <label class="form-label">Pricing Action</label>
+        <div class="row g-2 mb-3">
+          <div class="col-md-5">
+            <select class="form-select" id="bu_priceAction">
+              <option value="fixed">Set Fixed Price</option>
+              <option value="incAmt">Increase by Amount</option>
+              <option value="decAmt">Decrease by Amount</option>
+              <option value="incPct">Increase by %</option>
+              <option value="decPct">Decrease by %</option>
+              <option value="none">Don't Change Price</option>
+            </select>
+          </div>
+          <div class="col-md-4">
+            <input type="number" class="form-control" id="bu_priceValue" placeholder="Value" min="0">
+          </div>
+          <div class="col-md-3">
+            <button class="btn btn-outline-primary w-100" id="bu_clearRates" type="button">Clear Rates</button>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer border-0">
+        <button class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-primary" id="bu_apply"><i class="bi bi-check2-circle me-1"></i>Apply Update</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Rate Parity Modal -->
+<div class="modal fade" id="parityModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered modal-xl">
+    <div class="modal-content" style="border-radius:18px;border:none">
+      <div class="modal-header border-0 pb-0">
+        <div>
+          <h5 class="modal-title fw-bold mb-1"><i class="bi bi-bar-chart-line me-2"></i>Rate Parity Comparison</h5>
+          <div class="text-muted small" id="parityMeta">-</div>
+        </div>
+        <button class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="parityGridHost"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="js/data.js"></script>
+<script src="js/rbac.js"></script>
+<script src="js/main.js"></script>
+<script src="js/portal-data.js"></script>
+<script src="js/portal-shell.js"></script>
+<script src="js/portal-widgets.js"></script>
+<script src="js/property-rate-calendar.js"></script>
+</body>
+</html>

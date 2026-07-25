@@ -1,0 +1,143 @@
+/* ==========================================================================
+   Property Owner Portal — additional styling layered on top of css/style.css
+   (which is left untouched). Reuses the same design tokens (--brand-*, etc).
+   ========================================================================== */
+
+.portal-logo-badge{ background:linear-gradient(135deg,#3861fb,#8c5cf7) !important; }
+
+/* ---------- KPI grid ---------- */
+.kpi-card{
+  background:var(--bg-surface); border:1px solid var(--border-1); border-radius:16px;
+  padding:16px 18px; box-shadow:var(--shadow-sm); height:100%;
+  display:flex; flex-direction:column; gap:6px; position:relative; overflow:hidden;
+}
+.kpi-card .kpi-icon{
+  width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;
+  font-size:1rem; margin-bottom:2px;
+}
+.kpi-card .kpi-label{ font-size:.72rem; color:var(--text-3); font-weight:600; text-transform:uppercase; letter-spacing:.3px; }
+.kpi-card .kpi-value{ font-size:1.35rem; font-weight:800; color:var(--text-1); line-height:1.2; }
+.kpi-card .kpi-sub{ font-size:.74rem; font-weight:600; display:flex; align-items:center; gap:4px; }
+.kpi-card .kpi-sub.up{ color:var(--success); }
+.kpi-card .kpi-sub.down{ color:var(--danger); }
+.kpi-card .kpi-sub.flat{ color:var(--text-3); }
+
+/* ---------- Rate position gauge ---------- */
+.rate-gauge{ display:flex; flex-direction:column; align-items:center; gap:8px; padding:10px 0; }
+.rate-gauge-bar{ position:relative; width:100%; height:10px; border-radius:6px;
+  background:linear-gradient(90deg,#12b76a,#ffb020,#ff4d5e); }
+.rate-gauge-marker{ position:absolute; top:-6px; width:3px; height:22px; background:var(--text-1); border-radius:2px; transform:translateX(-50%); }
+.rate-gauge-labels{ display:flex; justify-content:space-between; width:100%; font-size:.68rem; color:var(--text-3); }
+
+/* ---------- Leaderboard ---------- */
+.leaderboard-row{
+  display:flex; align-items:center; gap:12px; padding:10px 8px; border-radius:10px; transition:.15s;
+}
+.leaderboard-row:hover{ background:var(--bg-surface-2); }
+.leaderboard-rank{
+  width:26px;height:26px;border-radius:8px;background:var(--brand-50);color:var(--brand-600);
+  display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.75rem;flex-shrink:0;
+}
+[data-theme="dark"] .leaderboard-rank{ background:var(--brand-900); color:#cfe; }
+
+/* ---------- Distribution bars ---------- */
+.dist-bar-row{ display:flex; align-items:center; gap:10px; margin-bottom:8px; }
+.dist-bar-track{ flex:1; height:8px; border-radius:6px; background:var(--bg-surface-2); overflow:hidden; }
+.dist-bar-fill{ height:100%; border-radius:6px; background:linear-gradient(90deg,var(--brand-500),var(--accent)); }
+
+/* ---------- Heatmap ---------- */
+.heatmap-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(34px,1fr)); gap:4px; }
+.heatmap-cell{
+  aspect-ratio:1; border-radius:6px; display:flex; align-items:center; justify-content:center;
+  font-size:.62rem; font-weight:700; color:#fff; cursor:default;
+}
+
+/* ---------- Recommendation cards ---------- */
+.rec-card{
+  background:var(--bg-surface); border:1px solid var(--border-1); border-radius:16px; padding:16px;
+  box-shadow:var(--shadow-sm); height:100%;
+}
+.rec-badge{ display:inline-flex; align-items:center; gap:6px; padding:5px 12px; border-radius:20px; font-size:.72rem; font-weight:700; }
+.rec-badge.increase{ background:#e7faf1; color:var(--success); }
+.rec-badge.decrease{ background:#fff0f1; color:var(--danger); }
+.rec-badge.hold{ background:var(--brand-50); color:var(--brand-600); }
+[data-theme="dark"] .rec-badge.increase{ background:rgba(18,183,106,.15); }
+[data-theme="dark"] .rec-badge.decrease{ background:rgba(255,77,94,.15); }
+[data-theme="dark"] .rec-badge.hold{ background:var(--brand-900); }
+.confidence-track{ height:6px;border-radius:4px;background:var(--bg-surface-2);overflow:hidden; }
+.confidence-fill{ height:100%;border-radius:4px;background:linear-gradient(90deg,var(--brand-500),var(--accent)); }
+
+/* ---------- Channel cards ---------- */
+.channel-perf-card{
+  background:var(--bg-surface); border:1px solid var(--border-1); border-radius:16px; padding:16px;
+  box-shadow:var(--shadow-sm); height:100%;
+}
+
+/* ---------- Competitor grid cards ---------- */
+.competitor-card{
+  background:var(--bg-surface); border:1px solid var(--border-1); border-radius:16px; overflow:hidden;
+  box-shadow:var(--shadow-sm); height:100%; display:flex; flex-direction:column; transition:.15s;
+}
+.competitor-card:hover{ transform:translateY(-2px); box-shadow:var(--shadow-md); }
+.competitor-card .comp-img{ height:130px; background-size:cover; background-position:center; position:relative; }
+.competitor-card .comp-pin{
+  position:absolute; top:8px; right:8px; width:30px; height:30px; border-radius:9px;
+  background:rgba(255,255,255,.9); display:flex; align-items:center; justify-content:center; cursor:pointer;
+}
+.competitor-card .comp-body{ padding:14px; display:flex; flex-direction:column; gap:6px; flex:1; }
+
+/* ---------- Score ring ---------- */
+.score-ring{ position:relative; width:88px; height:88px; }
+.score-ring svg{ transform:rotate(-90deg); }
+.score-ring .score-value{
+  position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+  font-weight:800; font-size:1.15rem; color:var(--text-1);
+}
+
+/* ---------- Alert priority ---------- */
+.alert-priority-high{ border-left:4px solid var(--danger); }
+.alert-priority-medium{ border-left:4px solid var(--warn); }
+.alert-priority-low{ border-left:4px solid var(--brand-400); }
+
+/* ---------- Sticky rate-shopper table ---------- */
+.rate-shopper-table-wrap{ max-height:70vh; overflow:auto; border-radius:14px; }
+.rate-shopper-table-wrap table{ border-collapse:separate; border-spacing:0; }
+.rate-shopper-table-wrap thead th{
+  position:sticky; top:0; z-index:2; background:var(--bg-surface-2); border-bottom:1px solid var(--border-1);
+}
+.rate-shopper-table-wrap td, .rate-shopper-table-wrap th{ white-space:nowrap; }
+
+/* ---------- Skeleton shimmer (reuses .skeleton base if present, adds fallback) ---------- */
+.portal-skeleton{ background:linear-gradient(90deg,var(--bg-surface-2) 25%,var(--border-2) 37%,var(--bg-surface-2) 63%);
+  background-size:400% 100%; animation:portal-shimmer 1.4s ease infinite; border-radius:10px; }
+@keyframes portal-shimmer{ 0%{background-position:100% 50%} 100%{background-position:0 50%} }
+
+/* ---------- Misc ---------- */
+.trend-up{ color:var(--danger); }   /* rate went up = usually flagged, matches rest of app's convention */
+.trend-down{ color:var(--success); }
+.trend-flat{ color:var(--text-3); }
+.chart-card{ background:var(--bg-surface); border:1px solid var(--border-1); border-radius:16px; padding:16px; box-shadow:var(--shadow-sm); }
+.chart-card canvas{ max-height:280px; }
+
+/* ---------- Rate Shopper: stock-ticker style ---------- */
+.ticker-card{
+  background:var(--bg-surface); border:1px solid var(--border-1); border-radius:14px; padding:12px 14px;
+  box-shadow:var(--shadow-sm); height:100%; cursor:pointer; transition:.15s; border-left:3px solid transparent;
+}
+.ticker-card:hover{ transform:translateY(-2px); box-shadow:var(--shadow-md); }
+.ticker-card.is-me{ border-left-color:var(--brand-500); background:linear-gradient(180deg, var(--brand-50), var(--bg-surface) 60%); }
+[data-theme="dark"] .ticker-card.is-me{ background:linear-gradient(180deg, rgba(56,97,251,.12), var(--bg-surface) 60%); }
+.ticker-card .ticker-name{ font-size:.72rem; color:var(--text-3); font-weight:600; text-transform:uppercase; letter-spacing:.02em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.ticker-card .ticker-price{ font-size:1.1rem; font-weight:800; color:var(--text-1); font-variant-numeric:tabular-nums; }
+.ticker-card .ticker-change{ font-size:.74rem; font-weight:700; display:flex; align-items:center; gap:3px; }
+.ticker-up{ color:#12b76a; }   /* market convention: green = price up */
+.ticker-down{ color:#ff4d5e; } /* market convention: red = price down */
+.ticker-flat{ color:var(--text-3); }
+
+.ticker-chart-card{ background:var(--bg-surface); border:1px solid var(--border-1); border-radius:16px; padding:18px; box-shadow:var(--shadow-sm); }
+.legend-toggle{
+  display:inline-flex; align-items:center; gap:5px; padding:4px 10px; border-radius:20px; font-size:.7rem; font-weight:600;
+  border:1px solid var(--border-1); background:var(--bg-surface-2); color:var(--text-2); cursor:pointer; user-select:none; transition:.15s;
+}
+.legend-toggle .dot{ width:8px; height:8px; border-radius:50%; }
+.legend-toggle.off{ opacity:.4; }

@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Settings | Rate Shopper IQ</title>
+<link rel="icon" href="data:,">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="css/style.css" rel="stylesheet">
+<link href="css/portal.css" rel="stylesheet">
+</head>
+<body>
+<div id="app-shell">
+
+<form id="settingsForm">
+<div class="row g-3">
+  <div class="col-lg-7">
+    <div class="section-card mb-3">
+      <div class="section-title mb-1">Regional</div>
+      <div class="section-sub mb-3"><i class="bi bi-lock-fill me-1"></i>Managed by your Company Admin — set once in Company Settings and applied across every property, including yours.</div>
+      <div class="row g-3">
+        <div class="col-md-4">
+          <div class="text-muted" style="font-size:.72rem">Currency</div>
+          <div class="fw-semibold" id="s_currencyDisplay">-</div>
+        </div>
+        <div class="col-md-4">
+          <div class="text-muted" style="font-size:.72rem">Timezone</div>
+          <div class="fw-semibold" id="s_timezoneDisplay">-</div>
+        </div>
+        <div class="col-md-4">
+          <div class="text-muted" style="font-size:.72rem">Date Format</div>
+          <div class="fw-semibold" id="s_dateFormatDisplay">-</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-card mb-3">
+      <div class="section-title mb-3">Notification Preferences</div>
+      <div class="form-check form-switch mb-2"><input class="form-check-input" type="checkbox" id="s_notifyRate"><label class="form-check-label">Rate alerts</label></div>
+      <div class="form-check form-switch mb-2"><input class="form-check-input" type="checkbox" id="s_notifyParity"><label class="form-check-label">Parity alerts</label></div>
+      <div class="form-check form-switch mb-2"><input class="form-check-input" type="checkbox" id="s_notifyCompetitor"><label class="form-check-label">Competitor updates</label></div>
+      <div class="form-check form-switch mb-2"><input class="form-check-input" type="checkbox" id="s_notifyMarket"><label class="form-check-label">Market updates</label></div>
+      <div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="s_notifyDemand"><label class="form-check-label">Demand updates</label></div>
+    </div>
+
+    <div class="section-card">
+      <div class="section-title mb-3">Dashboard & Defaults</div>
+      <div class="row g-3">
+        <div class="col-md-6">
+          <label class="form-label">Dashboard Layout</label>
+          <select class="form-select" id="s_dashboardLayout">
+            <option value="default">Default</option>
+            <option value="compact">Compact</option>
+            <option value="detailed">Detailed</option>
+          </select>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">Default Rate Calendar Range</label>
+          <select class="form-select" id="s_defaultRangeDays">
+            <option value="7">7 Days</option>
+            <option value="14">14 Days</option>
+            <option value="30">30 Days</option>
+            <option value="60">60 Days</option>
+            <option value="90">90 Days</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-5">
+    <div class="section-card mb-3">
+      <div class="section-title mb-3">Appearance</div>
+      <div class="row g-3">
+        <div class="col-md-6">
+          <label class="form-label">Theme</label>
+          <select class="form-select" id="s_theme">
+            <option value="light">Light</option>
+            <option value="dark">Dark</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="section-card">
+      <div class="section-title mb-2">Save Settings</div>
+      <p class="text-muted small">These preferences are saved locally for your portal.</p>
+      <button type="submit" class="btn btn-primary w-100"><i class="bi bi-check2-circle me-1"></i>Save Settings</button>
+    </div>
+  </div>
+</div>
+</form>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="js/data.js"></script>
+<script src="js/rbac.js"></script>
+<script src="js/main.js"></script>
+<script src="js/portal-data.js"></script>
+<script src="js/portal-shell.js"></script>
+<script src="js/portal-widgets.js"></script>
+<script src="js/property-settings.js"></script>
+</body>
+</html>

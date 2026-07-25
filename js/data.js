@@ -1,0 +1,602 @@
+/* ==========================================================================
+   Hotel Owner Panel — Data Layer (localStorage simulated backend)
+   ========================================================================== */
+const DB = (() => {
+  const KEYS = {
+    session:'hop_session', properties:'hop_properties', channels:'hop_channels', rooms:'hop_rooms',
+    ratePlans:'hop_ratePlans', rates:'hop_rates', notifications:'hop_notifications',
+    activity:'hop_activity', settings:'hop_settings', users:'hop_users', competitors:'hop_competitors',
+    seeded:'hop_seeded_v23'
+  };
+
+  // Sales channels a property distributes through. Every property always has exactly one
+  // 'master' channel (its own direct inventory); OTA channels (Goibibo, MakeMyTrip, Booking.com,
+  // Agoda, Yatra...) and free-form 'custom' channels are added on top for rate-shopping comparisons.
+  const CHANNEL_TYPES = {
+    master:     { label:'Master Channel', icon:'bi-house-door-fill', color:'#3861fb' },
+    goibibo:    { label:'Goibibo',        icon:'bi-globe2',          color:'#e0117a' },
+    makemytrip: { label:'MakeMyTrip',     icon:'bi-globe2',          color:'#d0021b' },
+    booking:    { label:'Booking.com',    icon:'bi-globe2',          color:'#003580' },
+    agoda:      { label:'Agoda',          icon:'bi-globe2',          color:'#5392f9' },
+    yatra:      { label:'Yatra',          icon:'bi-globe2',          color:'#f4831f' },
+    custom:     { label:'Customised',     icon:'bi-sliders',         color:'#00c2a8' }
+  };
+  const OTA_CHANNEL_TYPES = ['goibibo','makemytrip','booking','agoda','yatra'];
+  const PROPERTY_TYPES = ['Resort','Business Hotel','Heritage Hotel','Boutique Hotel','Budget Hotel','Serviced Apartment','Guest House'];
+  const STATES_BY_COUNTRY = {
+    India: ['Goa','Maharashtra','Rajasthan','Himachal Pradesh','Kerala','Delhi','Karnataka'],
+    UAE: ['Dubai','Abu Dhabi','Sharjah'],
+    Canada: ['Ontario','British Columbia','Quebec']
+  };
+
+  const CITIES = [
+    {name:'Grand Horizon Resort', city:'Goa', country:'India', addr:'Candolim Beach Road, Goa 403515', img:'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800&q=60'},
+    {name:'Metropolitan Business Hotel', city:'Mumbai', country:'India', addr:'Bandra Kurla Complex, Mumbai 400051', img:'https://images.unsplash.com/photo-1551882547-ff40c63fe5fa?w=800&q=60'},
+    {name:'The Heritage Palace', city:'Jaipur', country:'India', addr:'MI Road, Jaipur 302001', img:'https://images.unsplash.com/photo-1582719508461-905c673771fd?w=800&q=60'},
+    {name:'Emerald Hills Retreat', city:'Manali', country:'India', addr:'Old Manali, Himachal Pradesh 175131', img:'https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?w=800&q=60'},
+    {name:'Sunset Bay Boutique Inn', city:'Kochi', country:'India', addr:'Marine Drive, Kochi 682031', img:'https://images.unsplash.com/photo-1571003123894-1f0594d2b5d9?w=800&q=60'},
+    {name:'Skyline Downtown Suites', city:'Dubai', country:'UAE', addr:'Sheikh Zayed Road, Dubai', img:'https://images.unsplash.com/photo-1512453979798-5ea266f8880c?w=800&q=60'},
+    {name:'Maple Leaf Lodge', city:'Toronto', country:'Canada', addr:'Queen Street West, Toronto, ON', img:'https://images.unsplash.com/photo-1445019980597-93fa8acb246c?w=800&q=60'}
+  ];
+
+  const ROOM_TYPES = [
+    {name:'Deluxe Room', bed:'King Bed', cap:2, category:'Deluxe', img:'https://images.unsplash.com/photo-1611892440504-42a792e24d32?w=700&q=60'},
+    {name:'Executive Suite', bed:'King Bed', cap:3, category:'Suite', img:'https://images.unsplash.com/photo-1560185127-6ed189bf02f4?w=700&q=60'},
+    {name:'Standard Twin', bed:'Twin Beds', cap:2, category:'Standard', img:'https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?w=700&q=60'},
+    {name:'Family Room', bed:'Queen + Bunk', cap:4, category:'Family', img:'https://images.unsplash.com/photo-1595576508898-0ad5c879a061?w=700&q=60'},
+    {name:'Presidential Suite', bed:'King Bed', cap:4, category:'Suite', img:'https://images.unsplash.com/photo-1611892440504-42a792e24d32?w=700&q=60'},
+    {name:'Superior Room', bed:'Queen Bed', cap:2, category:'Deluxe', img:'https://images.unsplash.com/photo-1590490360182-c33d57733427?w=700&q=60'},
+    {name:'Junior Suite', bed:'King Bed', cap:3, category:'Suite', img:'https://images.unsplash.com/photo-1591088398332-8a7791972843?w=700&q=60'},
+    {name:'Cozy Single', bed:'Single Bed', cap:1, category:'Standard', img:'https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?w=700&q=60'}
+  ];
+
+  const MEAL_PLANS = ['EP','CP','MAP','AP'];
+  const MEAL_LABELS = {EP:'European Plan (Room Only)',CP:'Continental Plan (Room + Breakfast)',MAP:'Modified American Plan (Breakfast + 1 Meal)',AP:'American Plan (All Meals)'};
+
+  function uid(prefix){ return prefix + '_' + Math.random().toString(36).slice(2,9); }
+  function get(key, fallback){ try{ const v = JSON.parse(localStorage.getItem(key)); return v===null||v===undefined ? fallback : v; }catch(e){ return fallback; } }
+  function set(key, val){ localStorage.setItem(key, JSON.stringify(val)); }
+
+  function rand(min,max){ return Math.floor(Math.random()*(max-min+1))+min; }
+  function pick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+  function shuffle(arr){ const a=[...arr]; for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+  function fmtDate(d){ return d.toISOString().slice(0,10); }
+
+  // Builds a {1: price, 2: price, ...} map up to maxOcc guests. Occupancy at/under the
+  // rate plan's base occupancy costs the same as the base price; each guest above it adds extraAdultPrice.
+  function buildOccPrices(basePrice, baseOccupancy, extraAdultPrice, maxOcc){
+    const occPrices = {};
+    for(let occ=1; occ<=Math.max(maxOcc,1); occ++){
+      const extraGuests = Math.max(0, occ - baseOccupancy);
+      occPrices[occ] = basePrice + extraGuests*extraAdultPrice;
+    }
+    return occPrices;
+  }
+
+  function seed(){
+    if(get(KEYS.seeded,false)) return;
+
+    // Mark seeded immediately — before generating anything. If a later step throws (e.g. a
+    // localStorage quota error on a large dataset), we must NOT let seed() re-run on the next
+    // page load: that would mint brand-new random ids for every record, silently invalidating
+    // any session/user id already handed out and causing an endless "log in, land on the next
+    // page, can't find that user, get bounced back to login" loop.
+    set(KEYS.seeded, true);
+
+    // A real reseed means every record gets brand-new ids. Any session already sitting in
+    // storage points at a user id from the previous dataset — clear it so login doesn't
+    // bounce (log in, land on a page that can't find that user, get redirected right back out).
+    localStorage.removeItem(KEYS.session);
+    sessionStorage.removeItem(KEYS.session);
+
+    try {
+
+    // Properties
+    const properties = CITIES.map((c,i)=>({
+      id: uid('prop'),
+      name: c.name,
+      type: pick(['Resort','Business Hotel','Heritage Hotel','Boutique Hotel']),
+      city: c.city,
+      country: c.country,
+      address: c.addr,
+      phone: '+91 98' + rand(10000000,99999999),
+      email: c.name.toLowerCase().replace(/[^a-z]+/g,'.') + '@hotelmail.com',
+      website: 'www.' + c.name.toLowerCase().replace(/[^a-z]+/g,'') + '.com',
+      status: i===3 ? 'inactive' : 'active',
+      logo: c.img,
+      stars: rand(3,5),
+      rooms: rand(40,180),
+      description: `${c.name} is a premium property located in the heart of ${c.city}, offering world-class hospitality, curated amenities, and unforgettable guest experiences.`,
+      amenities: ['Free WiFi','Swimming Pool','Spa','Restaurant','Parking','Gym','Airport Shuttle','24x7 Front Desk'].filter(()=>Math.random()>0.25),
+      createdAt: fmtDate(new Date(Date.now()-rand(30,600)*86400000))
+    }));
+    set(KEYS.properties, properties);
+
+    // Channels — every property gets a Master Channel (its own direct inventory) plus every
+    // OTA channel type seeded in, for a rich rate-shopping demo with real cross-channel data.
+    let channels = [];
+    properties.forEach(p=>{
+      channels.push({ id: uid('chan'), propertyId: p.id, name: CHANNEL_TYPES.master.label, type:'master', status:'active', createdAt: p.createdAt });
+      OTA_CHANNEL_TYPES.forEach(type=>{
+        channels.push({ id: uid('chan'), propertyId: p.id, name: CHANNEL_TYPES[type].label, type, status: Math.random()>0.1?'active':'inactive', createdAt: p.createdAt });
+      });
+    });
+    set(KEYS.channels, channels);
+    const masterChannelByProperty = {};
+    channels.filter(c=>c.type==='master').forEach(c=> masterChannelByProperty[c.propertyId]=c.id);
+
+    // Competitor properties — a shared pool of external, unmanaged hotels used purely for rate
+    // benchmarking. A Property Admin gets a subset of these assigned as "Child Properties" to
+    // compare against their "Parent Property" (one of our real, managed properties).
+    const COMPETITOR_POOL = [
+      {name:'Hotel Grand Palace', city:'Goa', country:'India'},
+      {name:'Ocean View Resort', city:'Goa', country:'India'},
+      {name:'Royal Stay Hotel', city:'Goa', country:'India'},
+      {name:'City Crown Inn', city:'Goa', country:'India'},
+      {name:'Palm Grove Suites', city:'Goa', country:'India'},
+      {name:'Silver Sands Hotel', city:'Mumbai', country:'India'},
+      {name:'Harbourfront Inn', city:'Mumbai', country:'India'},
+      {name:'Marine Bay Towers', city:'Mumbai', country:'India'},
+      {name:'The Golden Crest', city:'Jaipur', country:'India'},
+      {name:'Amber Fort Residency', city:'Jaipur', country:'India'},
+      {name:'Pink City Palace', city:'Jaipur', country:'India'},
+      {name:'Blue Lagoon Resort', city:'Kochi', country:'India'},
+      {name:'Backwater Pearl Hotel', city:'Kochi', country:'India'},
+      {name:'Mountain Ridge Lodge', city:'Manali', country:'India'},
+      {name:'Snowline Chalet', city:'Manali', country:'India'},
+      {name:'Burj View Hotel', city:'Dubai', country:'UAE'},
+      {name:'Palm Jumeirah Suites', city:'Dubai', country:'UAE'},
+      {name:'Marina Bay Dubai Hotel', city:'Dubai', country:'UAE'},
+      {name:'Maple Grand Hotel', city:'Toronto', country:'Canada'},
+      {name:'Lakeshore Suites', city:'Toronto', country:'Canada'}
+    ];
+    const CITY_STATE = { Goa:'Goa', Mumbai:'Maharashtra', Jaipur:'Rajasthan', Manali:'Himachal Pradesh', Kochi:'Kerala', Dubai:'Dubai', Toronto:'Ontario' };
+    const propertyByCity = {}; properties.forEach(p=> propertyByCity[p.city]=p.id);
+    const allChannelTypes = Object.keys(CHANNEL_TYPES).filter(t=>t!=='master');
+    let compSeq = 1;
+    const competitors = COMPETITOR_POOL.map(c=>{
+      // Each competitor (Child Property) is tracked across a handful of the channels it's
+      // actually listed on — one hotel, several OTA listings to compare rates against.
+      const slug = c.name.toLowerCase().replace(/[^a-z]+/g,'-');
+      const rowChannels = shuffle([...allChannelTypes]).slice(0, rand(1,3)).map(t=>({
+        channel:t, channelLabel: CHANNEL_TYPES[t].label, channelUrl:`https://${t}.com/hotel/${slug}`
+      }));
+      return {
+        id: uid('comp'),
+        name: c.name,
+        code: `CHP-${String(compSeq++).padStart(4,'0')}`,
+        propertyType: pick(PROPERTY_TYPES),
+        status: Math.random()>0.15 ? 'active' : 'inactive',
+        parentPropertyId: propertyByCity[c.city] || null,
+        country: c.country, state: CITY_STATE[c.city] || '', city: c.city,
+        channels: rowChannels,
+        starRating: rand(3,5),
+        notes: '',
+        avgRate: rand(2800, 13500),
+        lastUpdated: fmtDate(new Date(Date.now()-rand(0,72)*3600000)),
+        createdAt: fmtDate(new Date(Date.now()-rand(30,400)*86400000))
+      };
+    });
+    const competitorsByCity = city => competitors.filter(c=>c.city===city);
+    set(KEYS.competitors, competitors);
+
+    // Users — mock RBAC accounts. Passwords are plaintext here only because this is a
+    // frontend-only demo; a real backend would never store or compare passwords this way
+    // (ASP.NET Identity + password hashing, issuing a JWT on successful login).
+    // Pre-generated so seeded Property Admins below can reference their creating owner's id.
+    const kavitaId = uid('usr'), vikramId = uid('usr'), adityaId = uid('usr');
+    // Backfill ownerId on each seeded property so RBAC.assignedPropertyIds() (which now derives
+    // a Property Owner's scope from properties they "own") matches the seeded assignments below.
+    [[kavitaId,[0,1]],[vikramId,[2,3,4]],[adityaId,[5,6]]].forEach(([ownerId,idxs])=>{
+      idxs.forEach(i=>{ if(properties[i]) properties[i].ownerId = ownerId; });
+    });
+    set(KEYS.properties, properties);
+    const users = [
+      {
+        id: uid('usr'), name:'Arjun Mehta', email:'admin@eglobe.com', password:'Admin@123',
+        role:'company_admin', status:'active', assignedProperties:[], permissions:null,
+        phone:'+91 9820033445', bio:'Company Admin — full platform oversight across every property.',
+        avatar:'https://ui-avatars.com/api/?name=Arjun+Mehta&background=00c2a8&color=fff&size=200',
+        createdAt: fmtDate(new Date(Date.now()-360*86400000))
+      },
+      {
+        id: kavitaId, name:'Kavita Nair', firstName:'Kavita', lastName:'Nair', email:'property.owner@eglobe.com', password:'Property@123',
+        role:'property_owner', status:'active', parentPropertyId: properties[0].id,
+        assignedProperties:[properties[1].id], permissions:null,
+        phone:'+91 9820055667', bio:'Property Owner — manages her assigned properties end-to-end.',
+        avatar:'https://ui-avatars.com/api/?name=Kavita+Nair&background=b9791a&color=fff&size=200',
+        createdAt: fmtDate(new Date(Date.now()-240*86400000))
+      },
+      {
+        id: uid('usr'), name:'Rohan Das', email:'staff@eglobe.com', password:'Staff@123',
+        role:'property_user', status:'active',
+        assignedProperties:[properties[0].id],
+        permissions:{
+          dashboard:{view:true, create:false, edit:false, delete:false},
+          channels:{view:true, create:false, edit:false, delete:false},
+          rooms:{view:true, create:false, edit:true, delete:false},
+          ratePlans:{view:true, create:false, edit:false, delete:false},
+          rateCalendar:{view:true, create:false, edit:true, delete:false}
+        },
+        phone:'+91 9820077889', bio:'Front Desk / Revenue Staff — day-to-day rate and room updates for one property.',
+        avatar:'https://ui-avatars.com/api/?name=Rohan+Das&background=ff4d5e&color=fff&size=200',
+        createdAt: fmtDate(new Date(Date.now()-120*86400000))
+      },
+      {
+        id: vikramId, name:'Vikram Rao', firstName:'Vikram', lastName:'Rao', email:'vikram.rao@eglobe.com', password:'Property@123',
+        role:'property_owner', status:'active', parentPropertyId: properties[2].id,
+        assignedProperties:[properties[3].id, properties[4].id], permissions:null,
+        phone:'+91 9820099001', bio:'Property Owner — manages a portfolio of heritage and boutique properties.',
+        avatar:'https://ui-avatars.com/api/?name=Vikram+Rao&background=8c5cf7&color=fff&size=200',
+        createdAt: fmtDate(new Date(Date.now()-200*86400000))
+      },
+      {
+        id: uid('usr'), name:'Ananya Iyer', email:'ananya.iyer@eglobe.com', password:'Staff@123',
+        role:'property_user', status:'active',
+        assignedProperties:[properties[1].id],
+        permissions:{
+          dashboard:{view:true, create:false, edit:false, delete:false},
+          channels:{view:true, create:true, edit:true, delete:false},
+          rooms:{view:true, create:true, edit:true, delete:true},
+          ratePlans:{view:true, create:true, edit:true, delete:false},
+          rateCalendar:{view:true, create:false, edit:true, delete:false}
+        },
+        phone:'+91 9820099112', bio:'Revenue Manager — full rooms/rate-plan control for one property.',
+        avatar:'https://ui-avatars.com/api/?name=Ananya+Iyer&background=12b76a&color=fff&size=200',
+        createdAt: fmtDate(new Date(Date.now()-90*86400000))
+      },
+      {
+        id: uid('usr'), name:'Sameer Khan', email:'sameer.khan@eglobe.com', password:'Staff@123',
+        role:'property_user', status:'inactive',
+        assignedProperties:[properties[0].id],
+        permissions:{
+          dashboard:{view:true, create:false, edit:false, delete:false},
+          channels:{view:false, create:false, edit:false, delete:false},
+          rooms:{view:true, create:false, edit:false, delete:false},
+          ratePlans:{view:true, create:false, edit:false, delete:false},
+          rateCalendar:{view:true, create:false, edit:false, delete:false}
+        },
+        phone:'+91 9820099223', bio:'Former front-desk staff — account deactivated after transfer.',
+        avatar:'https://ui-avatars.com/api/?name=Sameer+Khan&background=8a90a6&color=fff&size=200',
+        createdAt: fmtDate(new Date(Date.now()-60*86400000))
+      },
+      {
+        id: uid('usr'), name:'Neha Kapoor', email:'neha.kapoor@eglobe.com', password:'Admin@123',
+        role:'property_admin', status:'active',
+        parentPropertyId: properties[0].id,
+        childPropertyIds: competitorsByCity('Goa').map(c=>c.id),
+        assignedProperties:[properties[0].id], permissions:null, createdBy: kavitaId,
+        phone:'+91 9820099334', bio:'Property Admin — owns Grand Horizon Resort and benchmarks it against local Goa competitors.',
+        avatar:'https://ui-avatars.com/api/?name=Neha+Kapoor&background=e0117a&color=fff&size=200',
+        createdAt: fmtDate(new Date(Date.now()-45*86400000))
+      },
+      {
+        id: adityaId, name:'Aditya Verma', firstName:'Aditya', lastName:'Verma', email:'aditya.verma@eglobe.com', password:'Property@123',
+        role:'property_owner', status:'active', parentPropertyId: properties[5].id,
+        assignedProperties:[properties[5].id, properties[6].id], permissions:null,
+        phone:'+91 9820099445', bio:'Property Owner — manages the international portfolio (Dubai, Toronto).',
+        avatar:'https://ui-avatars.com/api/?name=Aditya+Verma&background=d0021b&color=fff&size=200',
+        createdAt: fmtDate(new Date(Date.now()-170*86400000))
+      },
+      {
+        id: uid('usr'), name:'Meera Joshi', email:'meera.joshi@eglobe.com', password:'Admin@123',
+        role:'property_admin', status:'active',
+        parentPropertyId: properties[2].id,
+        childPropertyIds: competitorsByCity('Jaipur').map(c=>c.id),
+        assignedProperties:[properties[2].id], permissions:null, createdBy: vikramId,
+        phone:'+91 9820099556', bio:'Property Admin — owns The Heritage Palace and tracks Jaipur-area competitors.',
+        avatar:'https://ui-avatars.com/api/?name=Meera+Joshi&background=00c2a8&color=fff&size=200',
+        createdAt: fmtDate(new Date(Date.now()-75*86400000))
+      },
+      {
+        id: uid('usr'), name:'Farhan Ali', email:'farhan.ali@eglobe.com', password:'Admin@123',
+        role:'property_admin', status:'active',
+        parentPropertyId: properties[5].id,
+        childPropertyIds: competitorsByCity('Dubai').map(c=>c.id),
+        assignedProperties:[properties[5].id], permissions:null, createdBy: adityaId,
+        phone:'+91 9820099667', bio:'Property Admin — owns Skyline Downtown Suites and benchmarks it against Dubai-area competitors.',
+        avatar:'https://ui-avatars.com/api/?name=Farhan+Ali&background=3861fb&color=fff&size=200',
+        createdAt: fmtDate(new Date(Date.now()-30*86400000))
+      },
+      {
+        id: uid('usr'), name:'Divya Reddy', email:'divya.reddy@eglobe.com', password:'Staff@123',
+        role:'property_user', status:'active',
+        assignedProperties:[properties[3].id],
+        permissions:{
+          dashboard:{view:true, create:false, edit:false, delete:false},
+          channels:{view:true, create:false, edit:false, delete:false},
+          rooms:{view:true, create:true, edit:true, delete:false},
+          ratePlans:{view:true, create:true, edit:true, delete:false},
+          rateCalendar:{view:true, create:false, edit:true, delete:false}
+        },
+        phone:'+91 9820099778', bio:'Revenue Manager — rooms and rate plan control for Emerald Hills Retreat.',
+        avatar:'https://ui-avatars.com/api/?name=Divya+Reddy&background=b9791a&color=fff&size=200',
+        createdAt: fmtDate(new Date(Date.now()-38*86400000))
+      },
+      {
+        id: uid('usr'), name:'Karan Malhotra', email:'karan.malhotra@eglobe.com', password:'Staff@123',
+        role:'property_user', status:'active',
+        assignedProperties:[properties[6].id],
+        permissions:{
+          dashboard:{view:true, create:false, edit:false, delete:false},
+          channels:{view:false, create:false, edit:false, delete:false},
+          rooms:{view:true, create:false, edit:false, delete:false},
+          ratePlans:{view:true, create:false, edit:false, delete:false},
+          rateCalendar:{view:true, create:false, edit:false, delete:false}
+        },
+        phone:'+91 9820099889', bio:'Front Desk — view-only access at Maple Leaf Lodge.',
+        avatar:'https://ui-avatars.com/api/?name=Karan+Malhotra&background=8a90a6&color=fff&size=200',
+        createdAt: fmtDate(new Date(Date.now()-15*86400000))
+      }
+    ];
+    set(KEYS.users, users);
+
+    // Rooms — every channel (Master + each OTA) gets its own listed rooms, so there's real
+    // data to rate-shop/compare across channels, not just on the Master Channel.
+    let rooms = [];
+    channels.forEach(chan=>{
+      const n = chan.type==='master' ? rand(3,5) : rand(2,3);
+      const shuffled = [...ROOM_TYPES].sort(()=>Math.random()-0.5).slice(0,n);
+      // OTA channels tend to price a touch above/below direct — small per-channel variance
+      const channelPriceBias = chan.type==='master' ? 1 : (0.92 + Math.random()*0.16);
+      shuffled.forEach(rt=>{
+        const roomMealPlans = MEAL_PLANS.filter(()=>Math.random()>0.35);
+        rooms.push({
+          id: uid('room'),
+          propertyId: chan.propertyId,
+          channelId: chan.id,
+          name: rt.name,
+          category: rt.category,
+          bedType: rt.bed,
+          capacity: rt.cap,
+          maxOccupancy: rt.cap + rand(0,1),
+          totalRooms: rand(5,30),
+          size: rand(22,65),
+          basePrice: Math.round(rand(2500,12000)*channelPriceBias/10)*10,
+          status: Math.random()>0.1?'active':'inactive',
+          img: rt.img,
+          amenities: ['AC','TV','Mini Bar','Balcony','Room Service','Safe'].filter(()=>Math.random()>0.3),
+          mealPlans: roomMealPlans.length ? roomMealPlans : [MEAL_PLANS[0]]
+        });
+      });
+    });
+    set(KEYS.rooms, rooms);
+
+    // Rate Plans
+    let ratePlans = [];
+    rooms.forEach(r=>{
+      const n = rand(1,2);
+      for(let i=0;i<n;i++){
+        const meal = pick(MEAL_PLANS);
+        const refundable = Math.random()>0.4;
+        ratePlans.push({
+          id: uid('rp'),
+          propertyId: r.propertyId,
+          channelId: r.channelId,
+          roomId: r.id,
+          name: `${r.name} - ${meal} ${refundable?'Flexible':'Non-Refundable'}`,
+          mealPlan: meal,
+          refundable,
+          minStay: pick([1,1,1,2,3]),
+          maxStay: pick([7,14,30]),
+          cancellationPolicy: refundable ? 'Free cancellation up to 24 hours before check-in' : 'Non-refundable. No changes or cancellations allowed.',
+          baseOccupancy: 2,
+          extraAdultPrice: rand(500,1500),
+          extraChildPrice: rand(250,800),
+          status: Math.random()>0.1?'active':'inactive',
+          createdAt: fmtDate(new Date(Date.now()-rand(10,300)*86400000))
+        });
+      }
+    });
+    set(KEYS.ratePlans, ratePlans);
+
+    // Rates (1 year of pricing per rate plan) — store sparsely by date for perf: generate for each ratePlan a base + variance
+    // Each day carries occPrices: a price per occupancy level (1..room.maxOccupancy) so the
+    // rate grid can show "1 Pax / 2 Pax / 3 Pax..." rows with their own editable price per rate plan.
+    let rates = {}; // rates[ratePlanId][date] = {price, occPrices:{1:.., 2:..}}
+    const today = new Date();
+    ratePlans.forEach(rp=>{
+      const room = rooms.find(r=>r.id===rp.roomId);
+      const base = room ? room.basePrice : 5000;
+      const maxOcc = room ? room.maxOccupancy : 2;
+      rates[rp.id] = {};
+      for(let d=-7; d<97; d++){
+        const date = new Date(today); date.setDate(today.getDate()+d);
+        const key = fmtDate(date);
+        const isWeekend = [0,6].includes(date.getDay());
+        let price = Math.round((base + (isWeekend?base*0.25:0) + rand(-300,400))/10)*10;
+        rates[rp.id][key] = {
+          price,
+          occPrices: buildOccPrices(price, rp.baseOccupancy, rp.extraAdultPrice, maxOcc)
+        };
+      }
+    });
+    set(KEYS.rates, rates);
+
+    // Notifications — generated per-property so no two entries are identical
+    const notifActions = [
+      p=>({icon:'bi-calendar-check',color:'success',title:'New Booking Received',msg:`A new booking has been made at ${p.name}.`}),
+      p=>({icon:'bi-currency-rupee',color:'brand',title:'Rate Updated',msg:`Weekend rates updated successfully for ${p.name}.`}),
+      p=>({icon:'bi-exclamation-triangle',color:'warn',title:'Low Availability',msg:`Only a few rooms left at ${p.name} this weekend.`}),
+      p=>({icon:'bi-x-circle',color:'danger',title:'Booking Cancelled',msg:`A guest cancelled their reservation at ${p.name}.`}),
+      p=>({icon:'bi-star',color:'brand',title:'New Review',msg:`You received a 5-star review on ${p.name}.`}),
+      p=>({icon:'bi-person-check',color:'success',title:'Guest Checked In',msg:`A guest checked into ${p.name}.`})
+    ];
+    const notifCombos = shuffle(properties.flatMap(p=> notifActions.map(fn=>fn(p))));
+    let notifications = notifCombos.slice(0,28).map((t,i)=>({id:uid('ntf'), ...t, read: i>8, time: fmtDate(new Date(Date.now()-rand(0,10)*86400000)) }));
+    set(KEYS.notifications, notifications);
+
+    // Activity — generated per-property so no two entries are identical
+    const activityActions = [
+      p=>({icon:'bi-plus-circle',color:'success',text:`Added a new room type to ${p.name}`}),
+      p=>({icon:'bi-pencil-square',color:'brand',text:`Updated rate plan pricing for ${p.name}`}),
+      p=>({icon:'bi-building',color:'brand',text:`Updated property details for ${p.name}`}),
+      p=>({icon:'bi-calendar2-week',color:'warn',text:`Bulk updated weekend rates for ${p.name}`}),
+      p=>({icon:'bi-toggle-off',color: p.status==='active'?'success':'danger', text:`Marked ${p.name} as ${p.status==='active'?'Active':'Inactive'}`}),
+      p=>({icon:'bi-check2-circle',color:'success',text:`Confirmed a new booking at ${p.name}`})
+    ];
+    const activityCombos = shuffle(properties.flatMap(p=> activityActions.map(fn=>fn(p))));
+    let activity = activityCombos.slice(0,20).map(t=>({id:uid('act'), ...t, time: rand(1,48)+'h ago'}));
+    set(KEYS.activity, activity);
+
+    // Settings
+    set(KEYS.settings, {
+      companyName:'Hotel Owner Panel Pvt Ltd', companyEmail:'owner@example.com', companyPhone:'+91 9876543210',
+      companyAddress:'201, Business Bay Tower, Andheri East, Mumbai, India',
+      currency:'INR', currencySymbol:'₹', taxRate:12, serviceCharge:5,
+      timezone:'Asia/Kolkata (GMT+5:30)', dateFormat:'DD/MM/YYYY',
+      notifyBooking:true, notifyCancellation:true, notifyRateChange:false,
+      theme:'light'
+    });
+
+    } catch(err){
+      console.error('DB.seed(): demo data generation failed partway through — the app will run with whatever was saved before this point.', err);
+    }
+  }
+
+  // ---- CRUD helpers ----
+  const properties = {
+    all: ()=> get(KEYS.properties, []),
+    get: id=> properties.all().find(p=>p.id===id),
+    save: p=>{ const list=properties.all(); if(p.id){ const i=list.findIndex(x=>x.id===p.id); list[i]=p; } else { p.id=uid('prop'); p.createdAt=fmtDate(new Date()); list.push(p);} set(KEYS.properties,list); return p; },
+    remove: id=>{
+      set(KEYS.properties, properties.all().filter(p=>p.id!==id));
+      rooms.all().filter(r=>r.propertyId===id).forEach(r=>rooms.remove(r.id));
+      set(KEYS.channels, channels.all().filter(c=>c.propertyId!==id));
+    }
+  };
+  const channels = {
+    all: ()=> get(KEYS.channels, []),
+    byProperty: pid=> channels.all().filter(c=>c.propertyId===pid),
+    get: id=> channels.all().find(c=>c.id===id),
+    save: c=>{
+      const list = channels.all();
+      if(c.id){ const i=list.findIndex(x=>x.id===c.id); list[i]=c; }
+      else { c.id=uid('chan'); c.createdAt=fmtDate(new Date()); list.push(c); }
+      set(KEYS.channels,list); return c;
+    },
+    // The Master Channel represents the property's own direct inventory and can't be removed —
+    // deleting a property is the only way to remove it (cascades via properties.remove above).
+    remove: id=>{
+      const c = channels.get(id);
+      if(!c || c.type==='master') return false;
+      set(KEYS.channels, channels.all().filter(x=>x.id!==id));
+      rooms.all().filter(r=>r.channelId===id).forEach(r=>rooms.remove(r.id));
+      return true;
+    }
+  };
+  const rooms = {
+    all: ()=> get(KEYS.rooms, []),
+    byProperty: pid=> rooms.all().filter(r=>r.propertyId===pid),
+    byChannel: chanId=> rooms.all().filter(r=>r.channelId===chanId),
+    get: id=> rooms.all().find(r=>r.id===id),
+    save: r=>{ const list=rooms.all(); if(r.id){ const i=list.findIndex(x=>x.id===r.id); list[i]=r; } else { r.id=uid('room'); list.push(r);} set(KEYS.rooms,list); return r; },
+    remove: id=>{ set(KEYS.rooms, rooms.all().filter(r=>r.id!==id)); ratePlans.all().filter(rp=>rp.roomId===id).forEach(rp=>ratePlans.remove(rp.id)); }
+  };
+  const ratePlans = {
+    all: ()=> get(KEYS.ratePlans, []),
+    byRoom: rid=> ratePlans.all().filter(r=>r.roomId===rid),
+    byProperty: pid=> ratePlans.all().filter(r=>r.propertyId===pid),
+    byChannel: chanId=> ratePlans.all().filter(r=>r.channelId===chanId),
+    get: id=> ratePlans.all().find(r=>r.id===id),
+    save: rp=>{ const list=ratePlans.all(); if(rp.id){ const i=list.findIndex(x=>x.id===rp.id); list[i]=rp; } else { rp.id=uid('rp'); rp.createdAt=fmtDate(new Date()); list.push(rp);
+        const rates = get(KEYS.rates,{}); if(!rates[rp.id]){ rates[rp.id]={}; const room=rooms.get(rp.roomId); const base= room?room.basePrice:5000; const maxOcc= room?room.maxOccupancy:2;
+          const today=new Date(); for(let d=-7; d<97; d++){ const date=new Date(today); date.setDate(today.getDate()+d); rates[rp.id][fmtDate(date)]={price:base,occPrices:buildOccPrices(base, rp.baseOccupancy||2, rp.extraAdultPrice||0, maxOcc)}; } set(KEYS.rates,rates); }
+      } set(KEYS.ratePlans,list); return rp; },
+    remove: id=>{ set(KEYS.ratePlans, ratePlans.all().filter(r=>r.id!==id)); const rates=get(KEYS.rates,{}); delete rates[id]; set(KEYS.rates,rates); }
+  };
+  const rates = {
+    all: ()=> get(KEYS.rates, {}),
+    forPlan: rpId=> (get(KEYS.rates,{})[rpId]) || {},
+    setDay: (rpId, dateKey, data)=>{ const all=get(KEYS.rates,{}); if(!all[rpId]) all[rpId]={}; all[rpId][dateKey] = {...(all[rpId][dateKey]||{}), ...data}; set(KEYS.rates, all); },
+    saveAll: (rpId, obj)=>{ const all=get(KEYS.rates,{}); all[rpId]=obj; set(KEYS.rates, all); }
+  };
+  const notifications = {
+    all: ()=> get(KEYS.notifications, []),
+    unreadCount: ()=> notifications.all().filter(n=>!n.read).length,
+    markRead: id=>{ const list=notifications.all(); const n=list.find(x=>x.id===id); if(n) n.read=true; set(KEYS.notifications,list); },
+    markAllRead: ()=>{ const list=notifications.all(); list.forEach(n=>n.read=true); set(KEYS.notifications,list); },
+    remove: id=>{ set(KEYS.notifications, notifications.all().filter(n=>n.id!==id)); }
+  };
+  const activity = { all: ()=> get(KEYS.activity, []) };
+  const settings = { get: ()=> get(KEYS.settings, {}), save: s=> set(KEYS.settings, s) };
+
+  // Plain CRUD only — the same shape a future ASP.NET "UsersController" + SQL Server
+  // "Users" table would expose. Role hierarchy rules (who can create/edit/delete whom)
+  // live in js/rbac.js, not here, so this layer stays a dumb data store either way.
+  const users = {
+    all: ()=> get(KEYS.users, []),
+    get: id=> users.all().find(u=>u.id===id),
+    byEmail: email=> users.all().find(u=> u.email.toLowerCase()===String(email).toLowerCase()),
+    byProperty: propertyId=> users.all().filter(u=> (u.assignedProperties||[]).includes(propertyId)),
+    save: u=>{
+      const list = users.all();
+      if(u.id){ const i=list.findIndex(x=>x.id===u.id); list[i]=u; }
+      else { u.id=uid('usr'); u.createdAt=fmtDate(new Date()); list.push(u); }
+      set(KEYS.users,list); return u;
+    },
+    remove: id=>{ set(KEYS.users, users.all().filter(u=>u.id!==id)); }
+  };
+
+  // External, unmanaged hotels used only for rate benchmarking (a Property Admin's "Child Properties").
+  const competitors = {
+    all: ()=> get(KEYS.competitors, []),
+    get: id=> competitors.all().find(c=>c.id===id),
+    byIds: ids=> competitors.all().filter(c=> (ids||[]).includes(c.id)),
+    save: c=>{
+      const list = competitors.all();
+      if(c.id){ const i=list.findIndex(x=>x.id===c.id); list[i]=c; }
+      else { c.id=uid('comp'); c.createdAt=fmtDate(new Date()); list.push(c); }
+      set(KEYS.competitors,list); return c;
+    },
+    remove: id=>{ set(KEYS.competitors, competitors.all().filter(c=>c.id!==id)); }
+  };
+
+  // Defensive migration, safe to run on every load regardless of seeding history: guarantees
+  // every property has a Master Channel, and backfills any room/rate plan that predates the
+  // Channels feature (or was otherwise saved without one) onto that property's Master Channel.
+  function ensureChannels(){
+    const allProperties = properties.all();
+    const allChannels = channels.all();
+    let channelsChanged = false;
+    const masterByProperty = {};
+
+    allProperties.forEach(p=>{
+      let master = allChannels.find(c=>c.propertyId===p.id && c.type==='master');
+      if(!master){
+        master = { id: uid('chan'), propertyId: p.id, name: CHANNEL_TYPES.master.label, type:'master', status:'active', createdAt: p.createdAt || fmtDate(new Date()) };
+        allChannels.push(master);
+        channelsChanged = true;
+      }
+      masterByProperty[p.id] = master.id;
+    });
+    if(channelsChanged) set(KEYS.channels, allChannels);
+
+    const allRooms = rooms.all();
+    let roomsChanged = false;
+    allRooms.forEach(r=>{
+      if(!r.channelId && masterByProperty[r.propertyId]){ r.channelId = masterByProperty[r.propertyId]; roomsChanged = true; }
+    });
+    allRooms.forEach(r=>{
+      if(!r.mealPlans){ r.mealPlans = [MEAL_PLANS[0]]; roomsChanged = true; }
+    });
+    if(roomsChanged) set(KEYS.rooms, allRooms);
+
+    const allRatePlans = ratePlans.all();
+    let ratePlansChanged = false;
+    const roomChannel = {}; allRooms.forEach(r=> roomChannel[r.id]=r.channelId);
+    allRatePlans.forEach(rp=>{
+      if(!rp.channelId){
+        rp.channelId = roomChannel[rp.roomId] || masterByProperty[rp.propertyId];
+        ratePlansChanged = true;
+      }
+    });
+    if(ratePlansChanged) set(KEYS.ratePlans, allRatePlans);
+  }
+
+  return { KEYS, seed, ensureChannels, uid, get, set, rand, pick, fmtDate, MEAL_PLANS, MEAL_LABELS, CHANNEL_TYPES, PROPERTY_TYPES, STATES_BY_COUNTRY,
+    properties, channels, rooms, ratePlans, rates, notifications, activity, settings, users, competitors };
+})();
+
+DB.seed();
+DB.ensureChannels();
