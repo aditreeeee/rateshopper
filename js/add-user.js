@@ -28,13 +28,10 @@ document.addEventListener('DOMContentLoaded', ()=>{
   const me = RBAC.currentUser();
   const propertyPool = RBAC.isCompanyLevel() ? DB.properties.all() : DB.properties.all().filter(p=> RBAC.assignedPropertyIds().includes(p.id));
 
-  let selectedChildIds = new Set(existing && existing.role===RBAC.ROLES.PROPERTY_ADMIN ? (existing.childPropertyIds||[]) : []);
-
   function refreshRoleDependentUI(){
     const role = roleSelect.value;
     const isOwner = role === RBAC.ROLES.PROPERTY_OWNER;
     const needsProperties = role === RBAC.ROLES.PROPERTY_USER || isOwner; // legacy Property User (single) + Property Owner (multi)
-    const needsBenchmark = role === RBAC.ROLES.PROPERTY_ADMIN;
     const needsPermissions = role === RBAC.ROLES.PROPERTY_USER;
 
     // Property Owner gets split First/Last Name instead of one Full Name field.
@@ -61,9 +58,6 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
     refreshComparisonGrid();
     parentSel.onchange = refreshComparisonGrid; // Parent Property choice excludes itself from the grid below
-
-    document.getElementById('benchmarkAssignmentCard').classList.toggle('d-none', !needsBenchmark);
-    if(needsBenchmark) refreshBenchmarkUI();
 
     document.getElementById('permissionsCard').classList.toggle('d-none', !needsPermissions);
     if(needsPermissions){
@@ -98,54 +92,6 @@ document.addEventListener('DOMContentLoaded', ()=>{
     }).join('') : `<div class="col-12 text-muted small">No properties available to assign.</div>`;
   }
 
-  function refreshBenchmarkUI(){
-    // Only Property Owners create Property Admins now, and only over their own organization's
-    // Parent Properties — not the whole company portfolio.
-    const ownProperties = DB.properties.all().filter(p=> RBAC.assignedPropertyIds().includes(p.id));
-    const parentSelect = document.getElementById('f_parentProperty');
-    parentSelect.innerHTML = ownProperties.length ? ownProperties.map(p=>`<option value="${p.id}">${p.name}</option>`).join('') : `<option value="">No Parent Properties yet — create one first</option>`;
-    if(existing && existing.parentPropertyId) parentSelect.value = existing.parentPropertyId;
-
-    renderChildPropertyGrid();
-  }
-
-  function renderChildPropertyGrid(){
-    const competitors = DB.competitors.all();
-    document.getElementById('childPropertyGrid').innerHTML = competitors.length ? competitors.map(c=>{
-      const checked = selectedChildIds.has(c.id);
-      return `<div class="col-md-6">
-        <label class="d-flex align-items-center gap-2 p-2 border rounded-3" style="border-color:var(--border-1) !important">
-          <input type="checkbox" class="form-check-input child-property-check" value="${c.id}" ${checked?'checked':''}>
-          <span style="font-size:.85rem">${c.name}<span class="text-muted"> — ${c.city}, ${c.country}</span></span>
-        </label>
-      </div>`;
-    }).join('') : `<div class="col-12 text-muted small">No competitor properties yet — add one below.</div>`;
-
-    document.querySelectorAll('.child-property-check').forEach(cb=>{
-      cb.addEventListener('change', function(){
-        if(this.checked) selectedChildIds.add(this.value); else selectedChildIds.delete(this.value);
-      });
-    });
-  }
-
-  document.getElementById('addCompetitorBtn').addEventListener('click', ()=>{
-    document.getElementById('newCompetitorForm').classList.toggle('d-none');
-  });
-  document.getElementById('saveCompetitorBtn').addEventListener('click', ()=>{
-    const name = document.getElementById('nc_name').value.trim();
-    const city = document.getElementById('nc_city').value.trim();
-    const country = document.getElementById('nc_country').value.trim();
-    if(!name || !city || !country){ APP.toast('Missing Details', 'Enter a name, city, and country for the competitor.', 'danger'); return; }
-    const saved = DB.competitors.save({ name, city, country, status:'active', avgRate: DB.rand(3000,12000), lastUpdated: DB.fmtDate(new Date()) });
-    selectedChildIds.add(saved.id);
-    document.getElementById('nc_name').value = '';
-    document.getElementById('nc_city').value = '';
-    document.getElementById('nc_country').value = '';
-    document.getElementById('newCompetitorForm').classList.add('d-none');
-    renderChildPropertyGrid();
-    APP.toast('Competitor Added', `${saved.name} added to the competitor pool.`, 'success');
-  });
-
   if(existing){
     document.getElementById('submitLabel').textContent = 'Update User';
     document.getElementById('f_name').value = existing.name;
@@ -175,7 +121,6 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const role = roleSelect.value;
     const isOwner = role === RBAC.ROLES.PROPERTY_OWNER;
     const needsProperties = role === RBAC.ROLES.PROPERTY_USER || isOwner; // legacy Property User (single) + Property Owner (multi)
-    const needsBenchmark = role === RBAC.ROLES.PROPERTY_ADMIN;
 
     let assignedProperties = needsProperties
       ? [...document.querySelectorAll('.property-assign-check:checked')].map(c=>c.value)
@@ -204,14 +149,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
       assignedProperties = assignedProperties.filter(id=> id !== ownerParentPropertyId);
     }
 
-    let parentPropertyId = isOwner ? ownerParentPropertyId : null, childPropertyIds = [];
-    if(needsBenchmark){
-      parentPropertyId = document.getElementById('f_parentProperty').value;
-      childPropertyIds = [...selectedChildIds];
-      if(!parentPropertyId){ APP.toast('No Parent Property', 'Select the Parent Property this admin owns.', 'danger'); return; }
-      if(!childPropertyIds.length){ APP.toast('No Child Properties', 'Select at least one competitor to benchmark against.', 'danger'); return; }
-      assignedProperties = [parentPropertyId]; // keeps the generic assignedPropertyIds() lookup consistent
-    }
+    const parentPropertyId = isOwner ? ownerParentPropertyId : null;
 
     let permissions = null;
     if(role === RBAC.ROLES.PROPERTY_USER){
@@ -236,11 +174,8 @@ document.addEventListener('DOMContentLoaded', ()=>{
       role,
       status: document.getElementById('f_status').value,
       assignedProperties,
-      parentPropertyId: (isOwner || needsBenchmark) ? parentPropertyId : null,
-      childPropertyIds: needsBenchmark ? childPropertyIds : [],
+      parentPropertyId,
       permissions,
-      // Tracked so a Property Owner keeps visibility/management over Property Admins they
-      // create even when the Parent Property picked isn't one of the owner's own properties.
       createdBy: existing ? existing.createdBy : me.id,
       avatar: existing ? existing.avatar : `https://ui-avatars.com/api/?name=${encodeURIComponent(fullName)}&background=3861fb&color=fff&size=200`,
       phone: existing ? existing.phone : '',

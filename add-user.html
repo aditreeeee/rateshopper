@@ -66,27 +66,6 @@
       <div id="propertyAssignmentGrid" class="row g-2"></div>
     </div>
 
-    <div class="section-card mb-3 d-none" id="benchmarkAssignmentCard">
-      <div class="section-title mb-1">Property Mapping</div>
-      <div class="section-sub mb-3">Assign one Parent Property (any property in the portfolio) and the Child Properties — competitor hotels — to benchmark it against.</div>
-      <label class="form-label">Parent Property *</label>
-      <select class="form-select mb-3" id="f_parentProperty"></select>
-
-      <div class="d-flex justify-content-between align-items-center mb-1">
-        <label class="form-label mb-0">Child Properties (Competitor Set)</label>
-        <button type="button" class="btn btn-soft btn-sm" id="addCompetitorBtn"><i class="bi bi-plus-lg me-1"></i>Add Child Property</button>
-      </div>
-      <div class="section-sub mb-2">Select existing competitor hotels, or add a new child property to the set.</div>
-      <div id="childPropertyGrid" class="row g-2"></div>
-
-      <div class="row g-2 mt-2 d-none" id="newCompetitorForm">
-        <div class="col-md-4"><input type="text" class="form-control form-control-sm" id="nc_name" placeholder="Child property name"></div>
-        <div class="col-md-3"><input type="text" class="form-control form-control-sm" id="nc_city" placeholder="City"></div>
-        <div class="col-md-3"><input type="text" class="form-control form-control-sm" id="nc_country" placeholder="Country"></div>
-        <div class="col-md-2"><button type="button" class="btn btn-primary btn-sm w-100" id="saveCompetitorBtn">Add</button></div>
-      </div>
-    </div>
-
     <div class="section-card d-none" id="permissionsCard">
       <div class="section-title mb-1">Module Permissions</div>
       <div class="section-sub mb-3">Control exactly what this Property User can view, create, edit, or delete.</div>
@@ -104,7 +83,6 @@
       <div class="section-title mb-2">About Roles</div>
       <div class="kv-row"><span class="k">Company Admin</span><span class="v text-end small text-muted">Full platform access</span></div>
       <div class="kv-row"><span class="k">Property Owner</span><span class="v text-end small text-muted">Own property + comparison benchmarking</span></div>
-      <div class="kv-row"><span class="k">Property Admin</span><span class="v text-end small text-muted">1 property + competitor benchmarking</span></div>
       <div class="kv-row"><span class="k">Property User</span><span class="v text-end small text-muted">Permission-gated, 1 property</span></div>
     </div>
     <div class="section-card">

@@ -5,8 +5,8 @@ const DB = (() => {
   const KEYS = {
     session:'hop_session', properties:'hop_properties', channels:'hop_channels', rooms:'hop_rooms',
     ratePlans:'hop_ratePlans', rates:'hop_rates', notifications:'hop_notifications',
-    activity:'hop_activity', settings:'hop_settings', users:'hop_users', competitors:'hop_competitors',
-    seeded:'hop_seeded_v23'
+    activity:'hop_activity', settings:'hop_settings', users:'hop_users',
+    seeded:'hop_seeded_v24'
   };
 
   // Sales channels a property distributes through. Every property always has exactly one
@@ -22,12 +22,6 @@ const DB = (() => {
     custom:     { label:'Customised',     icon:'bi-sliders',         color:'#00c2a8' }
   };
   const OTA_CHANNEL_TYPES = ['goibibo','makemytrip','booking','agoda','yatra'];
-  const PROPERTY_TYPES = ['Resort','Business Hotel','Heritage Hotel','Boutique Hotel','Budget Hotel','Serviced Apartment','Guest House'];
-  const STATES_BY_COUNTRY = {
-    India: ['Goa','Maharashtra','Rajasthan','Himachal Pradesh','Kerala','Delhi','Karnataka'],
-    UAE: ['Dubai','Abu Dhabi','Sharjah'],
-    Canada: ['Ontario','British Columbia','Quebec']
-  };
 
   const CITIES = [
     {name:'Grand Horizon Resort', city:'Goa', country:'India', addr:'Candolim Beach Road, Goa 403515', img:'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800&q=60'},
@@ -125,61 +119,6 @@ const DB = (() => {
     const masterChannelByProperty = {};
     channels.filter(c=>c.type==='master').forEach(c=> masterChannelByProperty[c.propertyId]=c.id);
 
-    // Competitor properties — a shared pool of external, unmanaged hotels used purely for rate
-    // benchmarking. A Property Admin gets a subset of these assigned as "Child Properties" to
-    // compare against their "Parent Property" (one of our real, managed properties).
-    const COMPETITOR_POOL = [
-      {name:'Hotel Grand Palace', city:'Goa', country:'India'},
-      {name:'Ocean View Resort', city:'Goa', country:'India'},
-      {name:'Royal Stay Hotel', city:'Goa', country:'India'},
-      {name:'City Crown Inn', city:'Goa', country:'India'},
-      {name:'Palm Grove Suites', city:'Goa', country:'India'},
-      {name:'Silver Sands Hotel', city:'Mumbai', country:'India'},
-      {name:'Harbourfront Inn', city:'Mumbai', country:'India'},
-      {name:'Marine Bay Towers', city:'Mumbai', country:'India'},
-      {name:'The Golden Crest', city:'Jaipur', country:'India'},
-      {name:'Amber Fort Residency', city:'Jaipur', country:'India'},
-      {name:'Pink City Palace', city:'Jaipur', country:'India'},
-      {name:'Blue Lagoon Resort', city:'Kochi', country:'India'},
-      {name:'Backwater Pearl Hotel', city:'Kochi', country:'India'},
-      {name:'Mountain Ridge Lodge', city:'Manali', country:'India'},
-      {name:'Snowline Chalet', city:'Manali', country:'India'},
-      {name:'Burj View Hotel', city:'Dubai', country:'UAE'},
-      {name:'Palm Jumeirah Suites', city:'Dubai', country:'UAE'},
-      {name:'Marina Bay Dubai Hotel', city:'Dubai', country:'UAE'},
-      {name:'Maple Grand Hotel', city:'Toronto', country:'Canada'},
-      {name:'Lakeshore Suites', city:'Toronto', country:'Canada'}
-    ];
-    const CITY_STATE = { Goa:'Goa', Mumbai:'Maharashtra', Jaipur:'Rajasthan', Manali:'Himachal Pradesh', Kochi:'Kerala', Dubai:'Dubai', Toronto:'Ontario' };
-    const propertyByCity = {}; properties.forEach(p=> propertyByCity[p.city]=p.id);
-    const allChannelTypes = Object.keys(CHANNEL_TYPES).filter(t=>t!=='master');
-    let compSeq = 1;
-    const competitors = COMPETITOR_POOL.map(c=>{
-      // Each competitor (Child Property) is tracked across a handful of the channels it's
-      // actually listed on — one hotel, several OTA listings to compare rates against.
-      const slug = c.name.toLowerCase().replace(/[^a-z]+/g,'-');
-      const rowChannels = shuffle([...allChannelTypes]).slice(0, rand(1,3)).map(t=>({
-        channel:t, channelLabel: CHANNEL_TYPES[t].label, channelUrl:`https://${t}.com/hotel/${slug}`
-      }));
-      return {
-        id: uid('comp'),
-        name: c.name,
-        code: `CHP-${String(compSeq++).padStart(4,'0')}`,
-        propertyType: pick(PROPERTY_TYPES),
-        status: Math.random()>0.15 ? 'active' : 'inactive',
-        parentPropertyId: propertyByCity[c.city] || null,
-        country: c.country, state: CITY_STATE[c.city] || '', city: c.city,
-        channels: rowChannels,
-        starRating: rand(3,5),
-        notes: '',
-        avgRate: rand(2800, 13500),
-        lastUpdated: fmtDate(new Date(Date.now()-rand(0,72)*3600000)),
-        createdAt: fmtDate(new Date(Date.now()-rand(30,400)*86400000))
-      };
-    });
-    const competitorsByCity = city => competitors.filter(c=>c.city===city);
-    set(KEYS.competitors, competitors);
-
     // Users — mock RBAC accounts. Passwords are plaintext here only because this is a
     // frontend-only demo; a real backend would never store or compare passwords this way
     // (ASP.NET Identity + password hashing, issuing a JWT on successful login).
@@ -261,42 +200,12 @@ const DB = (() => {
         createdAt: fmtDate(new Date(Date.now()-60*86400000))
       },
       {
-        id: uid('usr'), name:'Neha Kapoor', email:'neha.kapoor@eglobe.com', password:'Admin@123',
-        role:'property_admin', status:'active',
-        parentPropertyId: properties[0].id,
-        childPropertyIds: competitorsByCity('Goa').map(c=>c.id),
-        assignedProperties:[properties[0].id], permissions:null, createdBy: kavitaId,
-        phone:'+91 9820099334', bio:'Property Admin — owns Grand Horizon Resort and benchmarks it against local Goa competitors.',
-        avatar:'https://ui-avatars.com/api/?name=Neha+Kapoor&background=e0117a&color=fff&size=200',
-        createdAt: fmtDate(new Date(Date.now()-45*86400000))
-      },
-      {
         id: adityaId, name:'Aditya Verma', firstName:'Aditya', lastName:'Verma', email:'aditya.verma@eglobe.com', password:'Property@123',
         role:'property_owner', status:'active', parentPropertyId: properties[5].id,
         assignedProperties:[properties[5].id, properties[6].id], permissions:null,
         phone:'+91 9820099445', bio:'Property Owner — manages the international portfolio (Dubai, Toronto).',
         avatar:'https://ui-avatars.com/api/?name=Aditya+Verma&background=d0021b&color=fff&size=200',
         createdAt: fmtDate(new Date(Date.now()-170*86400000))
-      },
-      {
-        id: uid('usr'), name:'Meera Joshi', email:'meera.joshi@eglobe.com', password:'Admin@123',
-        role:'property_admin', status:'active',
-        parentPropertyId: properties[2].id,
-        childPropertyIds: competitorsByCity('Jaipur').map(c=>c.id),
-        assignedProperties:[properties[2].id], permissions:null, createdBy: vikramId,
-        phone:'+91 9820099556', bio:'Property Admin — owns The Heritage Palace and tracks Jaipur-area competitors.',
-        avatar:'https://ui-avatars.com/api/?name=Meera+Joshi&background=00c2a8&color=fff&size=200',
-        createdAt: fmtDate(new Date(Date.now()-75*86400000))
-      },
-      {
-        id: uid('usr'), name:'Farhan Ali', email:'farhan.ali@eglobe.com', password:'Admin@123',
-        role:'property_admin', status:'active',
-        parentPropertyId: properties[5].id,
-        childPropertyIds: competitorsByCity('Dubai').map(c=>c.id),
-        assignedProperties:[properties[5].id], permissions:null, createdBy: adityaId,
-        phone:'+91 9820099667', bio:'Property Admin — owns Skyline Downtown Suites and benchmarks it against Dubai-area competitors.',
-        avatar:'https://ui-avatars.com/api/?name=Farhan+Ali&background=3861fb&color=fff&size=200',
-        createdAt: fmtDate(new Date(Date.now()-30*86400000))
       },
       {
         id: uid('usr'), name:'Divya Reddy', email:'divya.reddy@eglobe.com', password:'Staff@123',
@@ -538,20 +447,6 @@ const DB = (() => {
     remove: id=>{ set(KEYS.users, users.all().filter(u=>u.id!==id)); }
   };
 
-  // External, unmanaged hotels used only for rate benchmarking (a Property Admin's "Child Properties").
-  const competitors = {
-    all: ()=> get(KEYS.competitors, []),
-    get: id=> competitors.all().find(c=>c.id===id),
-    byIds: ids=> competitors.all().filter(c=> (ids||[]).includes(c.id)),
-    save: c=>{
-      const list = competitors.all();
-      if(c.id){ const i=list.findIndex(x=>x.id===c.id); list[i]=c; }
-      else { c.id=uid('comp'); c.createdAt=fmtDate(new Date()); list.push(c); }
-      set(KEYS.competitors,list); return c;
-    },
-    remove: id=>{ set(KEYS.competitors, competitors.all().filter(c=>c.id!==id)); }
-  };
-
   // Defensive migration, safe to run on every load regardless of seeding history: guarantees
   // every property has a Master Channel, and backfills any room/rate plan that predates the
   // Channels feature (or was otherwise saved without one) onto that property's Master Channel.
@@ -594,8 +489,8 @@ const DB = (() => {
     if(ratePlansChanged) set(KEYS.ratePlans, allRatePlans);
   }
 
-  return { KEYS, seed, ensureChannels, uid, get, set, rand, pick, fmtDate, MEAL_PLANS, MEAL_LABELS, CHANNEL_TYPES, PROPERTY_TYPES, STATES_BY_COUNTRY,
-    properties, channels, rooms, ratePlans, rates, notifications, activity, settings, users, competitors };
+  return { KEYS, seed, ensureChannels, uid, get, set, rand, pick, fmtDate, MEAL_PLANS, MEAL_LABELS, CHANNEL_TYPES,
+    properties, channels, rooms, ratePlans, rates, notifications, activity, settings, users };
 })();
 
 DB.seed();

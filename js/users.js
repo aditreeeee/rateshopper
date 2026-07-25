@@ -55,12 +55,6 @@ function render(){
     let propertyCell;
     if(isCompanyLevel){
       propertyCell = '<span class="text-muted small">All properties</span>';
-    } else if(u.role==='property_admin'){
-      const parent = DB.properties.get(u.parentPropertyId);
-      const childCount = (u.childPropertyIds||[]).length;
-      propertyCell = parent
-        ? `<span class="badge bg-primary-subtle text-primary me-1">${parent.name}</span><span class="badge bg-light text-dark border">${childCount} competitor${childCount===1?'':'s'}</span>`
-        : '<span class="text-muted">—</span>';
     } else if(u.role==='property_owner'){
       const parent = DB.properties.get(u.parentPropertyId);
       const extraCount = (u.assignedProperties||[]).filter(id=>id!==u.parentPropertyId).length;

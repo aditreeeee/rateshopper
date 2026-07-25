@@ -6,8 +6,7 @@
    ========================================================================== */
 const DEMO_ACCOUNTS = [
   {role:'company_admin', icon:'bi-award-fill', email:'admin@eglobe.com', password:'Admin@123', desc:'Full platform access — every company & property'},
-  {role:'property_owner', icon:'bi-building', email:'property.owner@eglobe.com', password:'Property@123', desc:'Manages 2 assigned properties end-to-end'},
-  {role:'property_admin', icon:'bi-graph-up-arrow', email:'neha.kapoor@eglobe.com', password:'Admin@123', desc:'1 property + competitor rate benchmarking'}
+  {role:'property_owner', icon:'bi-building', email:'property.owner@eglobe.com', password:'Property@123', desc:'Manages 2 assigned properties end-to-end'}
 ];
 
 document.documentElement.setAttribute('data-theme','light'); // login always light for brand consistency on the orb bg
@@ -80,8 +79,8 @@ function doLogin(email, password, remember){
 
   setTimeout(()=>{
     const user = DB.users.byEmail(email);
-    // Property User is no longer part of the supported login hierarchy.
-    const valid = user && user.password === password && user.status === 'active' && user.role !== 'property_user';
+    // Property User and Property Admin are no longer part of the supported login hierarchy.
+    const valid = user && user.password === password && user.status === 'active' && user.role !== 'property_user' && user.role !== 'property_admin';
 
     if(valid){
       const session = { userId: user.id, email: user.email, role: user.role, loginAt: new Date().toISOString() };

@@ -15,21 +15,20 @@ const RBAC = (() => {
   const ROLES = {
     COMPANY_ADMIN: 'company_admin',
     PROPERTY_OWNER: 'property_owner',
-    PROPERTY_ADMIN: 'property_admin',
     PROPERTY_USER: 'property_user'
   };
 
   const ROLE_LABELS = {
     company_admin: 'Company Admin',
     property_owner: 'Property Owner',
-    property_admin: 'Property Admin',
     property_user: 'Property User'
   };
 
   // Higher number = higher in the hierarchy. Used for "can X manage Y" checks.
   // Company Admin is the top of the hierarchy — the Company Owner role has been retired and
-  // its full authority folded into Company Admin.
-  const ROLE_RANK = { company_admin: 4, property_owner: 3, property_admin: 2, property_user: 1 };
+  // its full authority folded into Company Admin. Property Admin has also been retired — its
+  // capabilities were already fully covered by Property Owner.
+  const ROLE_RANK = { company_admin: 4, property_owner: 3, property_user: 1 };
 
   const MODULES = {
     DASHBOARD: 'dashboard',
@@ -59,9 +58,9 @@ const RBAC = (() => {
     const s = session();
     if(!s || !s.userId) return null;
     const u = DB.users.get(s.userId);
-    // Property User is retired from the supported login hierarchy — any lingering session
-    // for one (e.g. from before this change) is treated as logged out.
-    return (u && u.status === 'active' && u.role !== 'property_user') ? u : null;
+    // Property User and Property Admin are retired from the supported login hierarchy — any
+    // lingering session for one (e.g. from before this change) is treated as logged out.
+    return (u && u.status === 'active' && u.role !== 'property_user' && u.role !== 'property_admin') ? u : null;
   }
 
   function currentRole(){
@@ -88,16 +87,9 @@ const RBAC = (() => {
         return true; // full access to everything, always — top of the hierarchy
 
       case ROLES.PROPERTY_OWNER:
-        if(moduleName === MODULES.SETTINGS) return false; // no company-wide settings
-        // Full CRUD on Parent Properties, Rooms, Rate Plans, Calendar, and their own
-        // Property Admins — scoped to their own organization (see assignedPropertyIds()).
-        return true;
-
-      case ROLES.PROPERTY_ADMIN:
-        // Full control over their one Parent Property (rooms, rate plans, calendar, channels).
-        // No user management, no company settings, can't create/delete the property itself.
+        // No company-wide settings, and nobody left below them in the hierarchy to manage.
         if(moduleName === MODULES.SETTINGS || moduleName === MODULES.USERS) return false;
-        if(moduleName === MODULES.PROPERTIES) return action === 'view';
+        // Full CRUD on their Parent Property's Rooms, Rate Plans, Calendar, Channels.
         return true;
 
       case ROLES.PROPERTY_USER: {
@@ -117,7 +109,6 @@ const RBAC = (() => {
     const u = currentUser();
     if(!u) return [];
     if(isCompanyLevel(u.role)) return DB.properties.all().map(p=>p.id);
-    if(u.role === ROLES.PROPERTY_ADMIN) return u.parentPropertyId ? [u.parentPropertyId] : [];
     // Property Owner's administrative scope = their own Parent Property (the hotel they
     // actually manage) + any properties they've since created themselves (ownerId).
     // NOTE: assignedProperties is NOT part of this — for a Property Owner that list is a
@@ -144,12 +135,6 @@ const RBAC = (() => {
     return Math.max(0, u.propertyLimit - used);
   }
 
-  /** Competitor "Child Property" ids benchmarked against a Property Admin's Parent Property. */
-  function childPropertyIds(){
-    const u = currentUser();
-    return (u && u.role === ROLES.PROPERTY_ADMIN) ? (u.childPropertyIds || []) : [];
-  }
-
   function canAccessProperty(propertyId){
     return assignedPropertyIds().includes(propertyId);
   }
@@ -160,12 +145,12 @@ const RBAC = (() => {
     return list.filter(p => ids.includes(p.id));
   }
 
-  // The only supported hierarchy: Company Admin -> Property Owner -> Property Admin.
-  // Company Admin is the top authority (Company Owner has been retired) and can create more
-  // Company Admin peers as well as Property Owners.
+  // The only supported hierarchy: Company Admin -> Property Owner. Company Admin is the top
+  // authority (Company Owner has been retired) and can create more Company Admin peers as well
+  // as Property Owners. Property Owner has nobody left below them to create (Property Admin has
+  // also been retired — it was fully redundant with what Property Owner already does).
   const CREATABLE_ROLES = {
-    [ROLES.COMPANY_ADMIN]: [ROLES.COMPANY_ADMIN, ROLES.PROPERTY_OWNER],
-    [ROLES.PROPERTY_OWNER]: [ROLES.PROPERTY_ADMIN]
+    [ROLES.COMPANY_ADMIN]: [ROLES.COMPANY_ADMIN, ROLES.PROPERTY_OWNER]
   };
 
   /** Roles the current user is allowed to create in the Users module (enforces the hierarchy). */
@@ -183,18 +168,9 @@ const RBAC = (() => {
       case ROLES.COMPANY_ADMIN:
         // Top of the hierarchy — manages everyone else, including other Company Admin peers.
         return true;
-      case ROLES.PROPERTY_OWNER:
-        // Property Users are scoped to properties this owner holds. Property Admins can be
-        // mapped to ANY property as their Parent (not just ones this owner is assigned to), so
-        // management rights there follow who created the account instead of property overlap.
-        if(targetUser.role === ROLES.PROPERTY_ADMIN){
-          return targetUser.createdBy === me.id;
-        }
-        if(targetUser.role === ROLES.PROPERTY_USER){
-          return (targetUser.assignedProperties||[]).some(pid => (me.assignedProperties||[]).includes(pid));
-        }
-        return false;
       default:
+        // Property Owner has nobody left below them to manage — Property Admin has been
+        // retired, and the Users module is hidden for this role (see can()).
         return false;
     }
   }
@@ -207,12 +183,6 @@ const RBAC = (() => {
     switch(me.role){
       case ROLES.COMPANY_ADMIN:
         return all.filter(u => u.id !== me.id);
-      case ROLES.PROPERTY_OWNER:
-        return all.filter(u=>{
-          if(u.role === ROLES.PROPERTY_ADMIN) return u.createdBy === me.id;
-          if(u.role === ROLES.PROPERTY_USER) return (u.assignedProperties||[]).some(pid => (me.assignedProperties||[]).includes(pid));
-          return false;
-        });
       default:
         return [];
     }
@@ -247,7 +217,7 @@ const RBAC = (() => {
   return {
     ROLES, ROLE_LABELS, ROLE_RANK, MODULES, MODULE_LABELS, ASSIGNABLE_MODULES,
     session, currentUser, currentRole, isCompanyLevel, can,
-    assignedPropertyIds, propertyLimitRemaining, childPropertyIds, comparisonPropertyIds, canAccessProperty, filterProperties,
+    assignedPropertyIds, propertyLimitRemaining, comparisonPropertyIds, canAccessProperty, filterProperties,
     creatableRoles, canManageUser, visibleUsers,
     requireRole, requireModuleAccess
   };
