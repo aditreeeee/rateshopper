@@ -10,6 +10,7 @@ const PORTAL = (() => {
     {section:'Revenue Management'},
     {href:'property-dashboard.html', icon:'bi-speedometer2', label:'Dashboard'},
     {href:'property-rate-shopper.html', icon:'bi-search', label:'Rate Shopper'},
+    {href:'property-rate-matrix.html', icon:'bi-grid-3x3-gap-fill', label:'Rate Matrix'},
     {href:'property-room-comparison.html', icon:'bi-columns-gap', label:'Room Rate Comparison'},
     {href:'property-competitors.html', icon:'bi-building', label:'Competitors'},
     {href:'property-market.html', icon:'bi-globe-americas', label:'Market Intelligence'},

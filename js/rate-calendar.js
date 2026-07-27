@@ -183,7 +183,7 @@ function renderGrid(){
                 <span class="grid-occ-badge"><i class="bi bi-people"></i>${occ} Pax</span>
                 ${occ===rp.baseOccupancy?'<span class="text-muted" style="font-size:.65rem"> (base)</span>':''}
               </span>
-              <button type="button" class="btn btn-sm-icon btn-soft parity-btn" style="width:24px;height:24px" title="Compare across channels" data-room="${room.id}" data-plan="${rp.id}" data-occ="${occ}"><i class="bi bi-bar-chart-line" style="font-size:.68rem"></i></button>
+              <button type="button" class="btn btn-sm-icon btn-soft parity-btn" style="width:24px;height:24px" title="Compare across channels" data-room="${room.id}" data-plan="${rp.id}" data-occ="${occ}"><img src="https://www.eglobe-solutions.com/channelmanager/images/parity-view.png" alt="Rate Parity" class="parity-icon"></button>
             </div>
           </td>
           ${dates.map(d=>{

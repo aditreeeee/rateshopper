@@ -361,6 +361,9 @@ body:not(.cal-embed) .cal-context-bar{top:var(--header-h)}
 }
 .grid-price-cell .gp-flags{font-size:.6rem;font-weight:400;color:var(--text-3);margin-top:2px}
 
+/* ---------- Rate Parity icon (shared image, Company + Property portal Rate Calendar) ---------- */
+.parity-icon{width:14px;height:14px;object-fit:contain;vertical-align:-2px}
+
 /* ---------- Misc ---------- */
 .nice-scroll{max-height:340px;overflow-y:auto}
 .progress-thin{height:8px;border-radius:6px;background:var(--bg-surface-2)}
