@@ -120,6 +120,12 @@
 .chart-card{ background:var(--bg-surface); border:1px solid var(--border-1); border-radius:16px; padding:16px; box-shadow:var(--shadow-sm); }
 .chart-card canvas{ max-height:280px; }
 
+/* ---------- Chart entrance animation (Dashboard, Market Intelligence, Room Rate Comparison,
+   Rate Shopper) — a quick fade + rise on the card itself so the Chart.js draw-in animation
+   inside it isn't the only thing moving on the page. ---------- */
+@keyframes chart-fade-in{ from{ opacity:0; transform:translateY(8px); } to{ opacity:1; transform:none; } }
+.chart-card, .ticker-chart-card{ animation:chart-fade-in .4s ease both; }
+
 /* ---------- Rate Shopper: stock-ticker style ---------- */
 .ticker-card{
   background:var(--bg-surface); border:1px solid var(--border-1); border-radius:14px; padding:12px 14px;

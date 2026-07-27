@@ -15,6 +15,17 @@ const RC_PAGE_SIZE = 50;
 let rcSort = { key:'compRate', dir:'asc' };
 let rcTrendDays = 30;
 
+// Shared Chart.js animation preset — same helper as the Dashboard/Market Intelligence pages;
+// bars cascade in one-by-one, lines draw in with a smooth ease.
+function chartAnim(isBar){
+  return {
+    duration: 850, easing: 'easeOutQuart',
+    delay: (ctx)=> isBar
+      ? (ctx.type==='data' ? ctx.dataIndex*30 + (ctx.datasetIndex||0)*80 : 0)
+      : (ctx.datasetIndex||0) * 150
+  };
+}
+
 document.addEventListener('DOMContentLoaded', ()=>{
   const me = PORTAL.mount({ title:'Room Rate Comparison', subtitle:'Compare your rooms against mapped competitor rooms, plan by plan, channel by channel.' });
   if(!me) return;
@@ -295,7 +306,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
       rcDistChart = new Chart(document.getElementById('rc_distChart'), {
         type:'bar',
         data:{ labels, datasets:[{ data, backgroundColor:colors, borderRadius:6 }] },
-        options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{x:{ticks:{callback:v=>APP.fmtCurrency(v)}}} }
+        options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false, animation:chartAnim(true), plugins:{legend:{display:false}}, scales:{x:{ticks:{callback:v=>APP.fmtCurrency(v)}}} }
       });
       return;
     }
@@ -315,7 +326,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
         { label:'My Rate', data:myData, backgroundColor:'#3861fb', borderRadius:6 },
         { label:'Market Avg', data:marketData, backgroundColor:'#c3aee8', borderRadius:6 }
       ]},
-      options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false, plugins:{legend:{position:'bottom'}}, scales:{x:{ticks:{callback:v=>APP.fmtCurrency(v)}}} }
+      options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false, animation:chartAnim(true), plugins:{legend:{position:'bottom'}}, scales:{x:{ticks:{callback:v=>APP.fmtCurrency(v)}}} }
     });
   }
 
@@ -401,7 +412,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
       type:'line',
       data:{ labels, datasets },
       options:{
-        responsive:true, interaction:{mode:'index', intersect:false},
+        responsive:true, interaction:{mode:'index', intersect:false}, animation:chartAnim(false),
         plugins:{ legend:{position:'bottom'}, tooltip:{callbacks:{label:ctx=>`${ctx.dataset.label}: ${APP.fmtCurrency(ctx.parsed.y)}`}} },
         scales:{ y:{ticks:{callback:v=>APP.fmtCurrency(v)}} }
       }

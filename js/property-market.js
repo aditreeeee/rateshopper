@@ -1,3 +1,14 @@
+// Shared Chart.js animation preset — see js/property-dashboard.js for the same helper; bars
+// cascade in one-by-one, lines draw in with a smooth ease so the page feels alive on load.
+function chartAnim(isBar){
+  return {
+    duration: 850, easing: 'easeOutQuart',
+    delay: (ctx)=> isBar
+      ? (ctx.type==='data' ? ctx.dataIndex*30 + (ctx.datasetIndex||0)*80 : 0)
+      : (ctx.datasetIndex||0) * 150
+  };
+}
+
 document.addEventListener('DOMContentLoaded', ()=>{
   const me = PORTAL.mount({ title:'Market Intelligence', subtitle:'An executive overview of the competitive market around your property.' });
   if(!me) return;
@@ -55,7 +66,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   new Chart(document.getElementById('marketTrendChart'), {
     type:'line',
     data:{ labels, datasets:[{label:'Market Average', data, borderColor:'#8c5cf7', backgroundColor:'rgba(140,92,247,.08)', tension:.35, fill:true}] },
-    options:{ responsive:true, plugins:{legend:{display:false}}, scales:{y:{ticks:{callback:v=>APP.fmtCurrency(v)}}} }
+    options:{ responsive:true, animation:chartAnim(false), plugins:{legend:{display:false}}, scales:{y:{ticks:{callback:v=>APP.fmtCurrency(v)}}} }
   });
 
   const buckets={}; rates.forEach(r=>{ const b=Math.floor(r/1000)*1000; buckets[b]=(buckets[b]||0)+1; });
@@ -63,7 +74,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   new Chart(document.getElementById('marketDistChart'), {
     type:'bar',
     data:{ labels:bkeys.map(k=>`₹${k/1000}k+`), datasets:[{label:'Hotels', data:bkeys.map(k=>buckets[k]), backgroundColor:'#3861fb', borderRadius:6}] },
-    options:{ responsive:true, plugins:{legend:{display:false}} }
+    options:{ responsive:true, animation:chartAnim(true), plugins:{legend:{display:false}} }
   });
 
   // ---- Competitor Pricing Matrix: competitor rows x next 7 days ----

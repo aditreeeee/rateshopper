@@ -3,6 +3,17 @@ let rsChart = null;
 let rsRangeDays = 30;
 let rsHidden = new Set(); // series keys hidden from the chart
 
+// Shared Chart.js animation preset — same helper as Dashboard/Market/Room Rate Comparison;
+// each line draws in with a smooth ease, staggered slightly per series.
+function chartAnim(isBar){
+  return {
+    duration: 850, easing: 'easeOutQuart',
+    delay: (ctx)=> isBar
+      ? (ctx.type==='data' ? ctx.dataIndex*30 + (ctx.datasetIndex||0)*80 : 0)
+      : (ctx.datasetIndex||0) * 150
+  };
+}
+
 // Muted/pastel palette for benchmark properties — each gets its own distinguishable color so
 // lines don't blur together, but all are visually secondary to My Property's bold solid blue.
 const OTHER_LINE_COLORS = ['#a9b0c9','#9fd6ca','#c3aee8','#f2c194','#e6a8c4','#a6d9a6','#e3a6a6','#a9c6e8'];
@@ -42,16 +53,28 @@ document.addEventListener('DOMContentLoaded', ()=>{
     return series.isMe ? PORTALDATA.myRateOnDate(propertyId, dateKey) : PORTALDATA.competitorRateOnDate(series.comp, dateKey);
   }
 
+  function prevDateKey(dateKey){
+    const d = new Date(dateKey+'T00:00:00');
+    d.setDate(d.getDate()-1);
+    return DB.fmtDate(d);
+  }
+
+  // Tickers always reflect whichever date is picked in the "Rate Date" filter (defaulting to
+  // today) so it's never ambiguous which stay date the top-of-page prices are for — they move
+  // together with the table below rather than always showing "today" regardless of the filter.
   function renderTickers(){
-    const today = PORTALDATA.dateKeyOffset(0);
-    const yesterday = PORTALDATA.dateKeyOffset(-1);
+    const dateKey = document.getElementById('rs_date').value || PORTALDATA.dateKeyOffset(0);
+    const prev = prevDateKey(dateKey);
     const list = seriesList();
 
+    document.getElementById('rs_tickerCaption').innerHTML =
+      `<i class="bi bi-clock-history me-1"></i>Rates shown for <strong>${APP.fmtDateReadable(dateKey)}</strong> · Direct (Master) channel · vs. the day before`;
+
     document.getElementById('tickerRow').innerHTML = list.map(s=>{
-      const price = rateFor(s, today);
-      const prev = rateFor(s, yesterday);
-      const chg = price - prev;
-      const chgPct = prev ? (chg/prev*100) : 0;
+      const price = rateFor(s, dateKey);
+      const prevPrice = rateFor(s, prev);
+      const chg = price - prevPrice;
+      const chgPct = prevPrice ? (chg/prevPrice*100) : 0;
       const dir = chg>0 ? 'up' : chg<0 ? 'down' : 'flat';
       const arrow = dir==='up' ? 'bi-caret-up-fill' : dir==='down' ? 'bi-caret-down-fill' : 'bi-dash';
       return `<div class="col-6 col-md-4 col-xl-2">
@@ -114,7 +137,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
       type:'line',
       data:{ labels, datasets },
       options:{
-        responsive:true, interaction:{mode:'index', intersect:false},
+        responsive:true, interaction:{mode:'index', intersect:false}, animation:chartAnim(false),
         plugins:{ legend:{display:false}, tooltip:{callbacks:{label:ctx=>`${ctx.dataset.label}: ${APP.fmtCurrency(ctx.parsed.y)}`}} },
         scales:{ y:{ticks:{callback:v=>APP.fmtCurrency(v)}} }
       }
@@ -144,7 +167,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     if(statusFilter) rows = rows.filter(r=>r.status===statusFilter);
     rows.sort((a,b)=>a.rate-b.rate);
 
-    document.getElementById('rs_summary').textContent = `Showing ${rows.length} of ${comps.length} benchmark properties for ${APP.fmtDateReadable(dateKey)} — My Rate: ${APP.fmtCurrency(myRate)}`;
+    document.getElementById('rs_summary').textContent = `Showing ${rows.length} of ${comps.length} benchmark properties for ${APP.fmtDateReadable(dateKey)} — My Rate (Direct channel): ${APP.fmtCurrency(myRate)}`;
 
     const bodyRows = rows.map((r,i)=>`
       <tr>
@@ -178,7 +201,9 @@ document.addEventListener('DOMContentLoaded', ()=>{
     document.getElementById('rateShopperTable').innerHTML = `
       <thead><tr>
         <th>Competitor</th><th>Stars</th><th>Room</th><th>Meal Plan</th><th>Channel</th>
-        <th>My Rate</th><th>Competitor Rate</th><th>Difference</th><th>Diff %</th><th>Rank</th>
+        <th title="Your Direct (Master) channel rate for the selected date — always, regardless of the Channel filter above.">My Rate (Direct)</th>
+        <th title="The competitor's rate on the channel shown in the Channel column, for the selected date.">Competitor Rate</th>
+        <th>Difference</th><th>Diff %</th><th>Rank</th>
         <th>Cancellation</th><th>Trend</th><th>Status</th><th></th>
       </tr></thead>
       <tbody>${bodyRows || `<tr><td colspan="14" class="text-center text-muted py-4">${comps.length ? 'No competitors match these filters.' : "No comparison properties assigned yet — ask your Company Admin to select some."}</td></tr>`}</tbody>`;

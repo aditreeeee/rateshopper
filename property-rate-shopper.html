@@ -14,13 +14,16 @@
 <body>
 <div id="app-shell">
 
+<div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+  <div class="text-muted small" id="rs_tickerCaption">-</div>
+</div>
 <div class="row g-2 mb-3" id="tickerRow"></div>
 
 <div class="ticker-chart-card mb-3">
   <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
     <div>
       <div class="fw-bold">Rate Comparison</div>
-      <div class="text-muted small">My Property vs. every benchmark property, tracked like a market index</div>
+      <div class="text-muted small">My Property vs. every benchmark property, on the Direct (Master) channel — tracked like a market index</div>
     </div>
     <div class="d-flex align-items-center gap-2 flex-wrap">
       <div class="btn-group btn-group-sm" id="rs_rangeGroup" role="group">
@@ -37,12 +40,15 @@
 <div class="filters-bar">
   <div class="row g-2 align-items-center">
     <div class="col-md-3">
+      <label class="form-label mb-1" style="font-size:.72rem" for="rs_date">Rate Date <i class="bi bi-info-circle text-muted" title="The stay date every rate on this page — tickers, chart, and table — is priced for."></i></label>
       <input type="date" class="form-control" id="rs_date">
     </div>
     <div class="col-md-3">
-      <select class="form-select" id="rs_channel"><option value="">All Channels</option></select>
+      <label class="form-label mb-1" style="font-size:.72rem" for="rs_channel">Channel <i class="bi bi-info-circle text-muted" title="Which channel the Competitor Rate column is priced on. Your own My Rate is always your Direct (Master) channel rate."></i></label>
+      <select class="form-select" id="rs_channel"><option value="">All Channels (each competitor's own primary channel)</option></select>
     </div>
     <div class="col-md-3">
+      <label class="form-label mb-1" style="font-size:.72rem" for="rs_status">Status</label>
       <select class="form-select" id="rs_status">
         <option value="">All Status</option>
         <option value="cheaper">Cheaper Than Me</option>
@@ -51,6 +57,7 @@
       </select>
     </div>
     <div class="col-md-3">
+      <label class="form-label mb-1" style="font-size:.72rem" for="rs_search">Search</label>
       <input type="text" class="form-control" id="rs_search" placeholder="Search competitor...">
     </div>
   </div>

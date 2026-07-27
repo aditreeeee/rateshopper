@@ -1,6 +1,17 @@
 let priceTrendChart = null;
 const trendDatasets = { daily:null, weekly:null, monthly:null };
 
+// Shared Chart.js animation preset — bars cascade in left-to-right/dataset-by-dataset, lines
+// draw in with a slightly longer, smoother ease so the dashboard feels alive rather than static.
+function chartAnim(isBar){
+  return {
+    duration: 850, easing: 'easeOutQuart',
+    delay: (ctx)=> isBar
+      ? (ctx.type==='data' ? ctx.dataIndex*30 + (ctx.datasetIndex||0)*80 : 0)
+      : (ctx.datasetIndex||0) * 150
+  };
+}
+
 document.addEventListener('DOMContentLoaded', ()=>{
   const me = PORTAL.mount({ title:'Rate Intelligence Dashboard', subtitle:'Your executive view of rate position, demand and competitor movement.' });
   if(!me) return;
@@ -80,7 +91,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
       {label:'My Rate', data:myLine, borderColor:'#3861fb', backgroundColor:'rgba(56,97,251,.08)', tension:.35, fill:true},
       {label:'Market Average', data:marketLine, borderColor:'#ff9f43', backgroundColor:'transparent', borderDash:[5,4], tension:.35}
     ]},
-    options:{ responsive:true, plugins:{legend:{position:'bottom'}}, scales:{y:{ticks:{callback:v=>APP.fmtCurrency(v)}}} }
+    options:{ responsive:true, animation:chartAnim(false), plugins:{legend:{position:'bottom'}}, scales:{y:{ticks:{callback:v=>APP.fmtCurrency(v)}}} }
   });
 
   // ---- Competitor Comparison: compact table ----
@@ -114,7 +125,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   new Chart(document.getElementById('priceDistChart'), {
     type:'line',
     data:{ labels:bellLabels, datasets:[{label:'Rate Distribution', data:bellData, borderColor:'#8c5cf7', backgroundColor:'rgba(140,92,247,.12)', tension:.4, fill:true, pointRadius:0}] },
-    options:{ responsive:true, plugins:{legend:{display:false}}, scales:{ x:{ticks:{maxTicksLimit:6}}, y:{display:false} } }
+    options:{ responsive:true, animation:chartAnim(false), plugins:{legend:{display:false}}, scales:{ x:{ticks:{maxTicksLimit:6}}, y:{display:false} } }
   });
 
   // ---- Price Trends: merged daily/weekly/monthly, tab-switchable ----
@@ -142,7 +153,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     priceTrendChart = new Chart(document.getElementById('priceTrendChart'), {
       type:'line',
       data:{ labels:t.labels, datasets:[{data:t.data, borderColor:t.color, backgroundColor:t.color+'15', tension:.3, fill:true, pointRadius:0}] },
-      options:{ responsive:true, plugins:{legend:{display:false}}, scales:{y:{ticks:{callback:v=>APP.fmtCurrency(v)}}} }
+      options:{ responsive:true, animation:chartAnim(false), plugins:{legend:{display:false}}, scales:{y:{ticks:{callback:v=>APP.fmtCurrency(v)}}} }
     });
   }
   renderTrend('daily');
@@ -173,7 +184,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
       labels: dashChannels.map(ch=>ch.name),
       datasets:[{ data: dashChannels.map(ch=>channelAvgRateOnDate(ch.id,today)||0), backgroundColor: dashChannels.map(ch=>(DB.CHANNEL_TYPES[ch.type]||DB.CHANNEL_TYPES.custom).color), borderRadius:6 }]
     },
-    options:{ responsive:true, plugins:{legend:{display:false}}, scales:{y:{ticks:{callback:v=>APP.fmtCurrency(v)}}} }
+    options:{ responsive:true, animation:chartAnim(true), plugins:{legend:{display:false}}, scales:{y:{ticks:{callback:v=>APP.fmtCurrency(v)}}} }
   });
 
   // ---- Competitor Update Heatmap (30 days) — intensity = % of tracked competitors whose rate changed vs the prior day ----
