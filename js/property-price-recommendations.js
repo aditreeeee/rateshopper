@@ -1,5 +1,5 @@
 document.addEventListener('DOMContentLoaded', ()=>{
-  const me = PORTAL.mount({ title:'Pricing Recommendations', subtitle:'AI-style pricing guidance based on market movement, demand and pace.' });
+  const me = PORTAL.mount({ title:'Pricing Recommendations', subtitle:'AI-style pricing guidance based on market movement and rate positioning.' });
   if(!me) return;
   const propertyId = PORTAL.activePropertyId(me);
 
@@ -18,16 +18,11 @@ document.addEventListener('DOMContentLoaded', ()=>{
         <div class="row g-2 mb-3">
           <div class="col-6"><div class="text-muted" style="font-size:.68rem">Current Rate</div><div class="fw-semibold">${APP.fmtCurrency(r.currentRate)}</div></div>
           <div class="col-6"><div class="text-muted" style="font-size:.68rem">Expected Rate</div><div class="fw-semibold">${APP.fmtCurrency(r.expectedRate)}</div></div>
-          <div class="col-6"><div class="text-muted" style="font-size:.68rem">Expected ADR</div><div class="fw-semibold">${APP.fmtCurrency(r.expectedADR)}</div></div>
-          <div class="col-6"><div class="text-muted" style="font-size:.68rem">Expected RevPAR</div><div class="fw-semibold">${APP.fmtCurrency(r.expectedRevPAR)}</div></div>
         </div>
         <div class="d-flex justify-content-between align-items-center mb-1">
           <span class="text-muted small">Confidence</span><span class="fw-semibold small">${r.confidence}%</span>
         </div>
         <div class="confidence-track mb-3"><div class="confidence-fill" style="width:${r.confidence}%"></div></div>
-        <div class="d-flex justify-content-between align-items-center">
-          <span class="small ${r.revenueImpact>=0?'text-success':'text-danger'}"><i class="bi bi-graph-up-arrow me-1"></i>${r.revenueImpact>=0?'+':''}${APP.fmtCurrency(r.revenueImpact)} revenue impact</span>
-        </div>
         <div class="d-flex gap-2 mt-3">
           <button class="btn btn-primary btn-sm flex-fill" onclick="APP.toast('Recommendation Applied','${actionLabel.replace(/'/g,"")} has been applied to your Rate Calendar (demo only).','success')">Apply</button>
           <button class="btn btn-light btn-sm flex-fill" onclick="APP.toast('Dismissed','Recommendation dismissed.','info')">Dismiss</button>

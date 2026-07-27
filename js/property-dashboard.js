@@ -13,7 +13,7 @@ function chartAnim(isBar){
 }
 
 document.addEventListener('DOMContentLoaded', ()=>{
-  const me = PORTAL.mount({ title:'Rate Intelligence Dashboard', subtitle:'Your executive view of rate position, demand and competitor movement.' });
+  const me = PORTAL.mount({ title:'Rate Intelligence Dashboard', subtitle:'Your executive view of rate position and competitor movement.' });
   if(!me) return;
   const propertyId = PORTAL.activePropertyId(me);
   // Only the competitors your Company Admin actually mapped to you — same set as Competitors/Rate Shopper/Market Intelligence.

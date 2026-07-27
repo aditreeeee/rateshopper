@@ -205,17 +205,8 @@ const PORTALDATA = (() => {
     return Math.round(baseRate * channelVariance(channelKey, dateKey) / 10) * 10;
   }
 
-  // ---- demand / occupancy -------------------------------------------------
-  function demandIndex(propertyId, dateKey){ // 0..100
-    let base = 55 + seededInt(propertyId+dateKey+'demand', -15, 25);
-    if(isWeekend(dateKey)) base += 12;
-    if(isHoliday(dateKey)) base += 20;
-    return Math.max(5, Math.min(100, base));
-  }
-  function expectedOccupancy(propertyId, dateKey){
-    return Math.max(10, Math.min(100, Math.round(demandIndex(propertyId,dateKey)*0.9 + seededInt(propertyId+dateKey+'occ',-5,5))));
-  }
-  function pickup(propertyId, dateKey){ return seededInt(propertyId+dateKey+'pickup', -3, 14); }
+  // ---- calendar signals used for rate intelligence (no occupancy/booking-volume data here —
+  // this app only ever reasons about rates, never rooms sold/available) -----------------------
   function localEventOn(dateKey){
     return seededFloat(dateKey+'event') > 0.93 ? DB.pick(LOCAL_EVENTS) : null;
   }
@@ -274,13 +265,14 @@ const PORTALDATA = (() => {
   }
   function saveSettings(propertyId, s){ DB.set(KEYS.settings+propertyId, s); }
 
-  // ---- pricing recommendations (computed on the fly from today's comparison) ---
+  // ---- pricing recommendations (computed on the fly from today's comparison) — every reason
+  // here is driven by rate/market signals only (competitor movement, weekend/holiday rate
+  // patterns, local events), never occupancy or booking-pace/volume data. ---------------------
   function recommendations(propertyId){
     const comps = competitors(propertyId);
     const today = dateKeyOffset(0);
     const myRate = myRateOnDate(propertyId, today);
     const marketAvg = Math.round(comps.reduce((s,c)=>s+competitorRateOnDate(c,today),0)/comps.length);
-    const demand = demandIndex(propertyId, today);
     const items = [];
 
     const diffPct = ((marketAvg-myRate)/myRate)*100;
@@ -293,20 +285,11 @@ const PORTALDATA = (() => {
     }
 
     if(isWeekend(dateKeyOffset(2))){
-      items.push(mkRec('increase', DB.rand(150,400), 'Upcoming weekend — historical demand runs higher Fri/Sat', 71, propertyId, dateKeyOffset(2)));
+      items.push(mkRec('increase', DB.rand(150,400), 'Upcoming weekend — this market typically commands higher Fri/Sat rates', 71, propertyId, dateKeyOffset(2)));
     }
     const evt = localEventOn(dateKeyOffset(5));
     if(evt){
-      items.push(mkRec('increase', DB.rand(300,700), `Local event detected: ${evt} — expect a demand surge`, 68, propertyId, dateKeyOffset(5)));
-    }
-    if(demand < 35){
-      items.push(mkRec('decrease', DB.rand(150,350), 'Low forecasted demand — a modest cut may protect occupancy', 64, propertyId, today));
-    }
-    const pu = pickup(propertyId, dateKeyOffset(7));
-    if(pu < 0){
-      items.push(mkRec('decrease', DB.rand(100,300), 'Negative booking pace vs. last week for this date', 58, propertyId, dateKeyOffset(7)));
-    } else if(pu > 8){
-      items.push(mkRec('increase', DB.rand(200,500), 'Strong booking pace — pickup accelerating ahead of last week', 73, propertyId, dateKeyOffset(7)));
+      items.push(mkRec('increase', DB.rand(300,700), `Local event detected: ${evt} — consider pricing ahead of the market`, 68, propertyId, dateKeyOffset(5)));
     }
     return items;
   }
@@ -316,9 +299,7 @@ const PORTALDATA = (() => {
     return {
       id: DB.uid('prec'), action, amount, reason, confidence, date: dateKey,
       currentRate: current, expectedRate: Math.max(500,expected),
-      revenueImpact: Math.round((expected-current) * DB.rand(8,22)),
-      expectedADR: Math.max(500,expected),
-      expectedRevPAR: Math.round(Math.max(500,expected) * (demandIndex(propertyId,dateKey)/100))
+      expectedADR: Math.max(500,expected)
     };
   }
 
@@ -328,7 +309,7 @@ const PORTALDATA = (() => {
     competitors, competitor, saveCompetitor, comparisonRealProperties,
     competitorRateOnDate, competitorTrend,
     myBaseRate, myRateOnDate, channelRate, channelVariance,
-    demandIndex, expectedOccupancy, pickup, localEventOn,
+    localEventOn,
     notifications, markNotificationRead, markAllNotificationsRead, unreadNotificationCount,
     settings, saveSettings, recommendations
   };
