@@ -52,6 +52,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
         <div class="d-flex align-items-center gap-2 mb-2">
           <i class="bi ${meta.icon}" style="color:${meta.color}"></i>
           <span class="fw-bold" style="font-size:.9rem">${m.channel.name}</span>
+          <span class="text-muted" style="font-size:.68rem">#${m.channel.channelCode}</span>
           ${m.channel.id===(master&&master.id) ? '<span class="badge bg-primary-subtle text-primary ms-auto" style="font-size:.6rem">Direct</span>' : ''}
         </div>
         <div class="kv-row"><span class="k">Current Rate</span><span class="v fw-semibold">${m.current!=null?APP.fmtCurrency(m.current):'—'}</span></div>

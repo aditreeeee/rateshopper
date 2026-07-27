@@ -23,7 +23,11 @@ document.addEventListener('DOMContentLoaded', ()=>{
   const channels = DB.channels.byProperty(propertyId);
   const master = channels.find(c=>c.type==='master');
   const myRooms = master ? DB.rooms.byChannel(master.id) : [];
-  const compsAll = [...PORTALDATA.comparisonRealProperties().map(c=>({...c, group:'real'})), ...PORTALDATA.competitors(propertyId).filter(c=>!c.isReal).map(c=>({...c, group:'synthetic'}))];
+  // Only the real properties your Company Admin actually assigned to you — same set as
+  // Competitors/Rate Shopper/Market Intelligence. The portal's larger synthetic "market sample"
+  // pool (used only on the Competitors browse page) never belongs here, otherwise a single
+  // assigned property balloons into dozens of comparisons that were never actually assigned.
+  const compsAll = PORTALDATA.comparisonRealProperties().map(c=>({...c, group:'real'}));
 
   document.getElementById('rc_date').value = PORTALDATA.dateKeyOffset(0);
   document.getElementById('rc_room').innerHTML += myRooms.map(r=>`<option value="${r.id}">${r.name}</option>`).join('');
@@ -48,24 +52,18 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
   // ---- Competitor's matched-room rate for a specific room, either snapshot or averaged ----
   function compRoomRate(comp, room, dateKey, channelFilter, useAvg, days){
-    if(comp.group==='real'){
-      const compChannels = DB.channels.byProperty(comp.realPropertyId);
-      const compMaster = compChannels.find(c=>c.type==='master');
-      if(!compMaster) return null;
-      const compRoom = DB.rooms.byChannel(compMaster.id).find(r=>r.name===room.name);
-      if(!compRoom) return null;
-      const compPlan = DB.ratePlans.byRoom(compRoom.id)[0];
-      const baseFor = dk=>{
-        const day = compPlan ? DB.rates.forPlan(compPlan.id)[dk] : null;
-        return day ? day.price : compRoom.basePrice;
-      };
-      const raw = useAvg ? avgOf(rangeDates(days).map(baseFor)) : baseFor(dateKey);
-      return channelFilter ? PORTALDATA.channelRate(raw, channelFilter, useAvg ? PORTALDATA.dateKeyOffset(0) : dateKey) : raw;
-    }
-    if(comp.roomType !== room.name) return null;
-    const chan = channelFilter || comp.primaryChannel;
-    if(!useAvg) return PORTALDATA.channelRate(PORTALDATA.competitorRateOnDate(comp, dateKey), chan, dateKey);
-    return avgOf(rangeDates(days).map(dk=> PORTALDATA.channelRate(PORTALDATA.competitorRateOnDate(comp, dk), chan, dk)));
+    const compChannels = DB.channels.byProperty(comp.realPropertyId);
+    const compMaster = compChannels.find(c=>c.type==='master');
+    if(!compMaster) return null;
+    const compRoom = DB.rooms.byChannel(compMaster.id).find(r=>r.name===room.name);
+    if(!compRoom) return null;
+    const compPlan = DB.ratePlans.byRoom(compRoom.id)[0];
+    const baseFor = dk=>{
+      const day = compPlan ? DB.rates.forPlan(compPlan.id)[dk] : null;
+      return day ? day.price : compRoom.basePrice;
+    };
+    const raw = useAvg ? avgOf(rangeDates(days).map(baseFor)) : baseFor(dateKey);
+    return channelFilter ? PORTALDATA.channelRate(raw, channelFilter, useAvg ? PORTALDATA.dateKeyOffset(0) : dateKey) : raw;
   }
 
   // ---- Build the flat comparison-row dataset for the currently selected date/channel/metric ----
@@ -79,34 +77,21 @@ document.addEventListener('DOMContentLoaded', ()=>{
           : (()=>{ const d=DB.rates.forPlan(rp.id)[dateKey]; return d ? d.price : room.basePrice; })();
 
         compsAll.forEach(comp=>{
-          let compRoomName, ratePlanName, channelKey, compRate, lastUpdated;
-
-          if(comp.group==='real'){
-            const compChannels = DB.channels.byProperty(comp.realPropertyId);
-            const compMaster = compChannels.find(c=>c.type==='master');
-            if(!compMaster) return;
-            const compRoom = DB.rooms.byChannel(compMaster.id).find(r=>r.name===room.name);
-            if(!compRoom) return;
-            const compPlans = DB.ratePlans.byRoom(compRoom.id);
-            const compPlan = compPlans.find(p=>p.mealPlan===rp.mealPlan) || compPlans[0];
-            if(!compPlan) return;
-            channelKey = channelFilter || 'direct';
-            const baseFor = dk=>{ const d=DB.rates.forPlan(compPlan.id)[dk]; return d ? d.price : compRoom.basePrice; };
-            const raw = useAvg ? avgOf(rangeDates(days).map(baseFor)) : baseFor(dateKey);
-            compRate = channelFilter ? PORTALDATA.channelRate(raw, channelFilter, dateKey) : raw;
-            compRoomName = compRoom.name;
-            ratePlanName = compPlan.name;
-            lastUpdated = compPlan.createdAt || dateKey;
-          } else {
-            if(comp.roomType !== room.name) return;
-            channelKey = channelFilter || comp.primaryChannel;
-            compRate = useAvg
-              ? avgOf(rangeDates(days).map(dk=> PORTALDATA.channelRate(PORTALDATA.competitorRateOnDate(comp, dk), channelKey, dk)))
-              : PORTALDATA.channelRate(PORTALDATA.competitorRateOnDate(comp, dateKey), channelKey, dateKey);
-            compRoomName = comp.roomType;
-            ratePlanName = `${comp.mealPlan} Rate Plan`;
-            lastUpdated = comp.createdAt || dateKey;
-          }
+          const compChannels = DB.channels.byProperty(comp.realPropertyId);
+          const compMaster = compChannels.find(c=>c.type==='master');
+          if(!compMaster) return;
+          const compRoom = DB.rooms.byChannel(compMaster.id).find(r=>r.name===room.name);
+          if(!compRoom) return;
+          const compPlans = DB.ratePlans.byRoom(compRoom.id);
+          const compPlan = compPlans.find(p=>p.mealPlan===rp.mealPlan) || compPlans[0];
+          if(!compPlan) return;
+          const channelKey = channelFilter || 'direct';
+          const baseFor = dk=>{ const d=DB.rates.forPlan(compPlan.id)[dk]; return d ? d.price : compRoom.basePrice; };
+          const raw = useAvg ? avgOf(rangeDates(days).map(baseFor)) : baseFor(dateKey);
+          const compRate = channelFilter ? PORTALDATA.channelRate(raw, channelFilter, dateKey) : raw;
+          const compRoomName = compRoom.name;
+          const ratePlanName = compPlan.name;
+          const lastUpdated = compPlan.createdAt || dateKey;
 
           const diff = compRate - myRate;
           const diffPct = myRate ? (diff/myRate*100) : 0;
@@ -115,7 +100,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
           rows.push({
             compId: comp.id, compName: comp.name, compRoomName, channelKey, ratePlanName,
             myRoomId: room.id, myRoomName: room.name, myRatePlanName: rp.name, myRateMealPlan: rp.mealPlan,
-            myRate, compRate, diff, diffPct, position, lastUpdated, isReal: comp.group==='real'
+            myRate, compRate, diff, diffPct, position, lastUpdated, isReal: true
           });
         });
       });
@@ -126,13 +111,10 @@ document.addEventListener('DOMContentLoaded', ()=>{
   function applyFilters(rows){
     const roomId = document.getElementById('rc_room').value;
     const mealPlan = document.getElementById('rc_ratePlan').value;
-    const group = document.getElementById('rc_group').value;
     const search = document.getElementById('rc_search').value.trim().toLowerCase();
     return rows.filter(r=>{
       if(roomId && r.myRoomId !== roomId) return false;
       if(mealPlan && r.myRateMealPlan !== mealPlan) return false;
-      if(group === 'real' && !r.isReal) return false;
-      if(group === 'synthetic' && r.isReal) return false;
       if(search && !(r.compName.toLowerCase().includes(search) || r.compRoomName.toLowerCase().includes(search) || r.myRoomName.toLowerCase().includes(search))) return false;
       return true;
     });
@@ -203,7 +185,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const start = rcPage * RC_PAGE_SIZE;
     const pageRows = filtered.slice(start, start+RC_PAGE_SIZE);
 
-    document.getElementById('rc_summary').textContent = `${filtered.length} matched room comparisons across ${myRooms.length} of your rooms and ${compsAll.length} tracked competitors`;
+    document.getElementById('rc_summary').textContent = `${filtered.length} matched room comparisons across ${myRooms.length} of your rooms and ${compsAll.length} assigned comparison ${compsAll.length===1?'property':'properties'}`;
 
     const cols = [
       {key:'compName', label:'Competitor Property'},
@@ -278,7 +260,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     return myRooms;
   }
 
-  function matchedCompsForRoom(room){ return compsAll.filter(c=> c.group==='real' ? true : c.roomType===room.name); }
+  function matchedCompsForRoom(room){ return compsAll; }
 
   function topCompetitorsForRoom(room, dateKey, channelFilter, useAvg, days, limit){
     const list = matchedCompsForRoom(room).map(c=>{
@@ -485,7 +467,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     renderHistory(channelFilter, compareDays);
   }
 
-  ['rc_date','rc_room','rc_ratePlan','rc_channel','rc_group','rc_compare','rc_rateMetric'].forEach(id=>{
+  ['rc_date','rc_room','rc_ratePlan','rc_channel','rc_compare','rc_rateMetric'].forEach(id=>{
     document.getElementById(id).addEventListener('input', ()=>{ rcPage = 0; renderAll(); });
   });
   document.getElementById('rc_search').addEventListener('input', ()=>{ rcPage = 0; renderTable(); });

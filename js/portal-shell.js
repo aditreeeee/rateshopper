@@ -15,6 +15,7 @@ const PORTAL = (() => {
     {href:'property-market.html', icon:'bi-globe-americas', label:'Market Intelligence'},
     {section:'Property Setup'},
     {href:'property-details.html', icon:'bi-building-gear', label:'My Property', dynamicId:true},
+    {href:'room-mapping.html', icon:'bi-signpost-split-fill', label:'Room Mapping', dynamicId:true},
     {section:'Pricing'},
     {href:'property-price-recommendations.html', icon:'bi-lightbulb-fill', label:'Pricing Recommendations'},
     {href:'property-channel-analysis.html', icon:'bi-diagram-3', label:'Channel Analysis'},

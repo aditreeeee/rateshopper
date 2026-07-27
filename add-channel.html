@@ -25,16 +25,9 @@
           <select class="form-select" id="f_property" required></select>
         </div>
         <div class="col-md-6">
-          <label class="form-label">Channel Type *</label>
-          <select class="form-select" id="f_type" required>
-            <option value="goibibo">Goibibo</option>
-            <option value="makemytrip">MakeMyTrip</option>
-            <option value="custom">Customised</option>
-          </select>
-        </div>
-        <div class="col-12 d-none" id="customNameWrap">
-          <label class="form-label">Channel Name *</label>
-          <input type="text" class="form-control" id="f_name" placeholder="e.g. Booking.com, Agoda, Direct Corporate Rates">
+          <label class="form-label">Channel *</label>
+          <select class="form-select" id="f_channel" required></select>
+          <div class="form-text">Channel ID <span id="f_channelCode">-</span> — picked from the fixed channel catalog so it stays consistent for reporting and future backend integration.</div>
         </div>
         <div class="col-md-6">
           <label class="form-label">Status</label>

@@ -10,6 +10,7 @@ const APP = (() => {
     {section:'Overview'},
     {href:'dashboard.html', icon:'bi-grid-1x2-fill', label:'Dashboard', module:'dashboard'},
     {href:'properties.html', icon:'bi-building', label:'Properties', module:'properties', match:['properties.html','property-details.html','add-property.html','add-channel.html','add-room.html','add-rate-plan.html']},
+    {href:'room-mapping.html', icon:'bi-signpost-split-fill', label:'Room Mapping', companyOnly:true, match:['room-mapping.html']},
     {href:'users.html', icon:'bi-people', label:'Users', module:'users', match:['users.html','add-user.html']},
     {section:'Account'},
     {href:'notifications.html', icon:'bi-bell', label:'Notifications', showCount:true},

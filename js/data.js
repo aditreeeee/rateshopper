@@ -6,7 +6,7 @@ const DB = (() => {
     session:'hop_session', properties:'hop_properties', channels:'hop_channels', rooms:'hop_rooms',
     ratePlans:'hop_ratePlans', rates:'hop_rates', notifications:'hop_notifications',
     activity:'hop_activity', settings:'hop_settings', users:'hop_users',
-    seeded:'hop_seeded_v27'
+    seeded:'hop_seeded_v28'
   };
 
   // Sales channels a property distributes through. Every property always has exactly one
@@ -14,14 +14,100 @@ const DB = (() => {
   // Agoda, Yatra...) and free-form 'custom' channels are added on top for rate-shopping comparisons.
   const CHANNEL_TYPES = {
     master:     { label:'Master Channel', icon:'bi-house-door-fill', color:'#3861fb' },
-    goibibo:    { label:'Goibibo',        icon:'bi-globe2',          color:'#e0117a' },
+    goibibo:    { label:'GoIBIBO MMT V3', icon:'bi-globe2',          color:'#e0117a' },
     makemytrip: { label:'MakeMyTrip',     icon:'bi-globe2',          color:'#d0021b' },
     booking:    { label:'Booking.com',    icon:'bi-globe2',          color:'#003580' },
     agoda:      { label:'Agoda',          icon:'bi-globe2',          color:'#5392f9' },
-    yatra:      { label:'Yatra',          icon:'bi-globe2',          color:'#f4831f' },
+    yatra:      { label:'Yatra / Travel Guru', icon:'bi-globe2',     color:'#f4831f' },
     custom:     { label:'Customised',     icon:'bi-sliders',         color:'#00c2a8' }
   };
   const OTA_CHANNEL_TYPES = ['goibibo','makemytrip','booking','agoda','yatra'];
+
+  // ---- Channel master catalog -------------------------------------------------------------
+  // The fixed, numbered channel list every property-level Channel record maps onto via
+  // `channelCode`. This mirrors the future SQL Server 2022 design 1:1 — a small lookup/dimension
+  // table `Channels(ChannelCode INT PRIMARY KEY, ChannelName NVARCHAR(150) NOT NULL)` that a
+  // property's own Channel rows (`PropertyChannels`, keyed by their own INT/GUID identity column,
+  // today's `channels[].id`) reference via a plain `ChannelCode INT` foreign key. Keeping the
+  // catalog code (INT, matches the real-world channel manager numbering) separate from each
+  // property's own channel-instance id is what lets this migrate to .NET/EF Core + SQL Server
+  // without any renumbering or type changes: ChannelCode stays INT end to end, ChannelName stays
+  // NVARCHAR and is never user-edited (picked from this list only), so there's nothing to migrate
+  // or reconcile when the backend goes live. Master/Direct isn't in this catalog (it isn't a
+  // 3rd-party channel) and uses the reserved code below instead.
+  const MASTER_CHANNEL_CODE = 1; // reserved — Direct/Master, not part of the OTA catalog
+  const CHANNEL_CATALOG = [
+    {code:1000, name:'Via.com'},
+    {code:1001, name:'Yatra / Travel Guru'},
+    {code:1002, name:'MakeMyTrip'},
+    {code:1005, name:'Agoda'},
+    {code:1007, name:'Booking.com'},
+    {code:1011, name:'Expedia'},
+    {code:1016, name:'Traveloka'},
+    {code:1019, name:'Airbnb'},
+    {code:1020, name:'EaseMyTrip'},
+    {code:1021, name:'Trip.com (CTrip)'},
+    {code:1024, name:'GoIBIBO MMT V3'},
+    {code:1025, name:'HappyEasyGo'},
+    {code:1030, name:'IRCTC'},
+    {code:1031, name:'Hostelworld'},
+    {code:1033, name:'HyperGuest'},
+    {code:1034, name:'Hobse'},
+    {code:1036, name:'Simplotel'},
+    {code:1039, name:'ClearTrip 2023'},
+    {code:1041, name:'Agoda - C1'},
+    {code:1042, name:'Agoda - C2'},
+    {code:1043, name:'Agoda - C3'},
+    {code:1044, name:'Agoda - C4'},
+    {code:1045, name:'Agoda - C5'},
+    {code:1046, name:'Expedia - C1'},
+    {code:1047, name:'Expedia - C2'},
+    {code:1048, name:'Expedia - C3'},
+    {code:1049, name:'Expedia - C4'},
+    {code:1050, name:'Expedia - C5'},
+    {code:1051, name:'GoIBIBO MMT V3 - C1'},
+    {code:1052, name:'GoIBIBO MMT V3 - C2'},
+    {code:1053, name:'GoIBIBO MMT V3 - C3'},
+    {code:1054, name:'GoIBIBO MMT V3 - C4'},
+    {code:1055, name:'GoIBIBO MMT V3 - C5'},
+    {code:1056, name:'Booking.com - C1'},
+    {code:1057, name:'Booking.com - C2'},
+    {code:1058, name:'Booking.com - C3'},
+    {code:1059, name:'Booking.com - C4'},
+    {code:1060, name:'Booking.com - C5'},
+    {code:1061, name:'Custom Channel 1'},
+    {code:1062, name:'Custom Channel 2'},
+    {code:1063, name:'Custom Channel 3'},
+    {code:1064, name:'Custom Channel 4'},
+    {code:1065, name:'Custom Channel 5'},
+    {code:1066, name:'Custom Channel 6'},
+    {code:1067, name:'Custom Channel 7'},
+    {code:1068, name:'Custom Channel 8'},
+    {code:1069, name:'Custom Channel 9'},
+    {code:1070, name:'Custom Channel 10'},
+    {code:1071, name:'Custom Channel 11'},
+    {code:1072, name:'Custom Channel 12'},
+    {code:1073, name:'Custom Channel 13'},
+    {code:1074, name:'Custom Channel 14'},
+    {code:1075, name:'Custom Channel 15'},
+    {code:1076, name:'Custom Channel 16'},
+    {code:1077, name:'Custom Channel 17'},
+    {code:1078, name:'Custom Channel 18'},
+    {code:1079, name:'Custom Channel 19'},
+    {code:1083, name:'IXIGO'}
+  ];
+  // legacy internal `type` key -> catalog code, for the 5 OTAs this app already special-cases
+  // (icon/color lookups elsewhere key off `type`, so these keep working unchanged).
+  const CHANNEL_TYPE_CODES = { master:MASTER_CHANNEL_CODE, goibibo:1024, makemytrip:1002, booking:1007, agoda:1005, yatra:1001 };
+  function channelCatalogEntry(code){ return CHANNEL_CATALOG.find(c=>c.code===code) || (code===MASTER_CHANNEL_CODE ? {code, name:CHANNEL_TYPES.master.label} : null); }
+  // Next unused "Custom Channel N" catalog code for a property (falls back to the lowest unused
+  // one if a property somehow burns through all 19 — still a valid INT, never crashes).
+  function nextCustomChannelCode(propertyId){
+    const used = new Set(channels.all().filter(c=>c.propertyId===propertyId).map(c=>c.channelCode));
+    const pool = CHANNEL_CATALOG.filter(c=>c.code>=1061 && c.code<=1079);
+    const free = pool.find(c=>!used.has(c.code));
+    return (free || pool[0]).code;
+  }
 
   const CITIES = [
     {name:'Grand Horizon Resort', city:'Goa', country:'India', addr:'Candolim Beach Road, Goa 403515', img:'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800&q=60'},
@@ -125,9 +211,9 @@ const DB = (() => {
     // OTA channel type seeded in, for a rich rate-shopping demo with real cross-channel data.
     let channels = [];
     properties.forEach(p=>{
-      channels.push({ id: uid('chan'), propertyId: p.id, name: CHANNEL_TYPES.master.label, type:'master', status:'active', createdAt: p.createdAt });
+      channels.push({ id: uid('chan'), propertyId: p.id, channelCode: MASTER_CHANNEL_CODE, name: CHANNEL_TYPES.master.label, type:'master', status:'active', createdAt: p.createdAt });
       OTA_CHANNEL_TYPES.forEach(type=>{
-        channels.push({ id: uid('chan'), propertyId: p.id, name: CHANNEL_TYPES[type].label, type, status: Math.random()>0.1?'active':'inactive', createdAt: p.createdAt });
+        channels.push({ id: uid('chan'), propertyId: p.id, channelCode: CHANNEL_TYPE_CODES[type], name: CHANNEL_TYPES[type].label, type, status: Math.random()>0.1?'active':'inactive', createdAt: p.createdAt });
       });
     });
     set(KEYS.channels, channels);
@@ -410,11 +496,19 @@ const DB = (() => {
     allProperties.forEach(p=>{
       let master = allChannels.find(c=>c.propertyId===p.id && c.type==='master');
       if(!master){
-        master = { id: uid('chan'), propertyId: p.id, name: CHANNEL_TYPES.master.label, type:'master', status:'active', createdAt: p.createdAt || fmtDate(new Date()) };
+        master = { id: uid('chan'), propertyId: p.id, channelCode: MASTER_CHANNEL_CODE, name: CHANNEL_TYPES.master.label, type:'master', status:'active', createdAt: p.createdAt || fmtDate(new Date()) };
         allChannels.push(master);
         channelsChanged = true;
       }
       masterByProperty[p.id] = master.id;
+    });
+    // Backfill channelCode on any channel saved before this field existed, so every record
+    // stays SQL-ready (NOT NULL INT) without needing a one-time server-side migration later.
+    allChannels.forEach(c=>{
+      if(c.channelCode == null){
+        c.channelCode = c.type==='master' ? MASTER_CHANNEL_CODE : (CHANNEL_TYPE_CODES[c.type] || nextCustomChannelCode(c.propertyId));
+        channelsChanged = true;
+      }
     });
     if(channelsChanged) set(KEYS.channels, allChannels);
 
@@ -441,6 +535,7 @@ const DB = (() => {
   }
 
   return { KEYS, seed, ensureChannels, uid, get, set, rand, pick, fmtDate, MEAL_PLANS, MEAL_LABELS, CHANNEL_TYPES,
+    CHANNEL_CATALOG, CHANNEL_TYPE_CODES, MASTER_CHANNEL_CODE, channelCatalogEntry, nextCustomChannelCode,
     properties, channels, rooms, ratePlans, rates, notifications, activity, settings, users };
 })();
 

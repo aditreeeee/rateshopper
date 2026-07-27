@@ -163,7 +163,7 @@ function renderChannels(){
         <div class="flex-grow-1">
           <div class="d-flex justify-content-between align-items-start">
             <div>
-              <div class="fw-bold">${c.name}</div>
+              <div class="fw-bold">${c.name} <span class="text-muted fw-normal" style="font-size:.7rem">#${c.channelCode}</span></div>
               <div class="text-muted" style="font-size:.76rem">${roomCount} room(s) • ${rpCount} rate plan(s)</div>
             </div>
             <span class="badge-status ${c.status==='active'?'badge-active':'badge-inactive'}">${c.status}</span>

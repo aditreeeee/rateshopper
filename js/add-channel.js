@@ -33,9 +33,8 @@ document.addEventListener('DOMContentLoaded', ()=>{
   });
 
   const propertySelect = document.getElementById('f_property');
-  const typeSelect = document.getElementById('f_type');
-  const nameWrap = document.getElementById('customNameWrap');
-  const nameInput = document.getElementById('f_name');
+  const channelSelect = document.getElementById('f_channel');
+  const channelCodeLabel = document.getElementById('f_channelCode');
   const cancelBtn = document.getElementById('cancelBtn');
 
   propertySelect.innerHTML = RBAC.filterProperties(DB.properties.all()).map(p=>`<option value="${p.id}">${p.name}</option>`).join('');
@@ -44,49 +43,67 @@ document.addEventListener('DOMContentLoaded', ()=>{
     cancelBtn.href = propertyId ? `property-details.html?id=${propertyId}&tab=channels` : 'properties.html';
   }
 
-  function refreshNameField(){
-    const showName = typeSelect.value === 'custom';
-    nameWrap.classList.toggle('d-none', !showName);
-    nameInput.required = showName;
+  // Channels a property already has (edit target excluded) can't be picked again — mirrors a
+  // future UNIQUE(PropertyId, ChannelCode) constraint in SQL Server.
+  function usedCodesForProperty(propertyId){
+    return new Set(DB.channels.all()
+      .filter(c=>c.propertyId===propertyId && c.type!=='master' && c.id!==(existing&&existing.id))
+      .map(c=>c.channelCode));
+  }
+
+  function refreshChannelOptions(){
+    const used = propertySelect.value ? usedCodesForProperty(propertySelect.value) : new Set();
+    channelSelect.innerHTML = DB.CHANNEL_CATALOG.map(c=>
+      `<option value="${c.code}" ${used.has(c.code)?'disabled':''}>${c.code} — ${c.name}${used.has(c.code)?' (already added)':''}</option>`
+    ).join('');
+    if(existing) channelSelect.value = existing.channelCode;
+    channelCodeLabel.textContent = channelSelect.value || '-';
   }
 
   if(isMaster){
-    // The Master Channel's type/name are fixed — only its status is editable here.
-    typeSelect.innerHTML = `<option value="master">Master Channel</option>`;
-    typeSelect.disabled = true;
-    nameWrap.classList.add('d-none');
+    // The Master Channel's identity is fixed — only its status is editable here.
+    channelSelect.innerHTML = `<option value="${DB.MASTER_CHANNEL_CODE}">${DB.MASTER_CHANNEL_CODE} — ${DB.CHANNEL_TYPES.master.label}</option>`;
+    channelSelect.disabled = true;
+    channelCodeLabel.textContent = DB.MASTER_CHANNEL_CODE;
+  } else {
+    refreshChannelOptions();
   }
-  typeSelect.addEventListener('change', refreshNameField);
+  channelSelect.addEventListener('change', ()=>{ channelCodeLabel.textContent = channelSelect.value || '-'; });
 
   if(existing){
     document.getElementById('submitLabel').textContent = 'Update Channel';
     propertySelect.value = existing.propertyId;
     propertySelect.disabled = true;
-    if(!isMaster) typeSelect.value = existing.type;
-    nameInput.value = existing.type === 'custom' ? existing.name : '';
     document.getElementById('f_status').value = existing.status;
   } else if(preselectProperty){
     propertySelect.value = preselectProperty;
   }
-  refreshNameField();
   updateCancelHref(preselectProperty || propertySelect.value);
   propertySelect.addEventListener('change', function(){
     updateCancelHref(this.value);
     APP.setBreadcrumb(breadcrumbFor(this.value));
+    if(!isMaster) refreshChannelOptions();
   });
 
   document.getElementById('channelForm').addEventListener('submit', function(e){
     e.preventDefault();
     if(!this.checkValidity()){ this.reportValidity(); return; }
 
-    const type = typeSelect.value;
-    const name = isMaster ? existing.name : (type === 'custom' ? nameInput.value.trim() : DB.CHANNEL_TYPES[type].label);
+    const channelCode = isMaster ? DB.MASTER_CHANNEL_CODE : Number(channelSelect.value);
+    const catalogEntry = DB.channelCatalogEntry(channelCode);
+    if(!catalogEntry){ APP.toast('Invalid Channel', 'Please choose a channel from the list.', 'error'); return; }
+
+    // type stays a loose legacy key purely for icon/color lookups elsewhere (they all fall back
+    // to the generic 'custom' style for any code outside the 5 originally-special-cased OTAs).
+    const legacyType = Object.keys(DB.CHANNEL_TYPE_CODES).find(k=> DB.CHANNEL_TYPE_CODES[k]===channelCode && k!=='master');
+    const type = isMaster ? 'master' : (legacyType || 'custom');
 
     const payload = {
       id: existing ? existing.id : undefined,
       propertyId: propertySelect.value,
+      channelCode,
       type,
-      name,
+      name: catalogEntry.name,
       status: document.getElementById('f_status').value
     };
     const saved = DB.channels.save(payload);

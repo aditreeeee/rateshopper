@@ -1,0 +1,145 @@
+/* ==========================================================================
+   Room & Meal Plan Mapping — visual layer on top of css/style.css.
+   ========================================================================== */
+@keyframes rm-fade-in{ from{ opacity:0; transform:translateY(6px); } to{ opacity:1; transform:none; } }
+#app-shell > .section-card, #app-shell > .row{ animation: rm-fade-in .35s ease both; }
+#app-shell > .row:nth-child(2){ animation-delay:.05s; }
+
+/* ---------- Summary card ---------- */
+.rm-mini-icon{
+  width:38px;height:38px;border-radius:11px;background:var(--brand-50);color:var(--brand-600);
+  display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0;
+  box-shadow:inset 0 0 0 1px rgba(56,97,251,.08);
+}
+[data-theme="dark"] .rm-mini-icon{ background:var(--brand-900); color:#cfe; }
+
+.rm-stat-value{ font-size:1.15rem; font-weight:800; color:var(--text-1); line-height:1.1; }
+.rm-stat-label{ font-size:.68rem; color:var(--text-3); font-weight:600; text-transform:uppercase; letter-spacing:.03em; }
+
+.progress-thin{ height:7px; border-radius:8px; overflow:hidden; background:var(--bg-surface-2); }
+.progress-thin .progress-bar{ border-radius:8px; transition:width .5s cubic-bezier(.4,0,.2,1); }
+
+/* Overall Mapping ring — pure CSS conic-gradient, updated via a custom property in JS */
+.rm-ring{
+  --pct: 0;
+  width:64px; height:64px; border-radius:50%; flex-shrink:0;
+  background: conic-gradient(var(--success) calc(var(--pct)*1%), var(--bg-surface-2) 0);
+  display:flex; align-items:center; justify-content:center;
+  transition: background 1s cubic-bezier(.4,0,.2,1);
+}
+.rm-ring::before{
+  content:''; position:absolute;
+}
+.rm-ring-inner{
+  width:48px; height:48px; border-radius:50%; background:var(--bg-surface);
+  display:flex; align-items:center; justify-content:center; font-weight:800; font-size:.92rem; color:var(--text-1);
+}
+
+.rm-entity-card{
+  display:flex; align-items:center; gap:10px; padding:12px 14px; border:1px solid var(--border-1);
+  border-radius:14px; background:var(--bg-surface-2); height:100%; position:relative; transition:.15s;
+}
+.rm-entity-card:hover{ border-color:var(--brand-200); }
+.rm-entity-logo{
+  width:42px;height:42px;border-radius:11px;background-size:cover;background-position:center;
+  background-color:var(--border-2); flex-shrink:0; box-shadow:var(--shadow-sm);
+}
+.rm-entity-wrap{ position:relative; }
+.rm-vs-badge{
+  position:absolute; top:50%; left:100%; transform:translate(-50%,-50%); z-index:2;
+  width:26px; height:26px; border-radius:50%; background:var(--brand-500); color:#fff;
+  display:flex; align-items:center; justify-content:center; font-size:.62rem; font-weight:800;
+  box-shadow:0 0 0 3px var(--bg-surface);
+}
+
+/* ---------- Actions ---------- */
+#rm_autoMap{ box-shadow:0 4px 14px rgba(56,97,251,.28); transition:.15s; }
+#rm_autoMap:hover{ transform:translateY(-1px); box-shadow:0 6px 18px rgba(56,97,251,.36); }
+
+/* ---------- Tabs ---------- */
+.rm-tabs .nav-link{
+  border:1px solid var(--border-1); border-radius:10px; margin-right:8px; color:var(--text-2);
+  font-weight:600; font-size:.85rem; padding:8px 16px; background:var(--bg-surface); transition:.15s;
+}
+.rm-tabs .nav-link:hover:not(.active){ border-color:var(--brand-300); color:var(--brand-600); }
+.rm-tabs .nav-link.active{ background:var(--brand-500); color:#fff; border-color:var(--brand-500); box-shadow:0 3px 10px rgba(56,97,251,.3); }
+.rm-tab-num{
+  display:inline-flex; align-items:center; justify-content:center; width:18px; height:18px;
+  border-radius:50%; background:rgba(255,255,255,.25); font-size:.68rem; margin-right:6px;
+}
+.rm-tabs .nav-link:not(.active) .rm-tab-num{ background:var(--bg-surface-2); }
+
+/* ---------- Step strip ---------- */
+.rm-steps{ display:flex; align-items:center; flex-wrap:wrap; gap:8px; }
+.rm-step{
+  display:flex; align-items:center; gap:7px; font-size:.78rem; font-weight:600; color:var(--text-3);
+  background:var(--bg-surface); border:1px solid var(--border-1); border-radius:20px; padding:7px 14px;
+  transition:.2s;
+}
+.rm-step-num{
+  display:inline-flex; align-items:center; justify-content:center; width:19px; height:19px;
+  border-radius:50%; background:var(--border-2); color:var(--text-3); font-size:.66rem; flex-shrink:0; transition:.2s;
+}
+.rm-step.active{ color:var(--brand-600); border-color:var(--brand-300); background:var(--brand-50); }
+.rm-step.active .rm-step-num{ background:var(--brand-500); color:#fff; }
+[data-theme="dark"] .rm-step.active{ background:rgba(56,97,251,.12); }
+.rm-step.done{ color:var(--success); border-color:rgba(18,183,106,.3); background:rgba(18,183,106,.06); }
+.rm-step.done .rm-step-num{ background:var(--success); color:#fff; }
+.rm-step-arrow{ color:var(--border-2); font-size:.7rem; }
+
+/* ---------- Tables ---------- */
+.rm-table-scroll{ max-height:380px; overflow-y:auto; }
+.rm-table-scroll thead th{ position:sticky; top:0; z-index:1; background:var(--bg-surface-2); }
+#rm_ourTable tbody tr:hover, #rm_compTable tbody tr:hover{ background:var(--bg-surface-2); }
+
+.rm-room-row{ cursor:pointer; transition:background .12s; }
+.rm-room-row.selected{ background:var(--brand-50) !important; box-shadow:inset 3px 0 0 var(--brand-500); }
+[data-theme="dark"] .rm-room-row.selected{ background:rgba(56,97,251,.14) !important; }
+
+.rm-room-icon{
+  width:26px; height:26px; border-radius:8px; display:inline-flex; align-items:center; justify-content:center;
+  background:var(--bg-surface-2); color:var(--text-3); font-size:.78rem; margin-right:8px;
+}
+.rm-room-row.selected .rm-room-icon{ background:var(--brand-500); color:#fff; }
+
+.rm-dot{ width:10px; height:10px; border-radius:50%; display:inline-block; }
+
+.rm-confidence{
+  font-weight:700; font-size:.74rem; padding:2px 9px; border-radius:20px; display:inline-block;
+}
+.rm-confidence.high{ color:var(--success); background:rgba(18,183,106,.12); }
+.rm-confidence.mid{ color:#b9791a; background:rgba(185,121,26,.12); }
+.rm-confidence.low{ color:var(--danger); background:rgba(255,77,94,.12); }
+
+/* ---------- "select a room first" hint above the competitor table ---------- */
+.rm-pick-hint{
+  margin:0 12px 10px; padding:9px 12px; border-radius:10px; font-size:.76rem;
+  background:var(--brand-50); color:var(--brand-600); display:flex; align-items:center; gap:6px;
+}
+[data-theme="dark"] .rm-pick-hint{ background:rgba(56,97,251,.12); color:#cfe; }
+.rm-comp-row.pickable{ cursor:pointer; }
+.rm-comp-row.pickable:hover{ background:var(--brand-50) !important; }
+[data-theme="dark"] .rm-comp-row.pickable:hover{ background:rgba(56,97,251,.1) !important; }
+.rm-comp-row.taken{ opacity:.5; }
+
+/* ---------- Selected room connector ---------- */
+.rm-connector{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.rm-connector-chip{
+  display:inline-flex; align-items:center; gap:6px; padding:5px 12px; border-radius:20px;
+  font-weight:700; font-size:.78rem; background:var(--bg-surface-2); border:1px solid var(--border-1);
+}
+.rm-connector-chip.mine{ background:var(--brand-50); color:var(--brand-600); border-color:var(--brand-200); }
+[data-theme="dark"] .rm-connector-chip.mine{ background:rgba(56,97,251,.12); }
+.rm-connector-chip.empty{ color:var(--text-3); font-weight:600; border-style:dashed; }
+.rm-connector-arrow{ color:var(--border-2); }
+
+/* ---------- Empty state ---------- */
+.rm-empty{ text-align:center; padding:28px 12px; color:var(--text-3); }
+.rm-empty i{ font-size:1.6rem; opacity:.5; display:block; margin-bottom:6px; }
+.rm-empty p{ font-size:.8rem; margin:0; }
+
+/* ---------- Sidebar cards ---------- */
+.rm-tip-row{ display:flex; align-items:flex-start; gap:8px; font-size:.78rem; color:var(--text-2); margin-bottom:10px; }
+.rm-tip-row:last-child{ margin-bottom:0; }
+.rm-tip-row i{ color:var(--brand-500); font-size:.85rem; margin-top:1px; }
+.rm-legend-row{ display:flex; align-items:center; gap:10px; padding:6px 0; }
