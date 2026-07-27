@@ -17,63 +17,125 @@
 
 <div class="rp-hero mb-3">
   <div class="rp-hero-text">
-    <div class="rp-hero-eyebrow"><i class="bi bi-stars me-1"></i>Report Snapshot</div>
-    <div class="rp-hero-title" id="rp_reportTitle">Daily Report</div>
-    <div class="rp-hero-sub" id="rp_reportRange">-</div>
+    <div class="rp-hero-eyebrow"><i class="bi bi-stars me-1"></i>Rate Intelligence</div>
+    <div class="rp-hero-title">Reports</div>
+    <div class="rp-hero-sub">Every rate report in one place — filter once, review any of them.</div>
   </div>
   <div class="rp-hero-art"><i class="bi bi-graph-up-arrow"></i></div>
 </div>
 
-<div class="section-card mb-3">
-  <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
-    <div class="fw-bold">Report Type</div>
-    <div class="d-flex gap-2">
-      <button class="btn btn-sm-icon btn-soft" id="rp_pdf" title="Export PDF"><i class="bi bi-file-earmark-pdf"></i></button>
-      <button class="btn btn-sm-icon btn-soft" id="rp_excel" title="Export Excel"><i class="bi bi-file-earmark-excel"></i></button>
-      <button class="btn btn-sm-icon btn-soft" id="rp_csv" title="Export CSV"><i class="bi bi-filetype-csv"></i></button>
-      <button class="btn btn-sm-icon btn-soft" id="rp_print" title="Print"><i class="bi bi-printer"></i></button>
+<div class="filters-bar mx-filters">
+  <div class="row g-2 mb-2 align-items-end">
+    <div class="col-6 col-lg-2">
+      <label class="form-label mb-1" style="font-size:.72rem">Date Range</label>
+      <div class="btn-group btn-group-sm w-100" id="rp_rangeGroup" role="group">
+        <button type="button" class="btn btn-soft" data-range="7">7D</button>
+        <button type="button" class="btn btn-outline-primary" data-range="14">14D</button>
+        <button type="button" class="btn btn-soft" data-range="30">30D</button>
+      </div>
+    </div>
+    <div class="col-6 col-lg-2">
+      <label class="form-label mb-1" style="font-size:.72rem">Competitor</label>
+      <div class="dropdown w-100">
+        <button class="btn btn-light w-100 dropdown-toggle text-truncate" type="button" id="rp_competitorBtn" data-bs-toggle="dropdown" data-bs-auto-close="outside">All Competitors</button>
+        <div class="dropdown-menu p-2" id="rp_competitorMenu" style="min-width:230px;max-height:280px;overflow-y:auto"></div>
+      </div>
+    </div>
+    <div class="col-6 col-lg-2">
+      <label class="form-label mb-1" style="font-size:.72rem" for="rp_room">Room</label>
+      <select class="form-select form-select-sm" id="rp_room"><option value="">All Rooms</option></select>
+    </div>
+    <div class="col-6 col-lg-2">
+      <label class="form-label mb-1" style="font-size:.72rem" for="rp_mealPlan">Meal Plan</label>
+      <select class="form-select form-select-sm" id="rp_mealPlan"><option value="">All Meal Plans</option></select>
+    </div>
+    <div class="col-6 col-lg-2">
+      <label class="form-label mb-1" style="font-size:.72rem" for="rp_channel">Channel</label>
+      <select class="form-select form-select-sm" id="rp_channel"></select>
+    </div>
+    <div class="col-6 col-lg-2">
+      <label class="form-label mb-1" style="font-size:.72rem" for="rp_ratePlan">Rate Plan</label>
+      <select class="form-select form-select-sm" id="rp_ratePlan">
+        <option value="">All Rate Plans</option>
+        <option value="refundable">Flexible</option>
+        <option value="nonrefundable">Non-Refundable</option>
+      </select>
     </div>
   </div>
-  <div class="rp-type-group" id="rp_typeGroup">
-    <button type="button" class="rp-type-chip active" data-type="daily"><i class="bi bi-sun"></i>Daily</button>
-    <button type="button" class="rp-type-chip" data-type="weekly"><i class="bi bi-calendar-week"></i>Weekly</button>
-    <button type="button" class="rp-type-chip" data-type="monthly"><i class="bi bi-calendar-month"></i>Monthly</button>
-    <button type="button" class="rp-type-chip" data-type="quarterly"><i class="bi bi-calendar3-range"></i>Quarterly</button>
-    <button type="button" class="rp-type-chip" data-type="custom"><i class="bi bi-sliders"></i>Custom</button>
-  </div>
-  <div class="row g-2 mt-3 d-none" id="rp_customWrap">
-    <div class="col-md-5"><label class="form-label">From</label><input type="date" class="form-control" id="rp_from"></div>
-    <div class="col-md-5"><label class="form-label">To</label><input type="date" class="form-control" id="rp_to"></div>
+  <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <button class="btn btn-soft btn-sm" id="rp_reset"><i class="bi bi-arrow-counterclockwise me-1"></i>Reset Filters</button>
+    <div class="d-flex gap-2">
+      <div class="dropdown">
+        <button class="btn btn-outline-primary btn-sm dropdown-toggle" data-bs-toggle="dropdown"><i class="bi bi-download me-1"></i>Export</button>
+        <ul class="dropdown-menu dropdown-menu-end">
+          <li><a class="dropdown-item" href="#" id="rp_exportCsv"><i class="bi bi-filetype-csv me-2"></i>Export CSV</a></li>
+          <li><a class="dropdown-item" href="#" id="rp_exportExcel"><i class="bi bi-file-earmark-excel me-2"></i>Export Excel</a></li>
+          <li><a class="dropdown-item" href="#" id="rp_exportPdf"><i class="bi bi-file-earmark-pdf me-2"></i>Export PDF</a></li>
+        </ul>
+      </div>
+      <button class="btn btn-soft btn-sm" id="rp_print" title="Print"><i class="bi bi-printer"></i></button>
+    </div>
   </div>
 </div>
 
-<div class="row g-3 mb-1" id="rp_kpis"></div>
+<ul class="nav nav-pills rp-tabs mb-3" id="rpTabs">
+  <li class="nav-item"><button class="nav-link active" data-tab="compare"><span class="rp-tab-num">1</span>Competitor Rate Comparison</button></li>
+  <li class="nav-item"><button class="nav-link" data-tab="trend"><span class="rp-tab-num">2</span>Historical Rate Trend</button></li>
+  <li class="nav-item"><button class="nav-link" data-tab="parity"><span class="rp-tab-num">3</span>Rate Parity</button></li>
+  <li class="nav-item"><button class="nav-link" data-tab="market"><span class="rp-tab-num">4</span>Market Rate Summary</button></li>
+</ul>
 
-<div class="row g-3 mt-1">
-  <div class="col-xxl-8">
-    <div class="chart-card mb-3">
-      <div class="d-flex justify-content-between align-items-center mb-2">
-        <div class="fw-bold">ADR Trend</div>
-        <div class="text-muted small" id="rp_trendCaption">-</div>
-      </div>
-      <canvas id="rp_trendChart" height="90"></canvas>
-    </div>
-
-    <div class="section-card p-0">
-      <div class="p-3 pb-0 fw-bold">Day-by-Day Breakdown</div>
-      <div class="table-responsive"><table class="table-modern w-100" id="rp_table"></table></div>
-    </div>
+<!-- 1. Competitor Rate Comparison -->
+<div id="rp_tabCompare">
+  <div class="text-muted small mb-2" id="rp1_summary">-</div>
+  <div class="section-card p-0">
+    <div class="table-responsive"><table class="table-modern w-100" id="rp1_table"></table></div>
   </div>
+</div>
 
-  <div class="col-xxl-4">
-    <div class="section-card mb-3">
-      <div class="fw-bold mb-2"><i class="bi bi-lightbulb-fill text-warning me-1"></i>Report Highlights</div>
-      <div id="rp_highlights"></div>
+<!-- 2. Historical Rate Trend -->
+<div id="rp_tabTrend" class="d-none">
+  <div class="chart-card">
+    <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+      <div>
+        <div class="fw-bold">Historical Rate Trend</div>
+        <div class="text-muted small" id="rp2_caption">-</div>
+      </div>
+      <div class="btn-group btn-group-sm" id="rp2_rangeGroup" role="group">
+        <button type="button" class="btn btn-soft" data-range="7">7D</button>
+        <button type="button" class="btn btn-outline-primary" data-range="14">14D</button>
+        <button type="button" class="btn btn-soft" data-range="30">30D</button>
+        <button type="button" class="btn btn-soft" data-range="monthly">Monthly</button>
+        <button type="button" class="btn btn-soft" data-range="yearly">Yearly</button>
+      </div>
     </div>
-    <div class="section-card">
-      <div class="fw-bold mb-2">Rate Volatility Heat</div>
-      <div class="text-muted small mb-2">Darker = bigger day-over-day rate change</div>
-      <div class="heatmap-grid" id="rp_heatmap"></div>
+    <canvas id="rp2_chart" height="100"></canvas>
+  </div>
+</div>
+
+<!-- 3. Rate Parity -->
+<div id="rp_tabParity" class="d-none">
+  <div class="text-muted small mb-2"><i class="bi bi-info-circle me-1"></i>Compares your Direct (Master) channel rate against every OTA channel you sell on.</div>
+  <div class="section-card p-0">
+    <div class="table-responsive"><table class="table-modern w-100" id="rp3_table"></table></div>
+  </div>
+</div>
+
+<!-- 4. Market Rate Summary -->
+<div id="rp_tabMarket" class="d-none">
+  <div class="row g-3 mb-1" id="rp4_kpis"></div>
+  <div class="row g-3 mt-1">
+    <div class="col-lg-6">
+      <div class="chart-card h-100">
+        <div class="fw-bold mb-2">Competitor Ranking Chart</div>
+        <canvas id="rp4_chart" height="160"></canvas>
+      </div>
+    </div>
+    <div class="col-lg-6">
+      <div class="section-card h-100 p-0">
+        <div class="fw-bold p-3 pb-2">Competitor Ranking</div>
+        <div class="table-responsive"><table class="table-modern w-100" id="rp4_table"></table></div>
+      </div>
     </div>
   </div>
 </div>
@@ -88,6 +150,7 @@
 <script src="js/portal-data.js"></script>
 <script src="js/portal-shell.js"></script>
 <script src="js/portal-widgets.js"></script>
+<script src="js/mapping-review.js"></script>
 <script src="js/property-reports.js"></script>
 </body>
 </html>

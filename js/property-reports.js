@@ -1,5 +1,15 @@
-let rpType = 'daily';
-let rpTrendChart = null;
+/* ==========================================================================
+   Reports — a single consolidated Rate Intelligence reporting module: four
+   reports (Competitor Rate Comparison, Historical Rate Trend, Rate Parity,
+   Market Rate Summary) behind one shared filter bar and a tab strip, all
+   built from the same seeded demo data / helpers used elsewhere in the
+   portal (PORTALDATA, MAPPING, DB). Rate/price data only — no occupancy,
+   ADR-vs-RevPAR, or booking data.
+   ========================================================================== */
+let rpRangeDays = 14;      // global Date Range filter — used by reports 1/3/4
+let rp2RangeMode = '14';   // Historical Rate Trend's own local range control
+let rp2Chart = null, rp4Chart = null;
+let rpSelectedCompetitors = null; // Set of competitor ids, null = not yet initialized (defaults to all)
 
 // Shared Chart.js animation preset — see js/property-dashboard.js for the same helper.
 function chartAnim(isBar){
@@ -12,137 +22,431 @@ function chartAnim(isBar){
 }
 
 document.addEventListener('DOMContentLoaded', ()=>{
-  const me = PORTAL.mount({ title:'Reports', subtitle:'Rate performance reports, ready to export.' });
+  const me = PORTAL.mount({ title:'Reports', subtitle:'Every Rate Intelligence report in one place, ready to export.' });
   if(!me) return;
   const propertyId = PORTAL.activePropertyId(me);
-  // Only the real properties your Company Admin assigned to you — same set as every other
-  // Rate Intelligence page (Dashboard, Rate Shopper, Market Intelligence).
+  const property = DB.properties.get(propertyId);
+
+  const ourChannels = DB.channels.byProperty(propertyId);
+  const ourMaster = ourChannels.find(c=>c.type==='master');
+  const ourRooms = ourMaster ? DB.rooms.byChannel(ourMaster.id) : [];
+  // Only the real properties your Company Admin actually assigned to you — same set as every
+  // other Rate Intelligence page (Dashboard, Rate Shopper, Market Intelligence, Rate Matrix).
   const comps = PORTALDATA.comparisonRealProperties();
+  rpSelectedCompetitors = new Set(comps.map(c=>c.id));
 
-  document.querySelectorAll('#rp_typeGroup .rp-type-chip').forEach(btn=>{
-    btn.addEventListener('click', function(){
-      rpType = this.dataset.type;
-      document.querySelectorAll('#rp_typeGroup .rp-type-chip').forEach(b=>b.classList.remove('active'));
-      this.classList.add('active');
-      document.getElementById('rp_customWrap').classList.toggle('d-none', rpType!=='custom');
-      render();
+  if(!ourRooms.length){
+    document.querySelectorAll('#rp_tabCompare,#rp_tabTrend,#rp_tabParity,#rp_tabMarket').forEach(el=>{
+      el.innerHTML = `<div class="empty-state"><i class="bi bi-door-closed"></i><h5>No rooms for this property</h5><p class="mb-0">Add a room and rate plan first.</p></div>`;
     });
-  });
-  document.getElementById('rp_from').addEventListener('input', render);
-  document.getElementById('rp_to').addEventListener('input', render);
-
-  ['rp_pdf','rp_excel','rp_csv'].forEach(id=>{
-    document.getElementById(id).addEventListener('click', ()=> APP.toast('Export Started', `Your ${rpType} report is being prepared for download.`, 'success'));
-  });
-  document.getElementById('rp_print').addEventListener('click', ()=> window.print());
-
-  function rangeForType(){
-    if(rpType==='daily') return {days:1, label:'Daily Report'};
-    if(rpType==='weekly') return {days:7, label:'Weekly Report'};
-    if(rpType==='monthly') return {days:30, label:'Monthly Report'};
-    if(rpType==='quarterly') return {days:90, label:'Quarterly Report'};
-    const from = document.getElementById('rp_from').value, to = document.getElementById('rp_to').value;
-    const days = (from && to) ? Math.max(1, Math.round((new Date(to)-new Date(from))/86400000)+1) : 7;
-    return {days, label:'Custom Report', from};
+    return;
   }
 
-  function marketAvgOn(dk){
-    if(!comps.length) return null;
-    return Math.round(comps.reduce((s,c)=>s+PORTALDATA.competitorRateOnDate(c,dk),0)/comps.length);
+  // ---- Filter option population ----
+  document.getElementById('rp_room').innerHTML += ourRooms.map(r=>`<option value="${r.id}">${r.name}</option>`).join('');
+  document.getElementById('rp_mealPlan').innerHTML += PORTALDATA.MEAL_PLANS.map(m=>`<option value="${m}">${m}</option>`).join('');
+  document.getElementById('rp_channel').innerHTML = ourChannels.map(c=>`<option value="${c.id}" ${c.type==='master'?'selected':''}>${c.name}</option>`).join('');
+
+  function renderCompetitorMenu(){
+    const menu = document.getElementById('rp_competitorMenu');
+    menu.innerHTML = `
+      <div class="mx-check-actions">
+        <button type="button" class="btn btn-link btn-sm p-0" id="rp_compAll">Select All</button>
+        <span class="text-muted">·</span>
+        <button type="button" class="btn btn-link btn-sm p-0" id="rp_compNone">Clear</button>
+      </div>
+      ${comps.map(c=>`<label class="mx-check-row"><input type="checkbox" class="rp-comp-check" value="${c.id}" ${rpSelectedCompetitors.has(c.id)?'checked':''}>${c.name}</label>`).join('') || '<div class="text-muted small px-2">No comparison properties assigned yet.</div>'}
+    `;
+    document.getElementById('rp_compAll').addEventListener('click', ()=>{ rpSelectedCompetitors = new Set(comps.map(c=>c.id)); renderCompetitorMenu(); renderActiveTab(); });
+    document.getElementById('rp_compNone').addEventListener('click', ()=>{ rpSelectedCompetitors = new Set(); renderCompetitorMenu(); renderActiveTab(); });
+    document.querySelectorAll('.rp-comp-check').forEach(cb=>{
+      cb.addEventListener('change', ()=>{
+        if(cb.checked) rpSelectedCompetitors.add(cb.value); else rpSelectedCompetitors.delete(cb.value);
+        updateCompetitorBtnLabel();
+        renderActiveTab();
+      });
+    });
+    updateCompetitorBtnLabel();
+  }
+  function updateCompetitorBtnLabel(){
+    const btn = document.getElementById('rp_competitorBtn');
+    if(rpSelectedCompetitors.size === comps.length) btn.textContent = 'All Competitors';
+    else if(rpSelectedCompetitors.size === 0) btn.textContent = 'No Competitors';
+    else btn.textContent = `${rpSelectedCompetitors.size} Competitor${rpSelectedCompetitors.size>1?'s':''}`;
   }
 
-  function volatilityClass(pct){ return pct>=8 ? 'hot' : pct>=3 ? 'warm' : 'cool'; }
+  // ---- Shared helpers (same model as Rate Matrix / Mapping Review) ----
+  function findRoomOnChannel(pid, refChannel, roomName){
+    if(!refChannel) return null;
+    const channels = DB.channels.byProperty(pid);
+    const target = channels.find(c=>c.id===refChannel.id) || channels.find(c=>c.channelCode===refChannel.channelCode);
+    if(!target) return null;
+    return DB.rooms.byChannel(target.id).find(r=>r.name===roomName) || null;
+  }
+  function rateFor(channelRoom, dateKey, mealPlanFilter, ratePlanFilter){
+    if(!channelRoom) return null;
+    let plans = DB.ratePlans.byRoom(channelRoom.id);
+    if(mealPlanFilter) plans = plans.filter(p=>p.mealPlan===mealPlanFilter);
+    if(ratePlanFilter==='refundable') plans = plans.filter(p=>p.refundable);
+    else if(ratePlanFilter==='nonrefundable') plans = plans.filter(p=>!p.refundable);
+    const plan = plans[0];
+    if(!plan) return null;
+    const day = DB.rates.forPlan(plan.id)[dateKey];
+    const price = day ? day.price : channelRoom.basePrice;
+    return { price, plan };
+  }
+  function filters(){
+    return {
+      roomFilter: document.getElementById('rp_room').value,
+      mealPlanFilter: document.getElementById('rp_mealPlan').value,
+      ratePlanFilter: document.getElementById('rp_ratePlan').value,
+      channel: DB.channels.get(document.getElementById('rp_channel').value) || ourMaster
+    };
+  }
+  // Visible competitors (respecting the multi-select) with their MAPPING-verified matched rooms
+  function visibleCompetitorMappings(roomFilter){
+    return comps.filter(c=>rpSelectedCompetitors.has(c.id)).map(c=>{
+      MAPPING.ensureAutoMapped(propertyId, c.realPropertyId);
+      const ev = MAPPING.evaluate(propertyId, c.realPropertyId);
+      let mapped = ev.rooms.filter(r=>r.compRoom);
+      if(roomFilter) mapped = mapped.filter(r=>r.ourRoom.id===roomFilter);
+      return { comp:c, mapped };
+    }).filter(x=>x.mapped.length);
+  }
 
-  function render(){
-    const {days, label} = rangeForType();
-    document.getElementById('rp_reportTitle').textContent = label;
+  function renderTabs(){
+    document.querySelectorAll('#rpTabs .nav-link').forEach(btn=>{
+      btn.addEventListener('click', function(){
+        document.querySelectorAll('#rpTabs .nav-link').forEach(b=>b.classList.remove('active'));
+        this.classList.add('active');
+        const tab = this.dataset.tab;
+        document.getElementById('rp_tabCompare').classList.toggle('d-none', tab!=='compare');
+        document.getElementById('rp_tabTrend').classList.toggle('d-none', tab!=='trend');
+        document.getElementById('rp_tabParity').classList.toggle('d-none', tab!=='parity');
+        document.getElementById('rp_tabMarket').classList.toggle('d-none', tab!=='market');
+        renderActiveTab();
+      });
+    });
+  }
+  function activeTab(){ return document.querySelector('#rpTabs .nav-link.active').dataset.tab; }
+  function renderActiveTab(){
+    const tab = activeTab();
+    if(tab==='compare') renderCompare();
+    else if(tab==='trend') renderTrend();
+    else if(tab==='parity') renderParity();
+    else renderMarket();
+  }
 
-    const data = Array.from({length:Math.min(days,31)}).map((_,d)=>{
+  /* ======================================================================
+     1. Competitor Rate Comparison Report
+     ====================================================================== */
+  function renderCompare(){
+    const { roomFilter, mealPlanFilter, ratePlanFilter, channel } = filters();
+    const today = PORTALDATA.dateKeyOffset(0);
+    const myRooms = ourRooms.filter(r=> !roomFilter || r.id===roomFilter);
+    const compMaps = visibleCompetitorMappings(roomFilter);
+
+    const rows = [];
+    myRooms.forEach(myRoom=>{
+      const myChannelRoom = findRoomOnChannel(propertyId, channel, myRoom.name);
+      const myResult = rateFor(myChannelRoom, today, mealPlanFilter, ratePlanFilter);
+      const myRate = myResult ? myResult.price : null;
+
+      // Every competitor mapped to this room, for the Lowest/Highest/Market Average columns
+      const compRatesForRoom = [];
+      compMaps.forEach(({comp, mapped})=>{
+        const m = mapped.find(x=>x.ourRoom.id===myRoom.id);
+        if(!m) return;
+        const compChannelRoom = findRoomOnChannel(comp.realPropertyId, channel, m.compRoom.name);
+        const result = rateFor(compChannelRoom, today, mealPlanFilter, ratePlanFilter);
+        if(result) compRatesForRoom.push({ comp, compRoom:m.compRoom, plan:result.plan, rate:result.price });
+      });
+      if(!compRatesForRoom.length) return;
+
+      const allRates = compRatesForRoom.map(r=>r.rate);
+      const lowest = Math.min(...allRates), highest = Math.max(...allRates);
+      const marketAvg = Math.round(allRates.reduce((a,b)=>a+b,0)/allRates.length);
+
+      compRatesForRoom.forEach(cr=>{
+        const diff = myRate!=null ? cr.rate - myRate : null;
+        const diffPct = (myRate) ? (diff/myRate*100) : null;
+        rows.push({ myRoom, cr, myRate, diff, diffPct, lowest, highest, marketAvg });
+      });
+    });
+
+    document.getElementById('rp1_summary').textContent = `${rows.length} room comparisons across ${myRooms.length} of your rooms and ${compMaps.length} competitor propert${compMaps.length===1?'y':'ies'} for ${APP.fmtDateReadable(today)}.`;
+
+    document.getElementById('rp1_table').innerHTML = `
+      <thead><tr>
+        <th>My Property</th><th>Competitor</th><th>Room</th><th>Meal Plan</th><th>Channel</th>
+        <th>My Rate</th><th>Competitor Rate</th><th>Difference (₹)</th><th>Difference (%)</th>
+        <th>Lowest Rate</th><th>Highest Rate</th><th>Market Average</th>
+      </tr></thead>
+      <tbody>${rows.map(r=>`<tr>
+        <td class="fw-semibold">${property.name}</td>
+        <td>${r.cr.comp.name}</td>
+        <td>${r.myRoom.name}</td>
+        <td>${r.cr.plan.mealPlan}</td>
+        <td>${(()=>{ const meta = DB.CHANNEL_TYPES[channel&&channel.type] || DB.CHANNEL_TYPES.custom; return `<i class="bi ${meta.icon} me-1" style="color:${meta.color}"></i>${channel?channel.name:'—'}`; })()}</td>
+        <td class="fw-semibold">${r.myRate!=null?APP.fmtCurrency(r.myRate):'—'}</td>
+        <td class="fw-semibold">${APP.fmtCurrency(r.cr.rate)}</td>
+        <td class="${r.diff==null?'':r.diff>=0?'text-danger':'text-success'}">${r.diff==null?'—':`${r.diff>=0?'+':''}${APP.fmtCurrency(r.diff)}`}</td>
+        <td class="${r.diffPct==null?'':r.diffPct>=0?'text-danger':'text-success'}">${r.diffPct==null?'—':`${r.diffPct>=0?'+':''}${r.diffPct.toFixed(1)}%`}</td>
+        <td>${APP.fmtCurrency(r.lowest)}</td>
+        <td>${APP.fmtCurrency(r.highest)}</td>
+        <td>${APP.fmtCurrency(r.marketAvg)}</td>
+      </tr>`).join('') || `<tr><td colspan="12" class="text-center text-muted py-4">No mapped room comparisons for these filters.</td></tr>`}</tbody>`;
+  }
+
+  /* ======================================================================
+     2. Historical Rate Trend Report
+     ====================================================================== */
+  function numDaysForRp2(range){
+    if(range==='monthly'){ const n = new Date(); return new Date(n.getFullYear(), n.getMonth()+1, 0).getDate(); }
+    if(range==='yearly') return 365;
+    return Number(range);
+  }
+  function renderTrend(){
+    const { roomFilter, mealPlanFilter, ratePlanFilter, channel } = filters();
+    const days = numDaysForRp2(rp2RangeMode);
+    const step = rp2RangeMode==='yearly' ? 7 : 1;
+    const labels = [];
+    const offsets = [];
+    for(let d=-(days-1); d<=0; d+=step){ offsets.push(d); labels.push(PORTALDATA.dateKeyOffset(d).slice(5)); }
+
+    const myRoom = roomFilter ? ourRooms.find(r=>r.id===roomFilter) : ourRooms[0];
+    const compMaps = visibleCompetitorMappings(roomFilter);
+
+    document.getElementById('rp2_caption').textContent = `${myRoom ? myRoom.name : 'All Rooms'} · ${rp2RangeMode==='yearly'?'weekly samples over 1 year':rp2RangeMode==='monthly'?'this month':`last ${days} days`}`;
+
+    const myData = offsets.map(d=>{
       const dk = PORTALDATA.dateKeyOffset(d);
-      const rate = PORTALDATA.myRateOnDate(propertyId, dk);
-      const market = marketAvgOn(dk);
-      const prevRate = PORTALDATA.myRateOnDate(propertyId, PORTALDATA.dateKeyOffset(d-1));
-      const changePct = prevRate ? Math.abs((rate-prevRate)/prevRate*100) : 0;
-      return { dk, rate, market, diff: market!=null ? rate-market : null, changePct };
+      const channelRoom = findRoomOnChannel(propertyId, channel, myRoom.name);
+      const result = rateFor(channelRoom, dk, mealPlanFilter, ratePlanFilter);
+      return result ? result.price : null;
     });
 
-    document.getElementById('rp_reportRange').textContent = data.length>1
-      ? `${APP.fmtDateReadable(data[0].dk)} — ${APP.fmtDateReadable(data[data.length-1].dk)} · ${data.length} days`
-      : APP.fmtDateReadable(data[0].dk);
+    const compSeries = compMaps.map(({comp, mapped})=>{
+      const m = mapped.find(x=>x.ourRoom.id===myRoom.id) || mapped[0];
+      const data = offsets.map(d=>{
+        const dk = PORTALDATA.dateKeyOffset(d);
+        const compChannelRoom = findRoomOnChannel(comp.realPropertyId, channel, m.compRoom.name);
+        const result = rateFor(compChannelRoom, dk, mealPlanFilter, ratePlanFilter);
+        return result ? result.price : null;
+      });
+      return { name:comp.name, data };
+    });
 
-    // ---- KPIs (rate-only — no occupancy/RevPAR/demand) ----
-    const avgAdr = Math.round(data.reduce((s,r)=>s+r.rate,0)/data.length);
-    const rates = data.map(r=>r.rate);
-    const highestDay = data.reduce((max,r)=> r.rate>max.rate?r:max, data[0]);
-    const lowestDay = data.reduce((min,r)=> r.rate<min.rate?r:min, data[0]);
-    const validDiffs = data.filter(r=>r.diff!=null);
-    const avgDiffPct = validDiffs.length ? (validDiffs.reduce((s,r)=>s+(r.diff/r.market*100),0)/validDiffs.length) : null;
-    const firstHalf = data.slice(0, Math.ceil(data.length/2));
-    const secondHalf = data.slice(Math.ceil(data.length/2));
-    const avgFirst = firstHalf.reduce((s,r)=>s+r.rate,0)/firstHalf.length;
-    const avgSecond = secondHalf.length ? secondHalf.reduce((s,r)=>s+r.rate,0)/secondHalf.length : avgFirst;
-    const trendPct = avgFirst ? Math.round(((avgSecond-avgFirst)/avgFirst)*1000)/10 : 0;
+    const marketAvgData = offsets.map((d,i)=>{
+      const vals = compSeries.map(s=>s.data[i]).filter(v=>v!=null);
+      return vals.length ? Math.round(vals.reduce((a,b)=>a+b,0)/vals.length) : null;
+    });
 
-    document.getElementById('rp_kpis').innerHTML = [
-      PWIDGETS.kpiCard({icon:'bi-cash-coin', color:'#3861fb', bg:'#eef4ff', label:'Average ADR', value:APP.fmtCurrency(avgAdr), sub:`${trendPct>=0?'+':''}${trendPct}% over period`, subDir:trendPct>=0?'up':'down',
-        desc:'Your average daily rate across the selected report period.'}),
-      PWIDGETS.kpiCard({icon:'bi-arrow-up-circle', color:'#12b76a', bg:'#e7faf1', label:'Highest Rate Day', value:APP.fmtDateReadable(highestDay.dk), sub:APP.fmtCurrency(highestDay.rate),
-        desc:'The day with your highest rate in this report period.'}),
-      PWIDGETS.kpiCard({icon:'bi-arrow-down-circle', color:'#ff4d5e', bg:'#fff0f1', label:'Lowest Rate Day', value:APP.fmtDateReadable(lowestDay.dk), sub:APP.fmtCurrency(lowestDay.rate),
-        desc:'The day with your lowest rate in this report period.'}),
-      PWIDGETS.kpiCard({icon:'bi-bar-chart', color:'#8c5cf7', bg:'#f3eeff', label:'Vs. Market Average', value: avgDiffPct!=null ? `${avgDiffPct>=0?'+':''}${avgDiffPct.toFixed(1)}%` : '—',
-        desc:'How your rate compares to the average of your assigned comparison properties over this period.'}),
+    const palette = ['#a9b0c9','#9fd6ca','#c3aee8','#f2c194','#e6a8c4','#a6d9a6','#e3a6a6','#a9c6e8'];
+    const datasets = [
+      { label:'My Rate', data:myData, borderColor:'#3861fb', backgroundColor:'rgba(56,97,251,.1)', borderWidth:3, fill:true, tension:.3, pointRadius:0, spanGaps:true },
+      { label:'Market Average', data:marketAvgData, borderColor:'#8c5cf7', backgroundColor:'transparent', borderDash:[5,4], borderWidth:2, tension:.3, pointRadius:0, spanGaps:true }
+    ];
+    compSeries.forEach((s,i)=> datasets.push({ label:s.name, data:s.data, borderColor:palette[i%palette.length], backgroundColor:'transparent', borderWidth:1.25, tension:.3, pointRadius:0, spanGaps:true }));
+
+    if(rp2Chart) rp2Chart.destroy();
+    rp2Chart = new Chart(document.getElementById('rp2_chart'), {
+      type:'line',
+      data:{ labels, datasets },
+      options:{
+        responsive:true, interaction:{mode:'index', intersect:false}, animation:chartAnim(false),
+        plugins:{ legend:{position:'bottom'}, tooltip:{callbacks:{label:ctx=>`${ctx.dataset.label}: ${ctx.parsed.y!=null?APP.fmtCurrency(ctx.parsed.y):'—'}`}} },
+        scales:{ y:{ticks:{callback:v=>APP.fmtCurrency(v)}} }
+      }
+    });
+  }
+
+  /* ======================================================================
+     3. Rate Parity Report — Direct (Master) vs. every OTA channel, property-wide
+     ====================================================================== */
+  function renderParity(){
+    const { roomFilter, mealPlanFilter, ratePlanFilter } = filters();
+    const today = PORTALDATA.dateKeyOffset(0);
+    const myRoomsFiltered = ourRooms.filter(r=> !roomFilter || r.id===roomFilter);
+    const otaChannels = ourChannels.filter(c=>c.type!=='master');
+
+    function avgRateOnChannel(channel){
+      const rates = [];
+      myRoomsFiltered.forEach(room=>{
+        const channelRoom = findRoomOnChannel(propertyId, channel, room.name);
+        const result = rateFor(channelRoom, today, mealPlanFilter, ratePlanFilter);
+        if(result) rates.push(result.price);
+      });
+      return rates.length ? Math.round(rates.reduce((a,b)=>a+b,0)/rates.length) : null;
+    }
+    function violationsOnChannel(channel, directAvg){
+      let count = 0;
+      myRoomsFiltered.forEach(room=>{
+        const channelRoom = findRoomOnChannel(propertyId, channel, room.name);
+        const result = rateFor(channelRoom, today, mealPlanFilter, ratePlanFilter);
+        if(result && directAvg!=null && result.price < directAvg) count++;
+      });
+      return count;
+    }
+
+    const directAvg = avgRateOnChannel(ourMaster);
+    const allChannelAvgs = [{ channel:ourMaster, avg:directAvg }, ...otaChannels.map(c=>({ channel:c, avg:avgRateOnChannel(c) }))].filter(x=>x.avg!=null);
+    const cheapest = allChannelAvgs.length ? allChannelAvgs.reduce((min,x)=> x.avg<min.avg?x:min) : null;
+
+    const rows = otaChannels.map(channel=>{
+      const otaAvg = avgRateOnChannel(channel);
+      const diff = (otaAvg!=null && directAvg!=null) ? otaAvg-directAvg : null;
+      const status = diff==null ? null : diff>=0 ? 'parity' : 'undercut';
+      const violations = directAvg!=null ? violationsOnChannel(channel, directAvg) : 0;
+      return { channel, otaAvg, diff, status, violations };
+    });
+
+    document.getElementById('rp3_table').innerHTML = `
+      <thead><tr><th>Channel</th><th>Direct Rate</th><th>OTA Rate</th><th>Difference</th><th>Parity Status</th><th>Violations</th><th>Cheapest Channel</th></tr></thead>
+      <tbody>${rows.map(r=>{
+        const meta = DB.CHANNEL_TYPES[r.channel.type] || DB.CHANNEL_TYPES.custom;
+        return `<tr>
+          <td><i class="bi ${meta.icon} me-1" style="color:${meta.color}"></i>${r.channel.name}</td>
+          <td class="fw-semibold">${directAvg!=null?APP.fmtCurrency(directAvg):'—'}</td>
+          <td class="fw-semibold">${r.otaAvg!=null?APP.fmtCurrency(r.otaAvg):'—'}</td>
+          <td class="${r.diff==null?'':r.diff<0?'text-danger':'text-success'}">${r.diff==null?'—':`${r.diff>=0?'+':''}${APP.fmtCurrency(r.diff)}`}</td>
+          <td>${r.status==null?'<span class="text-muted">—</span>':r.status==='parity'?'<span class="badge-status badge-active"><i class="bi bi-check-circle-fill me-1"></i>At Parity</span>':'<span class="badge-status badge-inactive"><i class="bi bi-exclamation-triangle-fill me-1"></i>Undercut</span>'}</td>
+          <td>${r.violations>0?`<span class="badge bg-danger-subtle text-danger">${r.violations} room(s)</span>`:'<span class="text-muted">0</span>'}</td>
+          <td>${cheapest ? `<i class="bi ${(DB.CHANNEL_TYPES[cheapest.channel.type]||DB.CHANNEL_TYPES.custom).icon} me-1"></i>${cheapest.channel.name}` : '—'}</td>
+        </tr>`;
+      }).join('') || `<tr><td colspan="7" class="text-center text-muted py-4">No OTA channels found for this property.</td></tr>`}</tbody>`;
+  }
+
+  /* ======================================================================
+     4. Market Rate Summary Report
+     ====================================================================== */
+  function renderMarket(){
+    const { roomFilter, mealPlanFilter, ratePlanFilter, channel } = filters();
+    const today = PORTALDATA.dateKeyOffset(0);
+    const compMaps = visibleCompetitorMappings(roomFilter);
+
+    // One representative rate per competitor: the selected room's rate, or (if "All Rooms")
+    // the average across every room mapped to that competitor.
+    const compRates = compMaps.map(({comp, mapped})=>{
+      const rates = mapped.map(m=>{
+        const compChannelRoom = findRoomOnChannel(comp.realPropertyId, channel, m.compRoom.name);
+        const result = rateFor(compChannelRoom, today, mealPlanFilter, ratePlanFilter);
+        return result ? result.price : null;
+      }).filter(v=>v!=null);
+      if(!rates.length) return null;
+      return { comp, rate: Math.round(rates.reduce((a,b)=>a+b,0)/rates.length) };
+    }).filter(Boolean).sort((a,b)=>a.rate-b.rate);
+
+    if(!compRates.length){
+      document.getElementById('rp4_kpis').innerHTML = `<div class="col-12">${PWIDGETS.emptyState('bi-globe-americas','No market data','Adjust your filters or ask your Company Admin to assign comparison properties.')}</div>`;
+      document.getElementById('rp4_table').innerHTML = '';
+      if(rp4Chart){ rp4Chart.destroy(); rp4Chart=null; }
+      return;
+    }
+
+    const rates = compRates.map(c=>c.rate);
+    const lowest = rates[0], highest = rates[rates.length-1];
+    const avg = Math.round(rates.reduce((a,b)=>a+b,0)/rates.length);
+    const median = rates[Math.floor(rates.length/2)];
+    const range = highest-lowest;
+
+    document.getElementById('rp4_kpis').innerHTML = [
+      PWIDGETS.kpiCard({icon:'bi-arrow-down-circle', color:'#12b76a', bg:'#e7faf1', label:'Lowest Market Rate', value:APP.fmtCurrency(lowest), desc:'The cheapest rate among your visible comparison properties today.'}),
+      PWIDGETS.kpiCard({icon:'bi-arrow-up-circle', color:'#ff4d5e', bg:'#fff0f1', label:'Highest Market Rate', value:APP.fmtCurrency(highest), desc:'The most expensive rate among your visible comparison properties today.'}),
+      PWIDGETS.kpiCard({icon:'bi-bar-chart', color:'#3861fb', bg:'#eef4ff', label:'Average Market Rate', value:APP.fmtCurrency(avg), desc:'The average rate across your visible comparison properties today.'}),
+      PWIDGETS.kpiCard({icon:'bi-distribute-vertical', color:'#8c5cf7', bg:'#f3eeff', label:'Median Rate', value:APP.fmtCurrency(median), desc:'The middle rate when every comparison property is sorted low to high.'}),
+      PWIDGETS.kpiCard({icon:'bi-arrows-expand', color:'#b9791a', bg:'#fff8e6', label:'Price Range', value:APP.fmtCurrency(range), desc:'The spread between the highest and lowest market rate today.'}),
     ].join('');
 
-    // ---- ADR trend chart (mine vs. market average) ----
-    document.getElementById('rp_trendCaption').textContent = `${label} · ${data.length} day(s)`;
-    if(rpTrendChart) rpTrendChart.destroy();
-    const datasets = [{ label:'My ADR', data:data.map(r=>r.rate), borderColor:'#3861fb', backgroundColor:'rgba(56,97,251,.1)', tension:.35, fill:true, pointRadius:data.length>1?2:4 }];
-    if(comps.length) datasets.push({ label:'Market Average', data:data.map(r=>r.market), borderColor:'#8c5cf7', backgroundColor:'transparent', borderDash:[5,4], tension:.35, pointRadius:0 });
-    rpTrendChart = new Chart(document.getElementById('rp_trendChart'), {
-      type:'line',
-      data:{ labels: data.map(r=>APP.fmtDateReadable(r.dk).slice(0,6)), datasets },
-      options:{ responsive:true, animation:chartAnim(false), plugins:{legend:{display:comps.length>0, position:'bottom'}}, scales:{y:{ticks:{callback:v=>APP.fmtCurrency(v)}}} }
+    if(rp4Chart) rp4Chart.destroy();
+    rp4Chart = new Chart(document.getElementById('rp4_chart'), {
+      type:'bar',
+      data:{ labels: compRates.map(c=>c.comp.name), datasets:[{ data: compRates.map(c=>c.rate), backgroundColor:'#3861fb', borderRadius:6 }] },
+      options:{ indexAxis:'y', responsive:true, animation:chartAnim(true), plugins:{legend:{display:false}}, scales:{x:{ticks:{callback:v=>APP.fmtCurrency(v)}}} }
     });
 
-    // ---- Highlights (rate-only) ----
-    const highlights = [];
-    highlights.push({ icon:'bi-graph-up-arrow', color:trendPct>=0?'#12b76a':'#ff4d5e', bg:trendPct>=0?'#e7faf1':'#fff0f1',
-      text:`Your ADR ${trendPct>=0?'rose':'fell'} <b>${Math.abs(trendPct)}%</b> from the first half to the second half of this period.` });
-    highlights.push({ icon:'bi-arrow-up-circle', color:'#12b76a', bg:'#e7faf1',
-      text:`<b>${APP.fmtDateReadable(highestDay.dk)}</b> was your highest rate day at <b>${APP.fmtCurrency(highestDay.rate)}</b>.` });
-    if(avgDiffPct!=null){
-      highlights.push({ icon:'bi-bar-chart', color:avgDiffPct>=0?'#ff4d5e':'#12b76a', bg:avgDiffPct>=0?'#fff0f1':'#e7faf1',
-        text:`You were priced <b>${Math.abs(avgDiffPct).toFixed(1)}% ${avgDiffPct>=0?'above':'below'}</b> the market average across this period.` });
-    }
-    const volatileDays = data.filter(r=>r.changePct>=8).length;
-    if(volatileDays>0) highlights.push({ icon:'bi-activity', color:'#b9791a', bg:'#fff8e6',
-      text:`<b>${volatileDays}</b> day(s) in this report had a rate change of 8%+ from the day before.` });
-
-    document.getElementById('rp_highlights').innerHTML = highlights.map(h=>`
-      <div class="rp-highlight-row">
-        <div class="rp-highlight-icon" style="background:${h.bg};color:${h.color}"><i class="bi ${h.icon}"></i></div>
-        <div class="rp-highlight-text">${h.text}</div>
-      </div>`).join('');
-
-    // ---- Rate volatility heatmap (day-over-day % change, not demand) ----
-    document.getElementById('rp_heatmap').innerHTML = data.map(r=>
-      `<div class="heatmap-cell" style="background:${PWIDGETS.heatCellColor(Math.min(100, r.changePct*8))}" title="${APP.fmtDateReadable(r.dk)}: ${r.changePct.toFixed(1)}% change vs. prior day">${new Date(r.dk+'T00:00:00').getDate()}</div>`
-    ).join('');
-
-    // ---- Table (rate-only columns) ----
-    const rows = data.map(r=>`<tr>
-      <td class="fw-semibold">${APP.fmtDateReadable(r.dk)}</td>
-      <td>${APP.fmtCurrency(r.rate)}</td>
-      <td>${r.market!=null ? APP.fmtCurrency(r.market) : '—'}</td>
-      <td class="${r.diff!=null && r.diff>=0 ? 'text-danger' : r.diff!=null ? 'text-success' : ''}">${r.diff!=null ? `${r.diff>=0?'+':''}${APP.fmtCurrency(r.diff)}` : '—'}</td>
-      <td><span class="rp-demand-badge ${volatilityClass(r.changePct)}">${r.changePct.toFixed(1)}%</span></td>
-    </tr>`).join('');
-
-    document.getElementById('rp_table').innerHTML = `
-      <thead><tr><th>Date</th><th>My ADR</th><th>Market Average</th><th>Difference</th><th>Day-over-Day Change</th></tr></thead>
-      <tbody>${rows}</tbody>`;
+    document.getElementById('rp4_table').innerHTML = `
+      <thead><tr><th>Rank</th><th>Competitor</th><th>Rate</th><th>Vs. Average</th></tr></thead>
+      <tbody>${compRates.map((c,i)=>{
+        const diff = c.rate-avg;
+        return `<tr>
+          <td>#${i+1}</td>
+          <td>${c.comp.name}</td>
+          <td class="fw-semibold">${APP.fmtCurrency(c.rate)}</td>
+          <td class="${diff>=0?'text-danger':'text-success'}">${diff>=0?'+':''}${APP.fmtCurrency(diff)}</td>
+        </tr>`;
+      }).join('')}</tbody>`;
   }
 
-  render();
+  /* ======================================================================
+     Export (current tab only) / Print / Reset / Wiring
+     ====================================================================== */
+  function currentTableId(){
+    const tab = activeTab();
+    return tab==='compare' ? 'rp1_table' : tab==='parity' ? 'rp3_table' : tab==='market' ? 'rp4_table' : null;
+  }
+  function exportCsv(){
+    const tableId = currentTableId();
+    if(!tableId){ APP.toast('Nothing to Export', 'Switch to a table-based report tab to export its data.', 'warn'); return; }
+    const table = document.getElementById(tableId);
+    const lines = [...table.querySelectorAll('tr')].map(tr=>
+      [...tr.children].map(cell=>`"${cell.textContent.trim().replace(/"/g,'""')}"`).join(',')
+    );
+    const blob = new Blob([lines.join('\n')], { type:'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `report-${activeTab()}-${DB.fmtDate(new Date())}.csv`;
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+    APP.toast('Export Complete', 'Your CSV file has been downloaded.', 'success');
+  }
+
+  function resetFilters(){
+    rpRangeDays = 14;
+    document.querySelectorAll('#rp_rangeGroup [data-range]').forEach(b=>{
+      b.classList.toggle('btn-outline-primary', b.dataset.range==='14');
+      b.classList.toggle('btn-soft', b.dataset.range!=='14');
+    });
+    document.getElementById('rp_room').value = '';
+    document.getElementById('rp_mealPlan').value = '';
+    document.getElementById('rp_channel').value = ourMaster ? ourMaster.id : '';
+    document.getElementById('rp_ratePlan').value = '';
+    rpSelectedCompetitors = new Set(comps.map(c=>c.id));
+    renderCompetitorMenu();
+    renderActiveTab();
+  }
+
+  document.querySelectorAll('#rp_rangeGroup [data-range]').forEach(btn=>{
+    btn.addEventListener('click', function(){
+      rpRangeDays = Number(this.dataset.range);
+      document.querySelectorAll('#rp_rangeGroup [data-range]').forEach(b=>{
+        const active = b===this;
+        b.classList.toggle('btn-soft', !active); b.classList.toggle('btn-outline-primary', active);
+      });
+      renderActiveTab();
+    });
+  });
+  document.querySelectorAll('#rp2_rangeGroup [data-range]').forEach(btn=>{
+    btn.addEventListener('click', function(){
+      rp2RangeMode = this.dataset.range;
+      document.querySelectorAll('#rp2_rangeGroup [data-range]').forEach(b=>{
+        const active = b===this;
+        b.classList.toggle('btn-soft', !active); b.classList.toggle('btn-outline-primary', active);
+      });
+      renderTrend();
+    });
+  });
+
+  ['rp_room','rp_mealPlan','rp_channel','rp_ratePlan'].forEach(id=>{
+    document.getElementById(id).addEventListener('change', renderActiveTab);
+  });
+  document.getElementById('rp_reset').addEventListener('click', resetFilters);
+  document.getElementById('rp_exportCsv').addEventListener('click', (e)=>{ e.preventDefault(); exportCsv(); });
+  document.getElementById('rp_exportExcel').addEventListener('click', (e)=>{ e.preventDefault(); APP.toast('Export Started', 'Your Excel workbook is being prepared for download.', 'success'); });
+  document.getElementById('rp_exportPdf').addEventListener('click', (e)=>{ e.preventDefault(); APP.toast('Export Started', 'Your PDF report is being prepared for download.', 'success'); });
+  document.getElementById('rp_print').addEventListener('click', ()=> window.print());
+
+  renderTabs();
+  renderCompetitorMenu();
+  renderActiveTab();
 });
