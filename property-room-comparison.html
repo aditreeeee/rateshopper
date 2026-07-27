@@ -33,7 +33,7 @@
     <div class="col-6 col-md-2">
       <select class="form-select" id="rc_group">
         <option value="">All Competitors</option>
-        <option value="real">Benchmark Properties</option>
+        <option value="real">Assigned Properties</option>
         <option value="synthetic">Market Sample</option>
       </select>
     </div>
@@ -44,6 +44,12 @@
         <option value="30">30 Days</option>
         <option value="90">3 Months</option>
         <option value="360">1 Year</option>
+      </select>
+    </div>
+    <div class="col-6 col-md-2">
+      <select class="form-select" id="rc_rateMetric">
+        <option value="current">Current Rate</option>
+        <option value="avg">Avg Rate (Range)</option>
       </select>
     </div>
   </div>
@@ -82,14 +88,14 @@
     <div class="chart-card h-100">
       <div class="fw-bold mb-2">Room Rate Distribution</div>
       <div class="text-muted small mb-2">Current rate for the selected room across My Property and its top tracked competitors.</div>
-      <canvas id="rc_distChart" height="220"></canvas>
+      <div class="rc-chart-scroll" id="rc_distChartWrap"><div id="rc_distChartInner"><canvas id="rc_distChart"></canvas></div></div>
     </div>
   </div>
   <div class="col-lg-6">
     <div class="section-card h-100">
       <div class="fw-bold mb-2">Competitor Ranking</div>
       <div class="text-muted small mb-2">Ranked by current room rate, cheapest first.</div>
-      <div class="table-responsive"><table class="table-modern w-100" id="rc_rankTable"></table></div>
+      <div class="rate-shopper-table-wrap rc-rank-scroll"><table class="table-modern w-100" id="rc_rankTable"></table></div>
     </div>
   </div>
 </div>

@@ -2,7 +2,7 @@ let profileChart = null;
 let profileTrendChart = null;
 
 document.addEventListener('DOMContentLoaded', ()=>{
-  const me = PORTAL.mount({ title:'Competitors', subtitle:'The properties selected by your Company Admin to benchmark against.' });
+  const me = PORTAL.mount({ title:'Competitors', subtitle:'The properties selected by your Company Admin to compare against.' });
   if(!me) return;
   const propertyId = PORTAL.activePropertyId(me);
 
@@ -37,7 +37,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
           </div>
           <div class="comp-body">
             <div class="d-flex justify-content-between align-items-start">
-              <div class="fw-bold" style="font-size:.9rem">${c.name} ${c.isReal?'<span class="badge bg-primary-subtle text-primary ms-1" style="font-size:.6rem" title="Selected by your Company Admin as a benchmark property">Benchmark</span>':''}</div>
+              <div class="fw-bold" style="font-size:.9rem">${c.name}</div>
               ${c.pinned?'<i class="bi bi-pin-angle-fill text-primary"></i>':''}
             </div>
             <div class="text-muted small"><i class="bi bi-geo-alt me-1"></i>${c.isReal ? `${c.city}, ${c.country}` : `${c.distanceKm} km • ${c.stars}★`}</div>
@@ -58,7 +58,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     }).join('') : `<div class="col-12">${
       PORTALDATA.comparisonRealProperties().length
         ? PWIDGETS.emptyState('bi-building','No competitors found','Try adjusting your search or filters.')
-        : PWIDGETS.emptyState('bi-building','No comparison properties assigned yet','Your Company Admin hasn\'t selected any benchmark properties for you yet.')
+        : PWIDGETS.emptyState('bi-building','No comparison properties assigned yet','Your Company Admin hasn\'t selected any comparison properties for you yet.')
     }</div>`;
   }
 

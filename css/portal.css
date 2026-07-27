@@ -150,6 +150,14 @@
 .rc-crumb .bi{ font-size:.6rem; }
 .rc-crumb span{ color:var(--text-2); font-weight:600; }
 
+/* ---------- Room Rate Comparison: capped-height scroll areas ---------- */
+.rc-chart-scroll{ max-height:340px; overflow-y:auto; overflow-x:hidden; }
+.rc-rank-scroll{ max-height:340px; }
+
+/* ---------- "My Property" reference rows, pinned at the top of the table body (Room Rate Comparison) ---------- */
+.rc-frozen-row td{ background:var(--brand-50); border-bottom:2px solid var(--brand-100); }
+[data-theme="dark"] .rc-frozen-row td{ background:rgba(56,97,251,.12); border-bottom-color:rgba(56,97,251,.3); }
+
 /* ---------- Sortable table headers ---------- */
 .th-sortable{ cursor:pointer; user-select:none; white-space:nowrap; }
 .th-sortable .bi{ font-size:.65rem; margin-left:3px; opacity:.5; }
