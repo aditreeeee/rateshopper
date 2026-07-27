@@ -221,15 +221,17 @@ const PORTALDATA = (() => {
   }
 
   // ---- notifications (persisted so read/unread state sticks) -------------
+  // Every alert type here is about pricing, competitor activity, channel parity, or data
+  // quality — never hotel operations (bookings/check-ins live on the property, not the portal).
   function generateNotifications(propertyId){
     const templates = [
-      {type:'rate', icon:'bi-tag-fill', title:'Competitor dropped rate', priority:'high'},
-      {type:'parity', icon:'bi-bar-chart-line', title:'Rate parity violation detected', priority:'high'},
-      {type:'competitor', icon:'bi-building', title:'New competitor listing found', priority:'medium'},
-      {type:'market', icon:'bi-graph-up', title:'Market average shifted', priority:'low'},
-      {type:'demand', icon:'bi-fire', title:'Demand spike expected', priority:'high'},
-      {type:'recommendation', icon:'bi-lightbulb-fill', title:'New pricing recommendation available', priority:'medium'},
-      {type:'revenue', icon:'bi-currency-rupee', title:'Weekly revenue summary ready', priority:'low'}
+      {type:'competitorChange', icon:'bi-arrow-left-right', title:'Competitor price change', priority:'medium', message:'A tracked competitor changed their rate for upcoming dates.'},
+      {type:'newLowest', icon:'bi-graph-down-arrow', title:'New lowest price', priority:'high', message:'A competitor is now the cheapest in your comparison set for this date range.'},
+      {type:'parityMismatch', icon:'bi-bar-chart-line', title:'Rate parity mismatch', priority:'high', message:'Your OTA rate is undercutting your Direct rate on one or more channels.'},
+      {type:'missingRate', icon:'bi-question-circle', title:'Missing competitor rate', priority:'low', message:'No rate could be found for a tracked competitor on one or more dates.'},
+      {type:'largeIncrease', icon:'bi-arrow-up-circle', title:'Large price increase', priority:'medium', message:'A tracked competitor raised their rate sharply for upcoming dates.'},
+      {type:'largeDecrease', icon:'bi-arrow-down-circle', title:'Large price decrease', priority:'high', message:'A tracked competitor dropped their rate sharply for upcoming dates.'},
+      {type:'newMappedRoom', icon:'bi-door-open', title:'New mapped room', priority:'low', message:'A new room type was matched and mapped to one of your comparison properties.'}
     ];
     const list = Array.from({length:16}).map((_,i)=>{
       const t = DB.pick(templates);
@@ -238,24 +240,12 @@ const PORTALDATA = (() => {
         id: DB.uid('pntf'),
         type:t.type, icon:t.icon, priority:t.priority,
         title:t.title,
-        message: notificationMessage(t.type),
+        message: t.message,
         read: i > 5,
         createdAt: new Date(Date.now()-hoursAgo*3600000).toISOString()
       };
     }).sort((a,b)=> new Date(b.createdAt)-new Date(a.createdAt));
     DB.set(KEYS.notifications+propertyId, list);
-  }
-  function notificationMessage(type){
-    const msgs = {
-      rate:'A tracked competitor lowered their rate by up to 12% for upcoming dates.',
-      parity:'Your OTA rate is undercutting your Direct rate on one or more channels.',
-      competitor:'A new property has appeared in your competitive set search radius.',
-      market:'The local market average rate moved more than 5% this week.',
-      demand:'Booking pace suggests a demand surge in the next 14 days.',
-      recommendation:'Our pricing engine has a new suggested rate change for you to review.',
-      revenue:'Your weekly ADR, RevPAR and occupancy summary is ready to view.'
-    };
-    return msgs[type] || 'New activity on your property.';
   }
   function notifications(propertyId){ return DB.get(KEYS.notifications+propertyId, []); }
   function markNotificationRead(propertyId, id){
@@ -277,7 +267,8 @@ const PORTALDATA = (() => {
   // read directly from there, so every property always reflects the same company-wide units.
   function settings(propertyId){
     return DB.get(KEYS.settings+propertyId, {
-      notifyRate:true, notifyParity:true, notifyCompetitor:true, notifyMarket:false, notifyDemand:true,
+      alertCompetitorChange:true, alertNewLowest:true, alertParityMismatch:true, alertMissingRate:false,
+      alertLargeIncrease:true, alertLargeDecrease:true, alertNewMappedRoom:false,
       dashboardLayout:'default', defaultRangeDays:14
     });
   }

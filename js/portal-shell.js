@@ -25,27 +25,11 @@ const PORTAL = (() => {
 
   function currentPage(){ return location.pathname.split('/').pop() || 'index.html'; }
 
-  // The exact set of properties this Property Owner was given access to by their Company
-  // Owner/Admin (their own Parent Property + any Additional Properties granted at creation
-  // time, or since) — never anything outside that set.
-  function myProperties(){
-    return RBAC.assignedPropertyIds().map(id=>DB.properties.get(id)).filter(Boolean);
-  }
-
+  // The portal is scoped to exactly one property — this owner's own Parent Property.
+  // There is no property switcher; comparison properties are benchmark targets, not
+  // alternate properties to operate the portal against.
   function activePropertyId(me){
-    const allowed = RBAC.assignedPropertyIds();
-    if(!allowed.length) return null;
-    const key = 'hop_portal_active_property_'+me.id;
-    let stored = localStorage.getItem(key);
-    if(!stored || !allowed.includes(stored)) stored = me.parentPropertyId && allowed.includes(me.parentPropertyId) ? me.parentPropertyId : allowed[0];
-    return stored;
-  }
-
-  function setActiveProperty(propertyId){
-    const me = RBAC.currentUser();
-    if(!me || !RBAC.assignedPropertyIds().includes(propertyId)) return;
-    localStorage.setItem('hop_portal_active_property_'+me.id, propertyId);
-    location.href = 'property-dashboard.html';
+    return me.parentPropertyId || null;
   }
 
   function guard(){
@@ -66,15 +50,8 @@ const PORTAL = (() => {
   }
 
   function sidebarHtml(me){
-    const properties = myProperties();
     const activeId = activePropertyId(me);
     const property = DB.properties.get(activeId);
-    const switcher = properties.length > 1 ? `
-      <div class="px-3 pb-2">
-        <select class="form-select form-select-sm" onchange="PORTAL.setActiveProperty(this.value)" style="background:var(--bg-sidebar-hover);color:#dfe2f5;border-color:rgba(255,255,255,.12)">
-          ${properties.map(p=>`<option value="${p.id}" ${p.id===activeId?'selected':''}>${p.name}</option>`).join('')}
-        </select>
-      </div>` : '';
     let items = NAV.filter((item,i)=>{
       if(!item.section) return true;
       const next = NAV[i+1];
@@ -91,7 +68,6 @@ const PORTAL = (() => {
         <div class="logo-badge portal-logo-badge"><i class="bi bi-graph-up-arrow"></i></div>
         <div class="brand-text"><strong>Rate Shopper IQ</strong><span>${property ? property.name : 'Revenue Management'}</span></div>
       </div>
-      ${switcher}
       <nav class="sidebar-nav">${items}</nav>
       <div class="sidebar-foot">
         <a href="profile.html" class="sidebar-user text-decoration-none">
@@ -116,12 +92,60 @@ const PORTAL = (() => {
       </div>
       <div class="d-flex align-items-center gap-2">
         <div class="theme-toggle-switch d-none d-md-block" onclick="APP.toggleTheme()" title="Toggle theme"><div class="knob"></div></div>
+        <div class="dropdown">
+          <button class="icon-btn" id="portalBellBtn" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside" title="Rate Alerts">
+            <i class="bi bi-bell"></i><span id="portalBellDot"></span>
+          </button>
+          <div class="dropdown-menu dropdown-menu-end p-0" id="portalBellMenu" style="width:340px;border-radius:14px;overflow:hidden;border:1px solid var(--border-1)"></div>
+        </div>
         <a href="property-settings.html" class="icon-btn d-none d-sm-flex" title="Settings"><i class="bi bi-gear"></i></a>
         <a href="profile.html" class="d-flex align-items-center gap-2 text-decoration-none ms-1">
           <img src="${me.avatar}" class="avatar-thumb" style="width:38px;height:38px">
         </a>
       </div>
     </header>`;
+  }
+
+  function refreshBell(me){
+    const propertyId = activePropertyId(me);
+    const unread = PORTALDATA.unreadNotificationCount(propertyId);
+    const dot = document.getElementById('portalBellDot');
+    if(dot) dot.className = unread>0 ? 'dot' : '';
+
+    const list = PORTALDATA.notifications(propertyId).slice(0,8);
+    const menu = document.getElementById('portalBellMenu');
+    if(!menu) return;
+    const priorityColor = {high:'var(--danger)', medium:'var(--warn)', low:'var(--brand-400)'};
+    menu.innerHTML = `
+      <div class="d-flex justify-content-between align-items-center px-3 py-2" style="border-bottom:1px solid var(--border-1)">
+        <span class="fw-bold" style="font-size:.85rem">Rate Alerts</span>
+        <button type="button" class="btn btn-link btn-sm p-0" style="font-size:.72rem" onclick="PORTAL.markAllAlertsRead()">Mark all read</button>
+      </div>
+      <div style="max-height:340px;overflow-y:auto">
+        ${list.length ? list.map(n=>`
+          <div class="d-flex align-items-start gap-2 px-3 py-2 ${n.read?'':'fw-semibold'}" style="cursor:pointer;border-bottom:1px solid var(--border-2)" onclick="PORTAL.markAlertRead('${n.id}')">
+            <i class="bi ${n.icon} mt-1" style="color:${priorityColor[n.priority]||'var(--brand-500)'};font-size:.85rem"></i>
+            <div class="flex-grow-1">
+              <div style="font-size:.78rem">${n.title}${!n.read?' <span class="badge rounded-pill bg-danger ms-1" style="font-size:.55rem">NEW</span>':''}</div>
+              <div class="text-muted fw-normal" style="font-size:.7rem">${n.message}</div>
+            </div>
+          </div>`).join('') : `<div class="text-muted text-center py-4" style="font-size:.8rem">No alerts yet</div>`}
+      </div>
+      <a href="property-settings.html" class="d-block text-center py-2" style="font-size:.75rem;border-top:1px solid var(--border-1)">Manage Alert Preferences</a>
+    `;
+  }
+
+  function markAlertRead(id){
+    const me = RBAC.currentUser();
+    if(!me) return;
+    PORTALDATA.markNotificationRead(activePropertyId(me), id);
+    refreshBell(me);
+  }
+  function markAllAlertsRead(){
+    const me = RBAC.currentUser();
+    if(!me) return;
+    PORTALDATA.markAllNotificationsRead(activePropertyId(me));
+    refreshBell(me);
   }
 
   function mount(opts){
@@ -149,8 +173,9 @@ const PORTAL = (() => {
       </div>
       <div class="toast-stack" id="toast-stack"></div>
     `;
+    refreshBell(me);
     return me;
   }
 
-  return { mount, guard, myProperties, activePropertyId, setActiveProperty };
+  return { mount, guard, activePropertyId, markAlertRead, markAllAlertsRead };
 })();

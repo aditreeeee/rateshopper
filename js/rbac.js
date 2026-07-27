@@ -14,21 +14,19 @@ const RBAC = (() => {
 
   const ROLES = {
     COMPANY_ADMIN: 'company_admin',
-    PROPERTY_OWNER: 'property_owner',
-    PROPERTY_USER: 'property_user'
+    PROPERTY_OWNER: 'property_owner'
   };
 
   const ROLE_LABELS = {
     company_admin: 'Company Admin',
-    property_owner: 'Property Owner',
-    property_user: 'Property User'
+    property_owner: 'Property Owner'
   };
 
   // Higher number = higher in the hierarchy. Used for "can X manage Y" checks.
   // Company Admin is the top of the hierarchy — the Company Owner role has been retired and
-  // its full authority folded into Company Admin. Property Admin has also been retired — its
-  // capabilities were already fully covered by Property Owner.
-  const ROLE_RANK = { company_admin: 4, property_owner: 3, property_user: 1 };
+  // its full authority folded into Company Admin. Property Admin and Property User have also
+  // been retired — Property Owner already fully covers their capabilities.
+  const ROLE_RANK = { company_admin: 4, property_owner: 3 };
 
   const MODULES = {
     DASHBOARD: 'dashboard',
@@ -46,9 +44,6 @@ const RBAC = (() => {
     ratePlans: 'Rate Plans', rateCalendar: 'Rate Calendar', users: 'Users', settings: 'Settings'
   };
 
-  // Modules a Property User can be individually granted View/Create/Edit/Delete on.
-  const ASSIGNABLE_MODULES = [MODULES.DASHBOARD, MODULES.CHANNELS, MODULES.ROOMS, MODULES.RATE_PLANS, MODULES.RATE_CALENDAR];
-
   function session(){
     try{ return JSON.parse(sessionStorage.getItem('hop_session') || localStorage.getItem('hop_session') || 'null'); }
     catch(e){ return null; }
@@ -58,9 +53,10 @@ const RBAC = (() => {
     const s = session();
     if(!s || !s.userId) return null;
     const u = DB.users.get(s.userId);
-    // Property User and Property Admin are retired from the supported login hierarchy — any
-    // lingering session for one (e.g. from before this change) is treated as logged out.
-    return (u && u.status === 'active' && u.role !== 'property_user' && u.role !== 'property_admin') ? u : null;
+    // Property Admin and Property User have been retired from the supported login hierarchy —
+    // any lingering session for one (e.g. from before this change) is treated as logged out.
+    const retiredRoles = ['property_admin', 'property_user'];
+    return (u && u.status === 'active' && !retiredRoles.includes(u.role)) ? u : null;
   }
 
   function currentRole(){
@@ -91,13 +87,6 @@ const RBAC = (() => {
         if(moduleName === MODULES.SETTINGS || moduleName === MODULES.USERS) return false;
         // Full CRUD on their Parent Property's Rooms, Rate Plans, Calendar, Channels.
         return true;
-
-      case ROLES.PROPERTY_USER: {
-        if(moduleName === MODULES.SETTINGS || moduleName === MODULES.USERS) return false;
-        if(moduleName === MODULES.PROPERTIES) return action === 'view';
-        const grant = (u.permissions || {})[moduleName];
-        return !!(grant && grant[action]);
-      }
 
       default:
         return false;
@@ -215,7 +204,7 @@ const RBAC = (() => {
   }
 
   return {
-    ROLES, ROLE_LABELS, ROLE_RANK, MODULES, MODULE_LABELS, ASSIGNABLE_MODULES,
+    ROLES, ROLE_LABELS, ROLE_RANK, MODULES, MODULE_LABELS,
     session, currentUser, currentRole, isCompanyLevel, can,
     assignedPropertyIds, propertyLimitRemaining, comparisonPropertyIds, canAccessProperty, filterProperties,
     creatableRoles, canManageUser, visibleUsers,

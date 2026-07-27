@@ -16,18 +16,18 @@
 
 <div class="row g-3 mb-3" id="channelCards"></div>
 
-<div class="row g-3">
-  <div class="col-xxl-7">
-    <div class="chart-card mb-3">
-      <div class="fw-bold mb-2">Channel Revenue Share</div>
-      <canvas id="channelRevenueChart" height="120"></canvas>
-    </div>
+<div class="chart-card mb-3">
+  <div class="fw-bold mb-2">Current Rate by Channel</div>
+  <canvas id="channelRateChart" height="90"></canvas>
+</div>
+
+<div class="section-card p-0">
+  <div class="p-3 pb-0">
+    <div class="fw-bold">Channels Display — Room / Rate Plan Parity</div>
+    <div class="text-muted small mb-2">Direct (Master Channel) vs. every OTA, for today, across every room in the property.</div>
   </div>
-  <div class="col-xxl-5">
-    <div class="section-card mb-3">
-      <div class="fw-bold mb-2">Channel Comparison</div>
-      <div class="table-responsive"><table class="table-modern w-100" id="channelTable"></table></div>
-    </div>
+  <div class="table-responsive">
+    <table class="table-modern w-100" id="parityTable"></table>
   </div>
 </div>
 

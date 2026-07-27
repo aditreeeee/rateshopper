@@ -6,7 +6,7 @@ const DB = (() => {
     session:'hop_session', properties:'hop_properties', channels:'hop_channels', rooms:'hop_rooms',
     ratePlans:'hop_ratePlans', rates:'hop_rates', notifications:'hop_notifications',
     activity:'hop_activity', settings:'hop_settings', users:'hop_users',
-    seeded:'hop_seeded_v24'
+    seeded:'hop_seeded_v27'
   };
 
   // Sales channels a property distributes through. Every property always has exactly one
@@ -147,21 +147,6 @@ const DB = (() => {
         createdAt: fmtDate(new Date(Date.now()-240*86400000))
       },
       {
-        id: uid('usr'), name:'Rohan Das', email:'staff@eglobe.com', password:'Staff@123',
-        role:'property_user', status:'active',
-        assignedProperties:[properties[0].id],
-        permissions:{
-          dashboard:{view:true, create:false, edit:false, delete:false},
-          channels:{view:true, create:false, edit:false, delete:false},
-          rooms:{view:true, create:false, edit:true, delete:false},
-          ratePlans:{view:true, create:false, edit:false, delete:false},
-          rateCalendar:{view:true, create:false, edit:true, delete:false}
-        },
-        phone:'+91 9820077889', bio:'Front Desk / Revenue Staff — day-to-day rate and room updates for one property.',
-        avatar:'https://ui-avatars.com/api/?name=Rohan+Das&background=ff4d5e&color=fff&size=200',
-        createdAt: fmtDate(new Date(Date.now()-120*86400000))
-      },
-      {
         id: vikramId, name:'Vikram Rao', firstName:'Vikram', lastName:'Rao', email:'vikram.rao@eglobe.com', password:'Property@123',
         role:'property_owner', status:'active', parentPropertyId: properties[2].id,
         assignedProperties:[properties[3].id, properties[4].id], permissions:null,
@@ -170,82 +155,31 @@ const DB = (() => {
         createdAt: fmtDate(new Date(Date.now()-200*86400000))
       },
       {
-        id: uid('usr'), name:'Ananya Iyer', email:'ananya.iyer@eglobe.com', password:'Staff@123',
-        role:'property_user', status:'active',
-        assignedProperties:[properties[1].id],
-        permissions:{
-          dashboard:{view:true, create:false, edit:false, delete:false},
-          channels:{view:true, create:true, edit:true, delete:false},
-          rooms:{view:true, create:true, edit:true, delete:true},
-          ratePlans:{view:true, create:true, edit:true, delete:false},
-          rateCalendar:{view:true, create:false, edit:true, delete:false}
-        },
-        phone:'+91 9820099112', bio:'Revenue Manager — full rooms/rate-plan control for one property.',
-        avatar:'https://ui-avatars.com/api/?name=Ananya+Iyer&background=12b76a&color=fff&size=200',
-        createdAt: fmtDate(new Date(Date.now()-90*86400000))
-      },
-      {
-        id: uid('usr'), name:'Sameer Khan', email:'sameer.khan@eglobe.com', password:'Staff@123',
-        role:'property_user', status:'inactive',
-        assignedProperties:[properties[0].id],
-        permissions:{
-          dashboard:{view:true, create:false, edit:false, delete:false},
-          channels:{view:false, create:false, edit:false, delete:false},
-          rooms:{view:true, create:false, edit:false, delete:false},
-          ratePlans:{view:true, create:false, edit:false, delete:false},
-          rateCalendar:{view:true, create:false, edit:false, delete:false}
-        },
-        phone:'+91 9820099223', bio:'Former front-desk staff — account deactivated after transfer.',
-        avatar:'https://ui-avatars.com/api/?name=Sameer+Khan&background=8a90a6&color=fff&size=200',
-        createdAt: fmtDate(new Date(Date.now()-60*86400000))
-      },
-      {
         id: adityaId, name:'Aditya Verma', firstName:'Aditya', lastName:'Verma', email:'aditya.verma@eglobe.com', password:'Property@123',
         role:'property_owner', status:'active', parentPropertyId: properties[5].id,
         assignedProperties:[properties[5].id, properties[6].id], permissions:null,
         phone:'+91 9820099445', bio:'Property Owner — manages the international portfolio (Dubai, Toronto).',
         avatar:'https://ui-avatars.com/api/?name=Aditya+Verma&background=d0021b&color=fff&size=200',
         createdAt: fmtDate(new Date(Date.now()-170*86400000))
-      },
-      {
-        id: uid('usr'), name:'Divya Reddy', email:'divya.reddy@eglobe.com', password:'Staff@123',
-        role:'property_user', status:'active',
-        assignedProperties:[properties[3].id],
-        permissions:{
-          dashboard:{view:true, create:false, edit:false, delete:false},
-          channels:{view:true, create:false, edit:false, delete:false},
-          rooms:{view:true, create:true, edit:true, delete:false},
-          ratePlans:{view:true, create:true, edit:true, delete:false},
-          rateCalendar:{view:true, create:false, edit:true, delete:false}
-        },
-        phone:'+91 9820099778', bio:'Revenue Manager — rooms and rate plan control for Emerald Hills Retreat.',
-        avatar:'https://ui-avatars.com/api/?name=Divya+Reddy&background=b9791a&color=fff&size=200',
-        createdAt: fmtDate(new Date(Date.now()-38*86400000))
-      },
-      {
-        id: uid('usr'), name:'Karan Malhotra', email:'karan.malhotra@eglobe.com', password:'Staff@123',
-        role:'property_user', status:'active',
-        assignedProperties:[properties[6].id],
-        permissions:{
-          dashboard:{view:true, create:false, edit:false, delete:false},
-          channels:{view:false, create:false, edit:false, delete:false},
-          rooms:{view:true, create:false, edit:false, delete:false},
-          ratePlans:{view:true, create:false, edit:false, delete:false},
-          rateCalendar:{view:true, create:false, edit:false, delete:false}
-        },
-        phone:'+91 9820099889', bio:'Front Desk — view-only access at Maple Leaf Lodge.',
-        avatar:'https://ui-avatars.com/api/?name=Karan+Malhotra&background=8a90a6&color=fff&size=200',
-        createdAt: fmtDate(new Date(Date.now()-15*86400000))
       }
     ];
     set(KEYS.users, users);
 
     // Rooms — every channel (Master + each OTA) gets its own listed rooms, so there's real
-    // data to rate-shop/compare across channels, not just on the Master Channel.
+    // data to rate-shop/compare across channels, not just on the Master Channel. OTA channels
+    // reuse a subset of the Master Channel's own room-type list (rather than an independent
+    // random pick) so room *names* actually overlap across channels for the same property —
+    // otherwise rate-parity/channel-comparison features have nothing matching to compare.
     let rooms = [];
+    let masterRoomTypesForProperty = ROOM_TYPES;
     channels.forEach(chan=>{
-      const n = chan.type==='master' ? rand(3,5) : rand(2,3);
-      const shuffled = [...ROOM_TYPES].sort(()=>Math.random()-0.5).slice(0,n);
+      if(chan.type==='master'){
+        const n = rand(3,5);
+        masterRoomTypesForProperty = [...ROOM_TYPES].sort(()=>Math.random()-0.5).slice(0,n);
+      }
+      const shuffled = chan.type==='master'
+        ? masterRoomTypesForProperty
+        : shuffle(masterRoomTypesForProperty).slice(0, Math.min(masterRoomTypesForProperty.length, rand(2,3)));
       // OTA channels tend to price a touch above/below direct — small per-channel variance
       const channelPriceBias = chan.type==='master' ? 1 : (0.92 + Math.random()*0.16);
       shuffled.forEach(rt=>{
@@ -322,16 +256,18 @@ const DB = (() => {
     });
     set(KEYS.rates, rates);
 
-    // Notifications — generated per-property so no two entries are identical
+    // Notifications — Company Admin's notification feed is about accounts and access, not
+    // hotel operations (bookings/reviews/check-ins live inside each property, not here).
+    const ROLE_LABELS_FOR_SEED = { company_admin:'Company Admin', property_owner:'Property Owner' };
     const notifActions = [
-      p=>({icon:'bi-calendar-check',color:'success',title:'New Booking Received',msg:`A new booking has been made at ${p.name}.`}),
-      p=>({icon:'bi-currency-rupee',color:'brand',title:'Rate Updated',msg:`Weekend rates updated successfully for ${p.name}.`}),
-      p=>({icon:'bi-exclamation-triangle',color:'warn',title:'Low Availability',msg:`Only a few rooms left at ${p.name} this weekend.`}),
-      p=>({icon:'bi-x-circle',color:'danger',title:'Booking Cancelled',msg:`A guest cancelled their reservation at ${p.name}.`}),
-      p=>({icon:'bi-star',color:'brand',title:'New Review',msg:`You received a 5-star review on ${p.name}.`}),
-      p=>({icon:'bi-person-check',color:'success',title:'Guest Checked In',msg:`A guest checked into ${p.name}.`})
+      u=>({icon:'bi-person-plus',color:'success',title:'New User Created',msg:`${u.name} was added as ${ROLE_LABELS_FOR_SEED[u.role]||u.role}.`}),
+      u=>({icon:'bi-shield-lock',color:'brand',title:'Role Assigned',msg:`${u.name} was granted ${ROLE_LABELS_FOR_SEED[u.role]||u.role} access.`}),
+      u=>({icon:'bi-toggle-off',color: u.status==='active'?'success':'danger',title: u.status==='active'?'User Activated':'User Deactivated',msg:`${u.name}'s account was marked ${u.status}.`}),
+      u=>({icon:'bi-key',color:'warn',title:'Password Reset Requested',msg:`${u.name} requested a password reset.`}),
+      u=>({icon:'bi-pencil-square',color:'brand',title:'Permissions Updated',msg:`Module permissions were updated for ${u.name}.`}),
+      u=>({icon:'bi-box-arrow-in-right',color:'success',title:'New Sign-In',msg:`${u.name} signed in from a new device.`})
     ];
-    const notifCombos = shuffle(properties.flatMap(p=> notifActions.map(fn=>fn(p))));
+    const notifCombos = shuffle(users.flatMap(u=> notifActions.map(fn=>fn(u))));
     let notifications = notifCombos.slice(0,28).map((t,i)=>({id:uid('ntf'), ...t, read: i>8, time: fmtDate(new Date(Date.now()-rand(0,10)*86400000)) }));
     set(KEYS.notifications, notifications);
 

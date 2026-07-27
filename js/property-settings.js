@@ -11,11 +11,13 @@ document.addEventListener('DOMContentLoaded', ()=>{
   document.getElementById('s_timezoneDisplay').textContent = company.timezone || 'Not set';
   document.getElementById('s_dateFormatDisplay').textContent = company.dateFormat || 'DD/MM/YYYY';
 
-  document.getElementById('s_notifyRate').checked = s.notifyRate;
-  document.getElementById('s_notifyParity').checked = s.notifyParity;
-  document.getElementById('s_notifyCompetitor').checked = s.notifyCompetitor;
-  document.getElementById('s_notifyMarket').checked = s.notifyMarket;
-  document.getElementById('s_notifyDemand').checked = s.notifyDemand;
+  document.getElementById('s_alertCompetitorChange').checked = s.alertCompetitorChange;
+  document.getElementById('s_alertNewLowest').checked = s.alertNewLowest;
+  document.getElementById('s_alertParityMismatch').checked = s.alertParityMismatch;
+  document.getElementById('s_alertMissingRate').checked = s.alertMissingRate;
+  document.getElementById('s_alertLargeIncrease').checked = s.alertLargeIncrease;
+  document.getElementById('s_alertLargeDecrease').checked = s.alertLargeDecrease;
+  document.getElementById('s_alertNewMappedRoom').checked = s.alertNewMappedRoom;
   document.getElementById('s_dashboardLayout').value = s.dashboardLayout;
   document.getElementById('s_defaultRangeDays').value = s.defaultRangeDays;
   document.getElementById('s_theme').value = APP.getTheme();
@@ -23,11 +25,13 @@ document.addEventListener('DOMContentLoaded', ()=>{
   document.getElementById('settingsForm').addEventListener('submit', function(e){
     e.preventDefault();
     const updated = {
-      notifyRate: document.getElementById('s_notifyRate').checked,
-      notifyParity: document.getElementById('s_notifyParity').checked,
-      notifyCompetitor: document.getElementById('s_notifyCompetitor').checked,
-      notifyMarket: document.getElementById('s_notifyMarket').checked,
-      notifyDemand: document.getElementById('s_notifyDemand').checked,
+      alertCompetitorChange: document.getElementById('s_alertCompetitorChange').checked,
+      alertNewLowest: document.getElementById('s_alertNewLowest').checked,
+      alertParityMismatch: document.getElementById('s_alertParityMismatch').checked,
+      alertMissingRate: document.getElementById('s_alertMissingRate').checked,
+      alertLargeIncrease: document.getElementById('s_alertLargeIncrease').checked,
+      alertLargeDecrease: document.getElementById('s_alertLargeDecrease').checked,
+      alertNewMappedRoom: document.getElementById('s_alertNewMappedRoom').checked,
       dashboardLayout: document.getElementById('s_dashboardLayout').value,
       defaultRangeDays: Number(document.getElementById('s_defaultRangeDays').value)
     };

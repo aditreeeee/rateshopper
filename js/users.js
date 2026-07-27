@@ -20,14 +20,6 @@ document.addEventListener('DOMContentLoaded', ()=>{
   render();
 });
 
-function propertyNames(ids){
-  if(!ids || !ids.length) return '<span class="text-muted">—</span>';
-  const names = ids.map(id=>{ const p = DB.properties.get(id); return p ? p.name : null; }).filter(Boolean);
-  if(!names.length) return '<span class="text-muted">—</span>';
-  if(names.length <= 2) return names.map(n=>`<span class="badge bg-light text-dark border me-1">${n}</span>`).join('');
-  return `<span class="badge bg-light text-dark border me-1">${names[0]}</span><span class="badge bg-light text-dark border">+${names.length-1} more</span>`;
-}
-
 function render(){
   let list = RBAC.visibleUsers();
   const search = document.getElementById('searchInput').value.toLowerCase();
@@ -55,14 +47,12 @@ function render(){
     let propertyCell;
     if(isCompanyLevel){
       propertyCell = '<span class="text-muted small">All properties</span>';
-    } else if(u.role==='property_owner'){
-      const parent = DB.properties.get(u.parentPropertyId);
-      const extraCount = (u.assignedProperties||[]).filter(id=>id!==u.parentPropertyId).length;
-      propertyCell = parent
-        ? `<span class="badge bg-primary-subtle text-primary me-1">${parent.name}</span>${extraCount?`<span class="badge bg-light text-dark border">+${extraCount} more</span>`:''}`
-        : '<span class="text-muted">—</span>';
     } else {
-      propertyCell = propertyNames(u.assignedProperties);
+      const parent = DB.properties.get(u.parentPropertyId);
+      const extraNames = (u.assignedProperties||[]).filter(id=>id!==u.parentPropertyId).map(id=>{ const p=DB.properties.get(id); return p?p.name:null; }).filter(Boolean);
+      propertyCell = parent
+        ? `<span class="badge bg-primary-subtle text-primary me-1">${parent.name}</span>${extraNames.map(n=>`<span class="badge bg-light text-dark border me-1">${n}</span>`).join('')}`
+        : '<span class="text-muted">—</span>';
     }
     return `<tr>
       <td><div class="d-flex align-items-center gap-2"><img src="${u.avatar}" class="avatar-thumb"><div><div class="fw-semibold">${u.name}</div><div class="text-muted" style="font-size:.75rem">${u.email}</div></div></div></td>

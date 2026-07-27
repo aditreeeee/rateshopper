@@ -31,8 +31,6 @@ document.addEventListener('DOMContentLoaded', ()=>{
   function refreshRoleDependentUI(){
     const role = roleSelect.value;
     const isOwner = role === RBAC.ROLES.PROPERTY_OWNER;
-    const needsProperties = role === RBAC.ROLES.PROPERTY_USER || isOwner; // legacy Property User (single) + Property Owner (multi)
-    const needsPermissions = role === RBAC.ROLES.PROPERTY_USER;
 
     // Property Owner gets split First/Last Name instead of one Full Name field.
     document.getElementById('f_nameWrap').classList.toggle('d-none', isOwner);
@@ -50,42 +48,23 @@ document.addEventListener('DOMContentLoaded', ()=>{
       if(existing && existing.parentPropertyId) parentSel.value = existing.parentPropertyId;
     }
 
-    document.getElementById('propertyAssignmentCard').classList.toggle('d-none', !needsProperties);
-    document.getElementById('propertyAssignmentTitle').textContent = isOwner ? 'Comparison Properties' : 'Assigned Properties';
-    document.getElementById('propertyAssignmentHint').textContent = isOwner
-      ? "Optionally select other properties to benchmark this owner's rates against in their Rate Shopper portal. Their own Parent Property never appears here — it can't be a comparison for itself. This does not grant management access — only their Parent Property does."
-      : 'Select the single property this Property User works at.';
+    document.getElementById('propertyAssignmentCard').classList.toggle('d-none', !isOwner);
+    document.getElementById('propertyAssignmentTitle').textContent = 'Comparison Properties';
+    document.getElementById('propertyAssignmentHint').textContent = "Optionally select other properties to benchmark this owner's rates against in their Rate Shopper portal. Their own Parent Property never appears here — it can't be a comparison for itself. This does not grant management access — only their Parent Property does.";
 
     refreshComparisonGrid();
     parentSel.onchange = refreshComparisonGrid; // Parent Property choice excludes itself from the grid below
-
-    document.getElementById('permissionsCard').classList.toggle('d-none', !needsPermissions);
-    if(needsPermissions){
-      const grant = (existing && existing.permissions) || {};
-      document.getElementById('permissionsBody').innerHTML = RBAC.ASSIGNABLE_MODULES.map(mod=>{
-        const g = grant[mod] || {view:true, create:false, edit:false, delete:false};
-        return `<tr>
-          <td class="fw-semibold">${RBAC.MODULE_LABELS[mod]}</td>
-          ${['view','create','edit','delete'].map(action=>`
-            <td class="text-center"><input type="checkbox" class="form-check-input perm-check" data-mod="${mod}" data-action="${action}" ${g[action]?'checked':''}></td>
-          `).join('')}
-        </tr>`;
-      }).join('');
-    }
   }
 
   function refreshComparisonGrid(){
-    const role = roleSelect.value;
-    const isOwner = role === RBAC.ROLES.PROPERTY_OWNER;
-    const excludeId = isOwner ? document.getElementById('f_ownerParentProperty').value : null;
+    const excludeId = document.getElementById('f_ownerParentProperty').value;
     const pool = excludeId ? propertyPool.filter(p=>p.id!==excludeId) : propertyPool;
 
     document.getElementById('propertyAssignmentGrid').innerHTML = pool.length ? pool.map(p=>{
       const checked = existing && (existing.assignedProperties||[]).includes(p.id);
-      const inputType = role === RBAC.ROLES.PROPERTY_USER ? 'radio' : 'checkbox';
       return `<div class="col-md-6">
         <label class="d-flex align-items-center gap-2 p-2 border rounded-3" style="border-color:var(--border-1) !important">
-          <input type="${inputType}" name="propertyAssign" class="form-check-input property-assign-check" value="${p.id}" ${checked?'checked':''}>
+          <input type="checkbox" name="propertyAssign" class="form-check-input property-assign-check" value="${p.id}" ${checked?'checked':''}>
           <span style="font-size:.85rem">${p.name}</span>
         </label>
       </div>`;
@@ -120,16 +99,10 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
     const role = roleSelect.value;
     const isOwner = role === RBAC.ROLES.PROPERTY_OWNER;
-    const needsProperties = role === RBAC.ROLES.PROPERTY_USER || isOwner; // legacy Property User (single) + Property Owner (multi)
 
-    let assignedProperties = needsProperties
+    let assignedProperties = isOwner
       ? [...document.querySelectorAll('.property-assign-check:checked')].map(c=>c.value)
       : [];
-
-    if(role === RBAC.ROLES.PROPERTY_USER && !assignedProperties.length){
-      APP.toast('No Property Assigned', 'Select at least one property for this role.', 'danger');
-      return;
-    }
 
     let firstName = '', lastName = '', fullName = '';
     if(isOwner){
@@ -151,19 +124,6 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
     const parentPropertyId = isOwner ? ownerParentPropertyId : null;
 
-    let permissions = null;
-    if(role === RBAC.ROLES.PROPERTY_USER){
-      permissions = {};
-      RBAC.ASSIGNABLE_MODULES.forEach(mod=>{
-        permissions[mod] = {
-          view: document.querySelector(`.perm-check[data-mod="${mod}"][data-action="view"]`).checked,
-          create: document.querySelector(`.perm-check[data-mod="${mod}"][data-action="create"]`).checked,
-          edit: document.querySelector(`.perm-check[data-mod="${mod}"][data-action="edit"]`).checked,
-          delete: document.querySelector(`.perm-check[data-mod="${mod}"][data-action="delete"]`).checked
-        };
-      });
-    }
-
     const payload = {
       id: existing ? existing.id : undefined,
       name: fullName,
@@ -175,7 +135,6 @@ document.addEventListener('DOMContentLoaded', ()=>{
       status: document.getElementById('f_status').value,
       assignedProperties,
       parentPropertyId,
-      permissions,
       createdBy: existing ? existing.createdBy : me.id,
       avatar: existing ? existing.avatar : `https://ui-avatars.com/api/?name=${encodeURIComponent(fullName)}&background=3861fb&color=fff&size=200`,
       phone: existing ? existing.phone : '',

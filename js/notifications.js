@@ -2,7 +2,7 @@ let notifFilter = 'all';
 
 document.addEventListener('DOMContentLoaded', ()=>{
   APP.mount({
-    title:'Notifications', subtitle:'Stay up to date with bookings, cancellations, and rate changes.',
+    title:'Notifications', subtitle:'Stay up to date on user accounts, roles, and access changes.',
     breadcrumb:[{label:'Home',href:'dashboard.html'},{label:'Notifications'}]
   });
 
