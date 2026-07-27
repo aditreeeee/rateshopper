@@ -143,6 +143,18 @@
 .legend-toggle .dot{ width:8px; height:8px; border-radius:50%; }
 .legend-toggle.off{ opacity:.4; }
 
+/* ---------- Simple breadcrumb (Room Rate Comparison, etc.) ---------- */
+.rc-crumb{ font-size:.78rem; color:var(--text-3); display:flex; align-items:center; gap:6px; }
+.rc-crumb a{ color:var(--text-3); text-decoration:none; }
+.rc-crumb a:hover{ color:var(--brand-500); }
+.rc-crumb .bi{ font-size:.6rem; }
+.rc-crumb span{ color:var(--text-2); font-weight:600; }
+
+/* ---------- Sortable table headers ---------- */
+.th-sortable{ cursor:pointer; user-select:none; white-space:nowrap; }
+.th-sortable .bi{ font-size:.65rem; margin-left:3px; opacity:.5; }
+.th-sortable.active .bi{ opacity:1; color:var(--brand-500); }
+
 /* ---------- Slim market snapshot banner ---------- */
 .market-snapshot-bar{
   display:flex; align-items:center; gap:16px; flex-wrap:wrap;
