@@ -6,7 +6,7 @@ const DB = (() => {
     session:'hop_session', properties:'hop_properties', channels:'hop_channels', rooms:'hop_rooms',
     ratePlans:'hop_ratePlans', rates:'hop_rates', notifications:'hop_notifications',
     activity:'hop_activity', settings:'hop_settings', users:'hop_users',
-    seeded:'hop_seeded_v28'
+    seeded:'hop_seeded_v29'
   };
 
   // Sales channels a property distributes through. Every property always has exactly one
@@ -242,7 +242,7 @@ const DB = (() => {
       {
         id: kavitaId, name:'Kavita Nair', firstName:'Kavita', lastName:'Nair', email:'property.owner@eglobe.com', password:'Property@123',
         role:'property_owner', status:'active', parentPropertyId: properties[0].id,
-        assignedProperties:[properties[1].id], permissions:null,
+        assignedProperties:[properties[1].id, properties[2].id, properties[3].id, properties[4].id, properties[5].id], permissions:null,
         phone:'+91 9820055667', bio:'Property Owner — manages her assigned properties end-to-end.',
         avatar:'https://ui-avatars.com/api/?name=Kavita+Nair&background=b9791a&color=fff&size=200',
         createdAt: fmtDate(new Date(Date.now()-240*86400000))
