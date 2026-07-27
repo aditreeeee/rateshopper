@@ -1,5 +1,8 @@
 document.addEventListener('DOMContentLoaded', ()=>{
   if(!RBAC.requireModuleAccess(RBAC.MODULES.DASHBOARD, 'view')) return;
+  // Property Owner has their own dedicated dashboard — this admin dashboard shows
+  // company-wide stats that don't apply to a single property.
+  if(RBAC.currentRole() === RBAC.ROLES.PROPERTY_OWNER){ location.href = 'property-dashboard.html'; return; }
 
   const me = RBAC.currentUser();
   APP.mount({ title:'Dashboard', subtitle:`Welcome back, ${me.name.split(' ')[0]}! Here's what's happening across your properties.`, breadcrumb:[{label:'Home',href:'dashboard.html'},{label:'Dashboard'}] });

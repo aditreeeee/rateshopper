@@ -5,13 +5,14 @@
    ========================================================================== */
 const PWIDGETS = (() => {
 
-  function kpiCard({icon, color, bg, label, value, sub, subDir}){
+  function kpiCard({icon, color, bg, label, value, sub, subDir, desc}){
     return `<div class="col-md-6 col-xl-3">
       <div class="kpi-card">
         <div class="kpi-icon" style="background:${bg};color:${color}"><i class="bi ${icon}"></i></div>
         <div class="kpi-label">${label}</div>
         <div class="kpi-value">${value}</div>
         ${sub ? `<div class="kpi-sub ${subDir||'flat'}"><i class="bi ${subDir==='up'?'bi-arrow-up-short':subDir==='down'?'bi-arrow-down-short':'bi-dash'}"></i>${sub}</div>` : ''}
+        ${desc ? `<div class="kpi-desc">${desc}</div>` : ''}
       </div>
     </div>`;
   }

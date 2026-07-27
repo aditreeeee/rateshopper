@@ -1,7 +1,7 @@
 document.addEventListener('DOMContentLoaded', ()=>{
   if(!RBAC.requireRole()) return;
 
-  APP.mount({
+  PORTAL.mountForRole({
     title:'My Profile', subtitle:'Manage your personal account information.',
     breadcrumb:[{label:'Home',href:'dashboard.html'},{label:'Profile'}]
   });

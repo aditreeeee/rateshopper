@@ -1,6 +1,9 @@
 let notifFilter = 'all';
 
 document.addEventListener('DOMContentLoaded', ()=>{
+  // This feed is Company Admin's own (user/account events) — Property Owner has Rate Alerts
+  // in the portal bell dropdown instead.
+  if(RBAC.currentRole() === RBAC.ROLES.PROPERTY_OWNER){ location.href = 'property-dashboard.html'; return; }
   APP.mount({
     title:'Notifications', subtitle:'Stay up to date on user accounts, roles, and access changes.',
     breadcrumb:[{label:'Home',href:'dashboard.html'},{label:'Notifications'}]

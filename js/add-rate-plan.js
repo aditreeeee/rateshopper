@@ -25,7 +25,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     ];
   }
 
-  APP.mount({
+  PORTAL.mountForRole({
     title: existing ? 'Edit Rate Plan' : 'Create Rate Plan',
     subtitle: existing ? `Update pricing rules for ${existing.name}` : 'Define a new pricing and cancellation policy for a room.',
     breadcrumb: breadcrumbFor(preselectProperty)

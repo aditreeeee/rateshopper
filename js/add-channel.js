@@ -26,7 +26,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     ];
   }
 
-  APP.mount({
+  PORTAL.mountForRole({
     title: existing ? 'Edit Channel' : 'Add New Channel',
     subtitle: existing ? `Update details for ${existing.name}` : 'Add a distribution channel for this property.',
     breadcrumb: breadcrumbFor(preselectProperty)

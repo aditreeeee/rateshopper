@@ -15,6 +15,7 @@
   width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;
   font-size:1rem; margin-bottom:2px;
 }
+.kpi-card .kpi-desc, .channel-perf-card .kpi-desc{ font-size:.68rem; color:var(--text-3); line-height:1.35; margin-top:6px; padding-top:6px; border-top:1px dashed var(--border-1); }
 .kpi-card .kpi-label{ font-size:.72rem; color:var(--text-3); font-weight:600; text-transform:uppercase; letter-spacing:.3px; }
 .kpi-card .kpi-value{ font-size:1.35rem; font-weight:800; color:var(--text-1); line-height:1.2; }
 .kpi-card .kpi-sub{ font-size:.74rem; font-weight:600; display:flex; align-items:center; gap:4px; }
@@ -141,3 +142,14 @@
 }
 .legend-toggle .dot{ width:8px; height:8px; border-radius:50%; }
 .legend-toggle.off{ opacity:.4; }
+
+/* ---------- Slim market snapshot banner ---------- */
+.market-snapshot-bar{
+  display:flex; align-items:center; gap:16px; flex-wrap:wrap;
+  padding:6px 14px; margin-bottom:14px; border-radius:10px;
+  background:var(--brand-50); border:1px solid var(--brand-100); font-size:.72rem; color:var(--text-2);
+}
+[data-theme="dark"] .market-snapshot-bar{ background:rgba(56,97,251,.1); border-color:rgba(56,97,251,.25); }
+.market-snapshot-bar .snap-item{ display:flex; align-items:center; gap:5px; white-space:nowrap; }
+.market-snapshot-bar .snap-item b{ color:var(--text-1); font-weight:700; }
+.market-snapshot-bar .snap-sep{ color:var(--border-1); }

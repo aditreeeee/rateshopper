@@ -27,7 +27,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     ];
   }
 
-  APP.mount({
+  PORTAL.mountForRole({
     title: existing ? 'Edit Room' : 'Add New Room',
     subtitle: existing ? `Update details for ${existing.name}` : 'Create a new room type for a property.',
     breadcrumb: breadcrumbFor(preselectProperty)

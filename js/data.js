@@ -48,8 +48,23 @@ const DB = (() => {
   const MEAL_LABELS = {EP:'European Plan (Room Only)',CP:'Continental Plan (Room + Breakfast)',MAP:'Modified American Plan (Breakfast + 1 Meal)',AP:'American Plan (All Meals)'};
 
   function uid(prefix){ return prefix + '_' + Math.random().toString(36).slice(2,9); }
-  function get(key, fallback){ try{ const v = JSON.parse(localStorage.getItem(key)); return v===null||v===undefined ? fallback : v; }catch(e){ return fallback; } }
-  function set(key, val){ localStorage.setItem(key, JSON.stringify(val)); }
+
+  // In-memory cache over localStorage reads. Some keys (hop_rates especially) hold a multi-MB
+  // blob covering every property/channel/room/rate-plan/date — CRUD helpers like
+  // DB.rates.forPlan() call get() on that key dozens of times per page (once per date, per
+  // room, per channel), and JSON.parse-ing megabytes of text that often is what made
+  // Dashboard/Market Intelligence/Channel Analysis slow to open. Every write goes through
+  // set(), which keeps this cache in sync, so it's always as fresh as localStorage itself.
+  const _cache = {};
+  function get(key, fallback){
+    if(!(key in _cache)){
+      try{ _cache[key] = JSON.parse(localStorage.getItem(key)); }
+      catch(e){ _cache[key] = undefined; }
+    }
+    const v = _cache[key];
+    return (v===null||v===undefined) ? fallback : v;
+  }
+  function set(key, val){ localStorage.setItem(key, JSON.stringify(val)); _cache[key] = val; }
 
   function rand(min,max){ return Math.floor(Math.random()*(max-min+1))+min; }
   function pick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }

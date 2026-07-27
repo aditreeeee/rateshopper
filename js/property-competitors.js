@@ -1,4 +1,5 @@
 let profileChart = null;
+let profileTrendChart = null;
 
 document.addEventListener('DOMContentLoaded', ()=>{
   const me = PORTAL.mount({ title:'Competitors', subtitle:'The properties selected by your Company Admin to benchmark against.' });
@@ -64,65 +65,110 @@ document.addEventListener('DOMContentLoaded', ()=>{
   window.toggleFavorite = function(id){ const c=PORTALDATA.competitor(propertyId,id); c.favorite=!c.favorite; PORTALDATA.saveCompetitor(propertyId,c); render(); };
   window.togglePinC = function(id){ const c=PORTALDATA.competitor(propertyId,id); c.pinned=!c.pinned; PORTALDATA.saveCompetitor(propertyId,c); render(); };
 
+  // Average base-occupancy rate across every room/rate plan on a channel, for one date.
+  function channelAvgRateOnDate(channelId, dateKey){
+    const rooms = DB.rooms.byChannel(channelId);
+    let sum = 0, count = 0;
+    rooms.forEach(room=>{
+      DB.ratePlans.byRoom(room.id).forEach(rp=>{
+        const day = DB.rates.forPlan(rp.id)[dateKey];
+        sum += day ? day.price : room.basePrice;
+        count++;
+      });
+    });
+    return count ? Math.round(sum/count) : null;
+  }
+  function dk(offset){ return new Date(Date.now()+offset*86400000).toISOString().slice(0,10); }
+
   window.openProfile = function(id){
     const c = PORTALDATA.competitor(propertyId, id);
-    if(!c) return;
-    const today = PORTALDATA.dateKeyOffset(0);
-    const series = [];
-    for(let d=-30; d<=30; d+=2){ series.push(PORTALDATA.competitorRateOnDate(c, PORTALDATA.dateKeyOffset(d))); }
-    const lowest = Math.min(...series), highest = Math.max(...series), avg = Math.round(series.reduce((a,b)=>a+b,0)/series.length);
-    const freq = {}; series.forEach(r=>{ const b=Math.round(r/500)*500; freq[b]=(freq[b]||0)+1; });
-    const mostCommon = Object.keys(freq).sort((a,b)=>freq[b]-freq[a])[0];
-    const otaSplit = PORTALDATA.CHANNELS.map(ch=>({ch, pct: 5+Math.round(seededPct(c.id+ch.key)*95)}));
-    const total = otaSplit.reduce((s,o)=>s+o.pct,0);
+    if(!c || !c.isReal) return;
+    const hotel = DB.properties.get(c.realPropertyId);
+    if(!hotel) return;
 
-    document.getElementById('cprof_title').innerHTML = `<i class="bi bi-building me-2"></i>${c.name}`;
+    const channels = DB.channels.byProperty(hotel.id);
+    const master = channels.find(ch=>ch.type==='master');
+    const rooms = master ? DB.rooms.byChannel(master.id) : [];
+
+    // Historical (past 30 days) + trend (next 30 days), both off the Master (Direct) channel.
+    const histLabels=[], histData=[], trendLabels=[], trendData=[];
+    for(let d=-30; d<=0; d++){ histLabels.push(dk(d).slice(5)); histData.push(master?channelAvgRateOnDate(master.id,dk(d)):null); }
+    for(let d=0; d<=30; d++){ trendLabels.push(dk(d).slice(5)); trendData.push(master?channelAvgRateOnDate(master.id,dk(d)):null); }
+    const validHist = histData.filter(v=>v!=null);
+    const lowest = validHist.length?Math.min(...validHist):null, highest = validHist.length?Math.max(...validHist):null;
+    const avg = validHist.length?Math.round(validHist.reduce((a,b)=>a+b,0)/validHist.length):null;
+    const trendPct = (validHist.length && trendData.filter(v=>v!=null).length)
+      ? Math.round(((trendData.filter(v=>v!=null).slice(-1)[0] - validHist[0]) / validHist[0]) * 1000)/10 : null;
+
+    document.getElementById('cprof_title').innerHTML = `<i class="bi bi-building me-2"></i>${hotel.name}`;
     document.getElementById('cprof_body').innerHTML = `
       <div class="row g-3">
         <div class="col-lg-5">
-          <img src="${c.image}" class="w-100 mb-3" style="border-radius:14px;height:180px;object-fit:cover">
-          <div class="kv-row"><span class="k">Location</span><span class="v">${c.city}, ${c.country}</span></div>
-          ${!c.isReal ? `<div class="kv-row"><span class="k">Distance</span><span class="v">${c.distanceKm} km</span></div>` : ''}
-          <div class="kv-row"><span class="k">Star Rating</span><span class="v">${c.stars}★</span></div>
-          <div class="kv-row"><span class="k">Cancellation Policy</span><span class="v">${c.cancellationPolicy}</span></div>
-          <div class="mt-2 mb-1 fw-semibold small">Amenities</div>
-          <div>${(c.amenities||[]).map(a=>`<span class="badge bg-light text-dark border me-1 mb-1">${a}</span>`).join('') || '<span class="text-muted small">Not listed</span>'}</div>
-          <div class="mt-3 mb-1 fw-semibold small">Mapped Room / Rate Plan</div>
-          <div class="text-muted small">${c.roomType} — ${c.mealPlan}</div>
+          <div class="fw-semibold small mb-1">Images</div>
+          <img src="${hotel.logo}" class="w-100 mb-3" style="border-radius:14px;height:180px;object-fit:cover">
+
+          <div class="fw-semibold small mb-1">Hotel Information</div>
+          <div class="kv-row"><span class="k">Type</span><span class="v">${hotel.type||'—'}</span></div>
+          <div class="kv-row"><span class="k">Star Rating</span><span class="v">${hotel.stars||c.stars||'—'}★</span></div>
+          <div class="kv-row"><span class="k">Address</span><span class="v" style="max-width:60%;text-align:right">${hotel.address || `${hotel.city}, ${hotel.country}`}</span></div>
+          <div class="kv-row"><span class="k">Phone</span><span class="v">${hotel.phone||'—'}</span></div>
+          ${hotel.description ? `<div class="text-muted mt-2" style="font-size:.78rem">${hotel.description}</div>` : ''}
+
+          <div class="fw-semibold small mt-3 mb-1">Channel Availability</div>
+          ${channels.map(ch=>{
+            const meta = DB.CHANNEL_TYPES[ch.type]||DB.CHANNEL_TYPES.custom;
+            return `<span class="badge ${ch.status==='active'?'bg-light text-dark border':'bg-secondary-subtle text-muted'} me-1 mb-1"><i class="bi ${meta.icon} me-1" style="color:${meta.color}"></i>${ch.name}${ch.status!=='active'?' (inactive)':''}</span>`;
+          }).join('') || '<span class="text-muted small">No channels found</span>'}
         </div>
+
         <div class="col-lg-7">
-          <div class="row g-2 mb-3">
-            <div class="col-6 col-md-3"><div class="stat-card h-100"><div class="stat-label">Lowest</div><h3 style="font-size:1rem">${APP.fmtCurrency(lowest)}</h3></div></div>
-            <div class="col-6 col-md-3"><div class="stat-card h-100"><div class="stat-label">Highest</div><h3 style="font-size:1rem">${APP.fmtCurrency(highest)}</h3></div></div>
-            <div class="col-6 col-md-3"><div class="stat-card h-100"><div class="stat-label">Average</div><h3 style="font-size:1rem">${APP.fmtCurrency(avg)}</h3></div></div>
-            <div class="col-6 col-md-3"><div class="stat-card h-100"><div class="stat-label">Most Common</div><h3 style="font-size:1rem">${APP.fmtCurrency(mostCommon)}</h3></div></div>
+          <div class="fw-semibold small mb-1">Room Types & Rate Plans</div>
+          <div class="mb-3" style="max-height:180px;overflow-y:auto">
+            ${rooms.length ? rooms.map(room=>{
+              const plans = DB.ratePlans.byRoom(room.id);
+              return `<div class="d-flex justify-content-between align-items-start py-1 border-bottom" style="border-color:var(--border-2) !important">
+                <div>
+                  <div class="fw-semibold" style="font-size:.8rem">${room.name} <span class="text-muted fw-normal">(${room.bedType}, ${room.capacity} guests)</span></div>
+                  <div class="text-muted" style="font-size:.7rem">${plans.map(p=>`${p.mealPlan} ${p.refundable?'Flexible':'Non-Refundable'}`).join(' • ') || 'No rate plans'}</div>
+                </div>
+                <div class="fw-semibold" style="font-size:.78rem">${APP.fmtCurrency(room.basePrice)}</div>
+              </div>`;
+            }).join('') : '<div class="text-muted small">No rooms found for this property.</div>'}
           </div>
-          <div class="fw-semibold small mb-1">Historical & Future Rate Trend (60 days)</div>
-          <canvas id="cprof_chart" height="90"></canvas>
-          <div class="fw-semibold small mt-3 mb-1">OTA Distribution</div>
-          ${otaSplit.map(o=>`
-            <div class="dist-bar-row">
-              <span style="width:110px;font-size:.72rem">${o.ch.label}</span>
-              <div class="dist-bar-track"><div class="dist-bar-fill" style="width:${Math.round(o.pct/total*100)}%"></div></div>
-              <span style="width:36px;font-size:.72rem" class="text-end">${Math.round(o.pct/total*100)}%</span>
-            </div>`).join('')}
+
+          <div class="row g-2 mb-3">
+            <div class="col-4"><div class="stat-card h-100"><div class="stat-label">Lowest</div><h3 style="font-size:1rem">${lowest!=null?APP.fmtCurrency(lowest):'—'}</h3></div></div>
+            <div class="col-4"><div class="stat-card h-100"><div class="stat-label">Highest</div><h3 style="font-size:1rem">${highest!=null?APP.fmtCurrency(highest):'—'}</h3></div></div>
+            <div class="col-4"><div class="stat-card h-100"><div class="stat-label">Average</div><h3 style="font-size:1rem">${avg!=null?APP.fmtCurrency(avg):'—'}</h3></div></div>
+          </div>
+
+          <div class="fw-semibold small mb-1">Historical Pricing (30 days)</div>
+          <canvas id="cprof_histChart" height="70"></canvas>
+
+          <div class="d-flex justify-content-between align-items-center mt-3 mb-1">
+            <div class="fw-semibold small mb-0">Pricing Trends (next 30 days)</div>
+            ${trendPct!=null ? `<span class="small fw-semibold ${trendPct>=0?'text-danger':'text-success'}"><i class="bi ${trendPct>=0?'bi-arrow-up-short':'bi-arrow-down-short'}"></i>${trendPct>=0?'+':''}${trendPct}%</span>` : ''}
+          </div>
+          <canvas id="cprof_trendChart" height="70"></canvas>
         </div>
       </div>`;
 
     new bootstrap.Modal(document.getElementById('competitorProfileModal')).show();
     setTimeout(()=>{
       if(profileChart) profileChart.destroy();
-      const labels = []; const data = [];
-      for(let d=-30; d<=30; d+=2){ const dk=PORTALDATA.dateKeyOffset(d); labels.push(dk.slice(5)); data.push(PORTALDATA.competitorRateOnDate(c,dk)); }
-      profileChart = new Chart(document.getElementById('cprof_chart'), {
+      if(profileTrendChart) profileTrendChart.destroy();
+      profileChart = new Chart(document.getElementById('cprof_histChart'), {
         type:'line',
-        data:{ labels, datasets:[{label:c.name, data, borderColor:'#3861fb', backgroundColor:'rgba(56,97,251,.08)', tension:.35, fill:true}] },
+        data:{ labels:histLabels, datasets:[{label:hotel.name, data:histData, borderColor:'#3861fb', backgroundColor:'rgba(56,97,251,.08)', tension:.35, fill:true, spanGaps:true}] },
+        options:{ responsive:true, plugins:{legend:{display:false}} }
+      });
+      profileTrendChart = new Chart(document.getElementById('cprof_trendChart'), {
+        type:'line',
+        data:{ labels:trendLabels, datasets:[{label:hotel.name, data:trendData, borderColor:'#00c2a8', backgroundColor:'rgba(0,194,168,.08)', tension:.35, fill:true, spanGaps:true}] },
         options:{ responsive:true, plugins:{legend:{display:false}} }
       });
     }, 150);
   };
-
-  function seededPct(seed){ let h=0; for(let i=0;i<seed.length;i++){h=(h*31+seed.charCodeAt(i))|0;} return (Math.abs(h)%1000)/1000; }
 
   render();
   const openId = APP.qs('id');

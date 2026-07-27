@@ -7,7 +7,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   canEditProperties = RBAC.can(RBAC.MODULES.PROPERTIES, 'edit');
   canDeleteProperties = RBAC.can(RBAC.MODULES.PROPERTIES, 'delete');
 
-  APP.mount({
+  PORTAL.mountForRole({
     title:'Properties', subtitle:'Manage all your hotel properties in one place.',
     breadcrumb:[{label:'Home',href:'dashboard.html'},{label:'Properties'}],
     actions: RBAC.can(RBAC.MODULES.PROPERTIES, 'create') ? `<a href="add-property.html" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i>Add Property</a>` : ''

@@ -11,7 +11,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   const canViewCalendar = accessible && RBAC.can(RBAC.MODULES.RATE_CALENDAR, 'view');
   const canViewChannels = accessible && RBAC.can(RBAC.MODULES.CHANNELS, 'view');
 
-  APP.mount({
+  PORTAL.mountForRole({
     title: accessible ? p.name : (p ? 'Access Denied' : 'Property Not Found'),
     subtitle: accessible ? `
       <span class="badge-status ${p.status==='active'?'badge-active':'badge-inactive'}">${p.status}</span>

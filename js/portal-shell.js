@@ -12,8 +12,9 @@ const PORTAL = (() => {
     {href:'property-rate-shopper.html', icon:'bi-search', label:'Rate Shopper'},
     {href:'property-competitors.html', icon:'bi-building', label:'Competitors'},
     {href:'property-market.html', icon:'bi-globe-americas', label:'Market Intelligence'},
+    {section:'Property Setup'},
+    {href:'property-details.html', icon:'bi-building-gear', label:'My Property', dynamicId:true},
     {section:'Pricing'},
-    {href:'property-rate-calendar.html', icon:'bi-calendar3', label:'Rate Calendar'},
     {href:'property-price-recommendations.html', icon:'bi-lightbulb-fill', label:'Pricing Recommendations'},
     {href:'property-channel-analysis.html', icon:'bi-diagram-3', label:'Channel Analysis'},
     {section:'Insights'},
@@ -59,7 +60,8 @@ const PORTAL = (() => {
     }).map(item=>{
       if(item.section) return `<div class="nav-section">${item.section}</div>`;
       const active = item.href === currentPage();
-      return `<a href="${item.href}" class="nav-link ${active?'active':''}"><i class="bi ${item.icon}"></i><span>${item.label}</span></a>`;
+      const href = item.dynamicId ? `${item.href}?id=${activeId}` : item.href;
+      return `<a href="${href}" class="nav-link ${active?'active':''}"><i class="bi ${item.icon}"></i><span>${item.label}</span></a>`;
     }).join('');
 
     return `
@@ -177,5 +179,16 @@ const PORTAL = (() => {
     return me;
   }
 
-  return { mount, guard, activePropertyId, markAlertRead, markAllAlertsRead };
+  // For pages shared between the Company/Admin system and the Property Owner (properties.html,
+  // property-details.html, add-room/channel/rate-plan.html — there's no portal-native rebuild
+  // of Rooms/Rate Plans/Channels management yet). A Property Owner viewing their own property
+  // should see the Rate Shopper IQ portal chrome, not the Company/Admin sidebar — otherwise
+  // "looking at their property's profile" incorrectly switches them into the company layout.
+  function mountForRole(opts){
+    if(RBAC.currentRole() === RBAC.ROLES.PROPERTY_OWNER) return mount(opts);
+    APP.mount(opts);
+    return null;
+  }
+
+  return { mount, mountForRole, guard, activePropertyId, markAlertRead, markAllAlertsRead };
 })();

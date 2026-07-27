@@ -2,43 +2,56 @@ document.addEventListener('DOMContentLoaded', ()=>{
   const me = PORTAL.mount({ title:'Market Intelligence', subtitle:'An executive overview of the competitive market around your property.' });
   if(!me) return;
   const propertyId = PORTAL.activePropertyId(me);
-  const comps = PORTALDATA.competitors(propertyId);
+  // Only the competitors your Company Admin actually mapped to you — same set as Competitors/Rate Shopper.
+  const comps = PORTALDATA.comparisonRealProperties();
   const today = PORTALDATA.dateKeyOffset(0);
 
+  if(!comps.length){
+    document.getElementById('marketTrendKpis').innerHTML = `<div class="col-12">${PWIDGETS.emptyState('bi-globe-americas','No comparison properties assigned yet','Your Company Admin hasn\'t selected any benchmark properties for you yet.')}</div>`;
+    return;
+  }
+
+  const avgRateOn = dk => Math.round(comps.reduce((s,c)=>s+PORTALDATA.competitorRateOnDate(c,dk),0)/comps.length);
+
   const rates = comps.map(c=>PORTALDATA.competitorRateOnDate(c, today)).sort((a,b)=>a-b);
-  const marketAvg = Math.round(rates.reduce((a,b)=>a+b,0)/rates.length);
+  const marketAvg = avgRateOn(today);
   const median = rates[Math.floor(rates.length/2)];
+  const lowestRate = rates[0], highestRate = rates[rates.length-1];
   const cheapest = comps.reduce((min,c)=> PORTALDATA.competitorRateOnDate(c,today) < PORTALDATA.competitorRateOnDate(min,today) ? c : min);
   const priciest = comps.reduce((max,c)=> PORTALDATA.competitorRateOnDate(c,today) > PORTALDATA.competitorRateOnDate(max,today) ? c : max);
-  const demand = PORTALDATA.demandIndex(propertyId, today);
-  const weekendRate = Math.round(comps.reduce((s,c)=>s+PORTALDATA.competitorRateOnDate(c, PORTALDATA.dateKeyOffset(nextWeekendOffset())),0)/comps.length);
-  const weekendPremium = (((weekendRate-marketAvg)/marketAvg)*100).toFixed(1);
-  const holidayDate = PORTALDATA.dateKeyOffset(nextHolidayOffset());
-  const holidayRate = Math.round(comps.reduce((s,c)=>s+PORTALDATA.competitorRateOnDate(c, holidayDate),0)/comps.length);
-  const holidayPremium = (((holidayRate-marketAvg)/marketAvg)*100).toFixed(1);
-  const marketOcc = PORTALDATA.expectedOccupancy(propertyId, today);
   const supply = comps.length;
-  const yesterdayAvg = Math.round(comps.reduce((s,c)=>s+PORTALDATA.competitorRateOnDate(c, PORTALDATA.dateKeyOffset(-1)),0)/comps.length);
-  const marketTrendPct = (((marketAvg-yesterdayAvg)/yesterdayAvg)*100).toFixed(1);
 
-  function nextWeekendOffset(){ for(let d=0; d<7; d++){ if(PORTALDATA.isWeekend(PORTALDATA.dateKeyOffset(d))) return d; } return 5; }
-  function nextHolidayOffset(){ for(let d=0; d<365; d++){ if(PORTALDATA.isHoliday(PORTALDATA.dateKeyOffset(d))) return d; } return 30; }
+  const dailyPct = (((marketAvg - avgRateOn(PORTALDATA.dateKeyOffset(-1))) / avgRateOn(PORTALDATA.dateKeyOffset(-1))) * 100).toFixed(1);
+  const weeklyPct = (((marketAvg - avgRateOn(PORTALDATA.dateKeyOffset(-7))) / avgRateOn(PORTALDATA.dateKeyOffset(-7))) * 100).toFixed(1);
+  const monthlyPct = (((marketAvg - avgRateOn(PORTALDATA.dateKeyOffset(-30))) / avgRateOn(PORTALDATA.dateKeyOffset(-30))) * 100).toFixed(1);
 
-  document.getElementById('marketKpis').innerHTML = [
-    PWIDGETS.kpiCard({icon:'bi-bar-chart', color:'#3861fb', bg:'#eef4ff', label:'Market Average', value:APP.fmtCurrency(marketAvg)}),
-    PWIDGETS.kpiCard({icon:'bi-distribute-vertical', color:'#8c5cf7', bg:'#f3eeff', label:'Median Rate', value:APP.fmtCurrency(median)}),
-    PWIDGETS.kpiCard({icon:'bi-arrow-down-circle', color:'#12b76a', bg:'#e7faf1', label:'Cheapest Hotel', value:cheapest.name, sub:APP.fmtCurrency(PORTALDATA.competitorRateOnDate(cheapest,today))}),
-    PWIDGETS.kpiCard({icon:'bi-arrow-up-circle', color:'#ff4d5e', bg:'#fff0f1', label:'Most Expensive', value:priciest.name, sub:APP.fmtCurrency(PORTALDATA.competitorRateOnDate(priciest,today))}),
-    PWIDGETS.kpiCard({icon:'bi-fire', color:'#ff9f43', bg:'#fff4e8', label:'Demand Index', value:`${demand}/100`}),
-    PWIDGETS.kpiCard({icon:'bi-calendar-week', color:'#3861fb', bg:'#eef4ff', label:'Weekend Premium', value:`${weekendPremium>=0?'+':''}${weekendPremium}%`}),
-    PWIDGETS.kpiCard({icon:'bi-stars', color:'#b9791a', bg:'#fff8e6', label:'Holiday Premium', value:`${holidayPremium>=0?'+':''}${holidayPremium}%`}),
-    PWIDGETS.kpiCard({icon:'bi-people', color:'#00c2a8', bg:'#e6fbf8', label:'Market Occupancy', value:`${marketOcc}%`}),
-    PWIDGETS.kpiCard({icon:'bi-graph-up', color: marketTrendPct>=0?'#ff4d5e':'#12b76a', bg: marketTrendPct>=0?'#fff0f1':'#e7faf1', label:'Market Trend', value:`${marketTrendPct>=0?'+':''}${marketTrendPct}%`}),
-    PWIDGETS.kpiCard({icon:'bi-buildings', color:'#3861fb', bg:'#eef4ff', label:'Supply (Tracked Hotels)', value:supply}),
+  const trendCard = (label, pct, desc) => PWIDGETS.kpiCard({
+    icon: pct>=0?'bi-graph-up-arrow':'bi-graph-down-arrow', color: pct>=0?'#ff4d5e':'#12b76a', bg: pct>=0?'#fff0f1':'#e7faf1',
+    label, value:`${pct>=0?'+':''}${pct}%`, desc
+  });
+
+  document.getElementById('marketTrendKpis').innerHTML = [
+    PWIDGETS.kpiCard({icon:'bi-bar-chart', color:'#3861fb', bg:'#eef4ff', label:'Market Average', value:APP.fmtCurrency(marketAvg),
+      desc:'The average rate across all your assigned comparison properties today.'}),
+    PWIDGETS.kpiCard({icon:'bi-distribute-vertical', color:'#8c5cf7', bg:'#f3eeff', label:'Median Rate', value:APP.fmtCurrency(median),
+      desc:'The middle rate when every comparison property is sorted low to high — less skewed by one or two extreme outliers than the average.'}),
+    PWIDGETS.kpiCard({icon:'bi-arrow-down-circle', color:'#12b76a', bg:'#e7faf1', label:'Lowest Rate', value:APP.fmtCurrency(lowestRate),
+      desc:'The single cheapest rate found among all your comparison properties today.'}),
+    PWIDGETS.kpiCard({icon:'bi-arrow-up-circle', color:'#ff4d5e', bg:'#fff0f1', label:'Highest Rate', value:APP.fmtCurrency(highestRate),
+      desc:'The single most expensive rate found among all your comparison properties today.'}),
+    PWIDGETS.kpiCard({icon:'bi-trophy', color:'#12b76a', bg:'#e7faf1', label:'Cheapest Competitor', value:cheapest.name, sub:APP.fmtCurrency(PORTALDATA.competitorRateOnDate(cheapest,today)),
+      desc:'Which comparison property currently has the lowest rate.'}),
+    PWIDGETS.kpiCard({icon:'bi-gem', color:'#ff4d5e', bg:'#fff0f1', label:'Most Expensive Competitor', value:priciest.name, sub:APP.fmtCurrency(PORTALDATA.competitorRateOnDate(priciest,today)),
+      desc:'Which comparison property currently has the highest rate.'}),
+    trendCard('Daily Market Trend', Number(dailyPct), "How much the market average has moved since yesterday."),
+    trendCard('Weekly Market Trend', Number(weeklyPct), 'How much the market average has moved compared to 7 days ago.'),
+    trendCard('Monthly Market Trend', Number(monthlyPct), 'How much the market average has moved compared to 30 days ago.'),
+    PWIDGETS.kpiCard({icon:'bi-buildings', color:'#3861fb', bg:'#eef4ff', label:'Tracked Competitors', value:supply,
+      desc:'How many comparison properties your Company Admin has assigned to you for benchmarking.'}),
   ].join('');
 
   const labels=[], data=[];
-  for(let d=-30; d<=30; d+=2){ const dk=PORTALDATA.dateKeyOffset(d); labels.push(dk.slice(5)); data.push(Math.round(comps.reduce((s,c)=>s+PORTALDATA.competitorRateOnDate(c,dk),0)/comps.length)); }
+  for(let d=-30; d<=30; d+=2){ const dk=PORTALDATA.dateKeyOffset(d); labels.push(dk.slice(5)); data.push(avgRateOn(dk)); }
   new Chart(document.getElementById('marketTrendChart'), {
     type:'line',
     data:{ labels, datasets:[{label:'Market Average', data, borderColor:'#8c5cf7', backgroundColor:'rgba(140,92,247,.08)', tension:.35, fill:true}] },
@@ -52,6 +65,15 @@ document.addEventListener('DOMContentLoaded', ()=>{
     data:{ labels:bkeys.map(k=>`₹${k/1000}k+`), datasets:[{label:'Hotels', data:bkeys.map(k=>buckets[k]), backgroundColor:'#3861fb', borderRadius:6}] },
     options:{ responsive:true, plugins:{legend:{display:false}} }
   });
+
+  // ---- Competitor Pricing Matrix: competitor rows x next 7 days ----
+  const matrixDays = Array.from({length:7}).map((_,d)=> PORTALDATA.dateKeyOffset(d));
+  document.getElementById('pricingMatrixTable').innerHTML = `
+    <thead><tr><th>Competitor</th>${matrixDays.map(dk=>`<th>${new Date(dk+'T00:00:00').toLocaleDateString('en-IN',{weekday:'short',day:'2-digit',month:'short'})}</th>`).join('')}</tr></thead>
+    <tbody>${comps.map(c=>`<tr>
+      <td class="fw-semibold">${c.name}</td>
+      ${matrixDays.map(dk=>`<td>${APP.fmtCurrency(PORTALDATA.competitorRateOnDate(c,dk))}</td>`).join('')}
+    </tr>`).join('')}</tbody>`;
 
   const movement = [...comps].map(c=>{
     const t = PORTALDATA.competitorRateOnDate(c,today), y = PORTALDATA.competitorRateOnDate(c, PORTALDATA.dateKeyOffset(-7));
@@ -69,14 +91,13 @@ document.addEventListener('DOMContentLoaded', ()=>{
   document.getElementById('marketSummary').innerHTML = `
     <div class="kv-row"><span class="k">Total Competitors</span><span class="v">${supply}</span></div>
     <div class="kv-row"><span class="k">Avg. Star Rating</span><span class="v">${(comps.reduce((s,c)=>s+c.stars,0)/comps.length).toFixed(1)}★</span></div>
-    <div class="kv-row"><span class="k">Avg. Distance</span><span class="v">${(comps.reduce((s,c)=>s+c.distanceKm,0)/comps.length).toFixed(1)} km</span></div>
-    <div class="kv-row"><span class="k">Price Spread</span><span class="v">${APP.fmtCurrency(rates[rates.length-1]-rates[0])}</span></div>`;
+    <div class="kv-row"><span class="k">Price Spread</span><span class="v">${APP.fmtCurrency(highestRate-lowestRate)}</span></div>`;
 
   const newListings = comps.filter(c=> seededPct(c.id+'new') > 0.85).slice(0,4);
   document.getElementById('newListings').innerHTML = newListings.length ? newListings.map(c=>`
     <div class="d-flex align-items-center gap-2 mb-2">
       <img src="${c.image}" style="width:32px;height:32px;border-radius:8px;object-fit:cover">
-      <div class="flex-grow-1"><div class="fw-semibold" style="font-size:.8rem">${c.name}</div><div class="text-muted" style="font-size:.7rem">${c.distanceKm}km away</div></div>
+      <div class="flex-grow-1"><div class="fw-semibold" style="font-size:.8rem">${c.name}</div><div class="text-muted" style="font-size:.7rem">${c.city}, ${c.country}</div></div>
       <span class="badge bg-success-subtle text-success">New</span>
     </div>`).join('') : PWIDGETS.emptyState('bi-building-add','No new listings','No new competitors detected recently.');
 
