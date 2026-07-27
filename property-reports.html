@@ -10,48 +10,78 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link href="css/style.css" rel="stylesheet">
 <link href="css/portal.css" rel="stylesheet">
+<link href="css/reports.css" rel="stylesheet">
 </head>
 <body>
 <div id="app-shell">
 
-<div class="row g-3 mb-3">
-  <div class="col-lg-8">
-    <div class="section-card">
-      <div class="fw-bold mb-3">Report Type</div>
-      <div class="btn-group flex-wrap" id="rp_typeGroup" role="group">
-        <button type="button" class="btn btn-outline-primary" data-type="daily">Daily</button>
-        <button type="button" class="btn btn-soft" data-type="weekly">Weekly</button>
-        <button type="button" class="btn btn-soft" data-type="monthly">Monthly</button>
-        <button type="button" class="btn btn-soft" data-type="quarterly">Quarterly</button>
-        <button type="button" class="btn btn-soft" data-type="custom">Custom</button>
-      </div>
-      <div class="row g-2 mt-3 d-none" id="rp_customWrap">
-        <div class="col-md-5"><label class="form-label">From</label><input type="date" class="form-control" id="rp_from"></div>
-        <div class="col-md-5"><label class="form-label">To</label><input type="date" class="form-control" id="rp_to"></div>
-      </div>
+<div class="rp-hero mb-3">
+  <div class="rp-hero-text">
+    <div class="rp-hero-eyebrow"><i class="bi bi-stars me-1"></i>Report Snapshot</div>
+    <div class="rp-hero-title" id="rp_reportTitle">Daily Report</div>
+    <div class="rp-hero-sub" id="rp_reportRange">-</div>
+  </div>
+  <div class="rp-hero-art"><i class="bi bi-graph-up-arrow"></i></div>
+</div>
+
+<div class="section-card mb-3">
+  <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+    <div class="fw-bold">Report Type</div>
+    <div class="d-flex gap-2">
+      <button class="btn btn-sm-icon btn-soft" id="rp_pdf" title="Export PDF"><i class="bi bi-file-earmark-pdf"></i></button>
+      <button class="btn btn-sm-icon btn-soft" id="rp_excel" title="Export Excel"><i class="bi bi-file-earmark-excel"></i></button>
+      <button class="btn btn-sm-icon btn-soft" id="rp_csv" title="Export CSV"><i class="bi bi-filetype-csv"></i></button>
+      <button class="btn btn-sm-icon btn-soft" id="rp_print" title="Print"><i class="bi bi-printer"></i></button>
     </div>
   </div>
-  <div class="col-lg-4">
-    <div class="section-card h-100">
-      <div class="fw-bold mb-3">Export</div>
-      <div class="d-flex flex-column gap-2">
-        <button class="btn btn-outline-primary btn-sm" id="rp_pdf"><i class="bi bi-file-earmark-pdf me-1"></i>Export PDF</button>
-        <button class="btn btn-outline-primary btn-sm" id="rp_excel"><i class="bi bi-file-earmark-excel me-1"></i>Export Excel</button>
-        <button class="btn btn-outline-primary btn-sm" id="rp_csv"><i class="bi bi-filetype-csv me-1"></i>Export CSV</button>
-        <button class="btn btn-outline-primary btn-sm" id="rp_print"><i class="bi bi-printer me-1"></i>Print</button>
-      </div>
-    </div>
+  <div class="rp-type-group" id="rp_typeGroup">
+    <button type="button" class="rp-type-chip active" data-type="daily"><i class="bi bi-sun"></i>Daily</button>
+    <button type="button" class="rp-type-chip" data-type="weekly"><i class="bi bi-calendar-week"></i>Weekly</button>
+    <button type="button" class="rp-type-chip" data-type="monthly"><i class="bi bi-calendar-month"></i>Monthly</button>
+    <button type="button" class="rp-type-chip" data-type="quarterly"><i class="bi bi-calendar3-range"></i>Quarterly</button>
+    <button type="button" class="rp-type-chip" data-type="custom"><i class="bi bi-sliders"></i>Custom</button>
+  </div>
+  <div class="row g-2 mt-3 d-none" id="rp_customWrap">
+    <div class="col-md-5"><label class="form-label">From</label><input type="date" class="form-control" id="rp_from"></div>
+    <div class="col-md-5"><label class="form-label">To</label><input type="date" class="form-control" id="rp_to"></div>
   </div>
 </div>
 
-<div class="section-card">
-  <div class="fw-bold mb-2" id="rp_reportTitle">Daily Report</div>
-  <div class="table-responsive"><table class="table-modern w-100" id="rp_table"></table></div>
+<div class="row g-3 mb-1" id="rp_kpis"></div>
+
+<div class="row g-3 mt-1">
+  <div class="col-xxl-8">
+    <div class="chart-card mb-3">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <div class="fw-bold">ADR Trend</div>
+        <div class="text-muted small" id="rp_trendCaption">-</div>
+      </div>
+      <canvas id="rp_trendChart" height="90"></canvas>
+    </div>
+
+    <div class="section-card p-0">
+      <div class="p-3 pb-0 fw-bold">Day-by-Day Breakdown</div>
+      <div class="table-responsive"><table class="table-modern w-100" id="rp_table"></table></div>
+    </div>
+  </div>
+
+  <div class="col-xxl-4">
+    <div class="section-card mb-3">
+      <div class="fw-bold mb-2"><i class="bi bi-lightbulb-fill text-warning me-1"></i>Report Highlights</div>
+      <div id="rp_highlights"></div>
+    </div>
+    <div class="section-card">
+      <div class="fw-bold mb-2">Demand Heat</div>
+      <div class="text-muted small mb-2">Darker = higher demand that day</div>
+      <div class="heatmap-grid" id="rp_heatmap"></div>
+    </div>
+  </div>
 </div>
 
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 <script src="js/data.js"></script>
 <script src="js/rbac.js"></script>
 <script src="js/main.js"></script>

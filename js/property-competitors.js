@@ -30,6 +30,23 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
     document.getElementById('competitorGrid').innerHTML = comps.length ? comps.map(c=>{
       const diffPct = ((c.rate-myRate)/myRate)*100;
+      // Rooms/rate plans are auto-matched the moment this property and competitor are first
+      // seen together (and self-healed on every load) — a human only needs the Review Mapping
+      // action when something couldn't be confidently resolved automatically.
+      let mappingBadge = '';
+      if(c.isReal){
+        MAPPING.ensureAutoMapped(propertyId, c.realPropertyId);
+        const ev = MAPPING.evaluate(propertyId, c.realPropertyId);
+        const nRooms = ev.flaggedRooms.length, nPlans = ev.flaggedPlans.length;
+        const total = nRooms + nPlans;
+        if(total>0){
+          const parts = [];
+          if(nRooms) parts.push(`${nRooms} room${nRooms>1?'s':''}`);
+          if(nPlans) parts.push(`${nPlans} rate plan${nPlans>1?'s':''}`);
+          mappingBadge = `<button type="button" class="rm-review-badge" onclick="reviewMapping('${c.id}')" title="Open Mapping Review">
+            <i class="bi bi-exclamation-triangle-fill"></i>${parts.join(' & ')} ${total===1?'needs':'need'} mapping review</button>`;
+        }
+      }
       return `<div class="col-md-6 col-xl-4 col-xxl-3">
         <div class="competitor-card">
           <div class="comp-img" style="background-image:url('${c.image}')">
@@ -48,8 +65,10 @@ document.addEventListener('DOMContentLoaded', ()=>{
               </div>
               <div class="${diffPct>=0?'text-danger':'text-success'} small fw-semibold">${diffPct>=0?'+':''}${diffPct.toFixed(1)}% ${PWIDGETS.trendIcon(c.trend)}</div>
             </div>
+            ${mappingBadge ? `<div class="mt-2">${mappingBadge}</div>` : ''}
             <div class="d-flex gap-1 mt-2">
               <button class="btn btn-soft btn-sm flex-fill" onclick="openProfile('${c.id}')"><i class="bi bi-eye me-1"></i>Details</button>
+              ${c.isReal ? `<button class="btn btn-sm-icon btn-soft" onclick="reviewMapping('${c.id}')" title="Review Mapping"><i class="bi bi-signpost-split"></i></button>` : ''}
               <button class="btn btn-sm-icon ${c.pinned?'btn-primary':'btn-soft'}" onclick="togglePinC('${c.id}')" title="Pin for comparison"><i class="bi bi-pin-angle${c.pinned?'-fill':''}"></i></button>
             </div>
           </div>
@@ -64,6 +83,11 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
   window.toggleFavorite = function(id){ const c=PORTALDATA.competitor(propertyId,id); c.favorite=!c.favorite; PORTALDATA.saveCompetitor(propertyId,c); render(); };
   window.togglePinC = function(id){ const c=PORTALDATA.competitor(propertyId,id); c.pinned=!c.pinned; PORTALDATA.saveCompetitor(propertyId,c); render(); };
+  window.reviewMapping = function(id){
+    const c = PORTALDATA.competitor(propertyId, id);
+    if(!c || !c.isReal) return;
+    MAPPING.review(propertyId, c.realPropertyId, c.name);
+  };
 
   // Average base-occupancy rate across every room/rate plan on a channel, for one date.
   function channelAvgRateOnDate(channelId, dateKey){
