@@ -23,6 +23,17 @@
 .kpi-card .kpi-sub.down{ color:var(--danger); }
 .kpi-card .kpi-sub.flat{ color:var(--text-3); }
 
+/* ---------- Rate Plan Trend Analysis KPI row (Room Rate Comparison): 5 cards, one row on
+   desktop, instead of PWIDGETS.kpiCard's default 4-per-row (col-xl-3) leaving a lone 5th card
+   wrapped onto its own row. Scoped to this one container so every other kpiCard() usage
+   elsewhere keeps its normal 4-across layout. ---------- */
+@media (min-width:1200px){
+  #rpta_kpis > div{ flex:0 0 20%; max-width:20%; }
+}
+@media (min-width:768px) and (max-width:1199.98px){
+  #rpta_kpis > div{ flex:0 0 33.3333%; max-width:33.3333%; }
+}
+
 /* ---------- Rate position gauge ---------- */
 .rate-gauge{ display:flex; flex-direction:column; align-items:center; gap:8px; padding:10px 0; }
 .rate-gauge-bar{ position:relative; width:100%; height:10px; border-radius:6px;
@@ -166,6 +177,16 @@
 /* ---------- "My Property" reference rows, pinned at the top of the table body (Room Rate Comparison) ---------- */
 .rc-frozen-row td{ background:var(--brand-50); border-bottom:2px solid var(--brand-100); }
 [data-theme="dark"] .rc-frozen-row td{ background:rgba(56,97,251,.12); border-bottom-color:rgba(56,97,251,.3); }
+
+/* ---------- Section icon badge — small gradient square in front of a section title, used to
+   break a long page (e.g. Room Rate Comparison) into clearly scannable zones. ---------- */
+.rc-section-title{ display:flex; align-items:center; gap:10px; }
+.rc-section-icon{
+  width:28px; height:28px; border-radius:9px; flex:0 0 auto;
+  display:flex; align-items:center; justify-content:center; font-size:.82rem; color:#fff;
+  background:linear-gradient(135deg, var(--brand-500), var(--accent));
+  box-shadow:0 4px 10px rgba(56,97,251,.28);
+}
 
 /* ---------- Sortable table headers ---------- */
 .th-sortable{ cursor:pointer; user-select:none; white-space:nowrap; }

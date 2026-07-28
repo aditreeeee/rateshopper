@@ -17,14 +17,44 @@
 
 <div class="cal-toolbar">
   <div class="d-flex align-items-center gap-2 flex-wrap">
-    <button class="icon-btn" id="prevPeriod"><i class="bi bi-chevron-left"></i></button>
-    <h5 class="mb-0 fw-bold" id="periodLabel" style="min-width:180px">-</h5>
-    <button class="icon-btn" id="nextPeriod"><i class="bi bi-chevron-right"></i></button>
-    <button class="btn btn-soft btn-sm ms-2" id="btnToday">Today</button>
-    <div class="btn-group btn-group-sm ms-2" id="rangeFilter" role="group">
-      <button type="button" class="btn btn-outline-primary" data-range="7">7 Days</button>
-      <button type="button" class="btn btn-soft" data-range="14">14 Days</button>
-      <button type="button" class="btn btn-soft" data-range="30">30 Days</button>
+    <div class="dropdown" id="mx_dateRangeDropdown">
+      <button class="btn btn-soft dropdown-toggle fw-semibold" type="button" id="mx_dateRangeBtn" data-bs-toggle="dropdown" data-bs-auto-close="outside">
+        <i class="bi bi-calendar3 me-1"></i><span id="mx_dateRangeLabel">-</span>
+      </button>
+      <div class="dropdown-menu p-0" id="mx_dateRangeMenu">
+        <div class="d-flex">
+          <div class="mx-drp-presets">
+            <button type="button" class="mx-drp-preset" data-preset="today">Today</button>
+            <button type="button" class="mx-drp-preset" data-preset="yesterday">Yesterday</button>
+            <button type="button" class="mx-drp-preset" data-preset="7">7 Days</button>
+            <button type="button" class="mx-drp-preset" data-preset="14">14 Days</button>
+            <button type="button" class="mx-drp-preset" data-preset="30">30 Days</button>
+            <button type="button" class="mx-drp-preset" data-preset="lastMonth">Last Month</button>
+            <button type="button" class="mx-drp-preset" data-preset="custom">Custom Range</button>
+          </div>
+          <div class="mx-drp-custom d-none" id="mx_drpCustom">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <button type="button" class="btn btn-sm-icon btn-soft" id="mx_drpPrevMonth"><i class="bi bi-chevron-left"></i></button>
+              <div class="d-flex gap-4">
+                <div class="fw-semibold small text-center" style="width:170px" id="mx_drpMonthLabel1"></div>
+                <div class="fw-semibold small text-center" style="width:170px" id="mx_drpMonthLabel2"></div>
+              </div>
+              <button type="button" class="btn btn-sm-icon btn-soft" id="mx_drpNextMonth"><i class="bi bi-chevron-right"></i></button>
+            </div>
+            <div class="d-flex gap-3">
+              <div class="mx-drp-cal" id="mx_drpCal1"></div>
+              <div class="mx-drp-cal" id="mx_drpCal2"></div>
+            </div>
+            <div class="d-flex justify-content-between align-items-center mt-2 pt-2 mx-drp-footer">
+              <div class="text-muted small" id="mx_drpSelectedLabel">Select a start and end date</div>
+              <div class="d-flex gap-2">
+                <button type="button" class="btn btn-light btn-sm" id="mx_drpCancel">Cancel</button>
+                <button type="button" class="btn btn-primary btn-sm" id="mx_drpApply" disabled>Apply</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
   <div class="d-flex align-items-center gap-2 flex-wrap">

@@ -25,9 +25,6 @@
       <select class="form-select" id="rc_room"><option value="">All Rooms</option></select>
     </div>
     <div class="col-6 col-md-2">
-      <select class="form-select" id="rc_ratePlan"><option value="">All Rate Plans</option></select>
-    </div>
-    <div class="col-6 col-md-2">
       <select class="form-select" id="rc_channel"><option value="">All Channels</option></select>
     </div>
     <div class="col-6 col-md-2">
@@ -50,18 +47,22 @@
 
 <div class="row g-3 mb-1" id="rcKpis"></div>
 
-<!-- Rate Plan Trend Analysis — meal-plan-scoped (EP/CP/MAP/AP) view of my rate vs. the market,
-     independent of the table filters above: a 12-month seasonal trend plus a current-month
-     day-by-day breakdown, with its own meal-plan and chart-style controls. -->
+<!-- Rate Plan Trend Analysis — now the single home for meal-plan filtering (All Plans/EP/CP/MAP/AP):
+     the same control drives the 12-month + day-by-day trend above and the Room Comparison table
+     merged in below, so both always agree on which meal plan you're looking at. -->
 <div class="chart-card mb-3" id="rptaCard">
   <div class="d-flex justify-content-between align-items-start mb-3 flex-wrap gap-3">
-    <div>
-      <div class="fw-bold">Rate Plan Trend Analysis</div>
-      <div class="text-muted small">My rate vs. the market for one meal plan at a time — trailing 12 months, plus this month day-by-day.</div>
+    <div class="rc-section-title">
+      <span class="rc-section-icon"><i class="bi bi-graph-up-arrow"></i></span>
+      <div>
+        <div class="fw-bold">Rate Plan Trend Analysis</div>
+        <div class="text-muted small">My rate vs. the market for one meal plan at a time — trailing 12 months, this month day-by-day, and the room-by-room breakdown below.</div>
+      </div>
     </div>
     <div class="d-flex align-items-center gap-2 flex-wrap">
       <div class="btn-group btn-group-sm" id="rpta_mealPlanGroup" role="group">
-        <button type="button" class="btn btn-outline-primary" data-plan="EP">EP</button>
+        <button type="button" class="btn btn-outline-primary" data-plan="">All Plans</button>
+        <button type="button" class="btn btn-soft" data-plan="EP">EP</button>
         <button type="button" class="btn btn-soft" data-plan="CP">CP</button>
         <button type="button" class="btn btn-soft" data-plan="MAP">MAP</button>
         <button type="button" class="btn btn-soft" data-plan="AP">AP</button>
@@ -75,35 +76,43 @@
 
   <div class="row g-2 mb-4" id="rpta_kpis"></div>
 
-  <div class="fw-semibold small mb-2">12-Month Trend</div>
-  <canvas id="rpta_yearChart" height="85"></canvas>
-
-  <div class="fw-semibold small mb-2 mt-4">This Month — Day by Day</div>
-  <canvas id="rpta_monthChart" height="85"></canvas>
-</div>
-
-<div class="d-flex justify-content-between align-items-center mb-2 mt-3 flex-wrap gap-2">
-  <div>
-    <div class="fw-bold">Room Comparison</div>
-    <div class="text-muted small" id="rc_summary">-</div>
+  <div class="row g-4 mb-4">
+    <div class="col-lg-6">
+      <div class="fw-semibold small mb-2">12-Month Trend</div>
+      <canvas id="rpta_yearChart" height="130"></canvas>
+    </div>
+    <div class="col-lg-6">
+      <div class="fw-semibold small mb-2">This Month — Day by Day</div>
+      <canvas id="rpta_monthChart" height="130"></canvas>
+    </div>
   </div>
-  <div class="d-flex gap-2">
-    <input type="text" class="form-control form-control-sm" id="rc_search" placeholder="Search property or room..." style="width:220px">
-    <button class="btn btn-outline-primary btn-sm" id="rc_exportCsv"><i class="bi bi-filetype-csv me-1"></i>Export CSV</button>
-    <button class="btn btn-outline-primary btn-sm" id="rc_exportExcel"><i class="bi bi-file-earmark-excel me-1"></i>Export Excel</button>
-    <button class="btn btn-soft btn-sm" id="rc_print"><i class="bi bi-printer me-1"></i>Print</button>
-  </div>
-</div>
 
-<div class="section-card p-0 mb-3">
-  <div class="rate-shopper-table-wrap">
-    <table class="table-modern w-100" id="rc_table"></table>
+  <div class="d-flex justify-content-between align-items-center mb-2 pt-3 flex-wrap gap-2" style="border-top:1px solid var(--border-1)">
+    <div class="rc-section-title">
+      <span class="rc-section-icon"><i class="bi bi-table"></i></span>
+      <div>
+        <div class="fw-bold">Room Comparison</div>
+        <div class="text-muted small" id="rc_summary">-</div>
+      </div>
+    </div>
+    <div class="d-flex gap-2">
+      <input type="text" class="form-control form-control-sm" id="rc_search" placeholder="Search property or room..." style="width:220px">
+      <button class="btn btn-outline-primary btn-sm" id="rc_exportCsv"><i class="bi bi-filetype-csv me-1"></i>Export CSV</button>
+      <button class="btn btn-outline-primary btn-sm" id="rc_exportExcel"><i class="bi bi-file-earmark-excel me-1"></i>Export Excel</button>
+      <button class="btn btn-soft btn-sm" id="rc_print"><i class="bi bi-printer me-1"></i>Print</button>
+    </div>
   </div>
-  <div class="d-flex justify-content-between align-items-center px-3 py-2 flex-wrap gap-2" style="border-top:1px solid var(--border-1)">
-    <div class="text-muted small" id="rc_pageInfo">-</div>
-    <div class="btn-group btn-group-sm">
-      <button class="btn btn-soft" id="rc_prevPage"><i class="bi bi-chevron-left"></i></button>
-      <button class="btn btn-soft" id="rc_nextPage"><i class="bi bi-chevron-right"></i></button>
+
+  <div class="card-surface p-0">
+    <div class="rate-shopper-table-wrap">
+      <table class="table-modern w-100" id="rc_table"></table>
+    </div>
+    <div class="d-flex justify-content-between align-items-center px-3 py-2 flex-wrap gap-2" style="border-top:1px solid var(--border-1)">
+      <div class="text-muted small" id="rc_pageInfo">-</div>
+      <div class="btn-group btn-group-sm">
+        <button class="btn btn-soft" id="rc_prevPage"><i class="bi bi-chevron-left"></i></button>
+        <button class="btn btn-soft" id="rc_nextPage"><i class="bi bi-chevron-right"></i></button>
+      </div>
     </div>
   </div>
 </div>
@@ -111,14 +120,20 @@
 <div class="row g-3 mb-3">
   <div class="col-lg-6">
     <div class="chart-card h-100">
-      <div class="fw-bold mb-2">Room Rate Distribution</div>
+      <div class="rc-section-title mb-2">
+        <span class="rc-section-icon"><i class="bi bi-bar-chart-steps"></i></span>
+        <div class="fw-bold">Room Rate Distribution</div>
+      </div>
       <div class="text-muted small mb-2">Current rate for the selected room across My Property and its top tracked competitors.</div>
       <div class="rc-chart-scroll" id="rc_distChartWrap"><div id="rc_distChartInner"><canvas id="rc_distChart"></canvas></div></div>
     </div>
   </div>
   <div class="col-lg-6">
     <div class="section-card h-100">
-      <div class="fw-bold mb-2">Competitor Ranking</div>
+      <div class="rc-section-title mb-2">
+        <span class="rc-section-icon"><i class="bi bi-trophy"></i></span>
+        <div class="fw-bold">Competitor Ranking</div>
+      </div>
       <div class="text-muted small mb-2">Ranked by current room rate, cheapest first.</div>
       <div class="rate-shopper-table-wrap rc-rank-scroll"><table class="table-modern w-100" id="rc_rankTable"></table></div>
     </div>
@@ -127,9 +142,12 @@
 
 <div class="chart-card mb-3">
   <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
-    <div>
-      <div class="fw-bold">Historical Rate Trend</div>
-      <div class="text-muted small">My Room Rate vs. up to 5 tracked competitors for the selected room</div>
+    <div class="rc-section-title">
+      <span class="rc-section-icon"><i class="bi bi-clock-history"></i></span>
+      <div>
+        <div class="fw-bold">Historical Rate Trend</div>
+        <div class="text-muted small">My Room Rate vs. up to 5 tracked competitors for the selected room</div>
+      </div>
     </div>
     <div class="btn-group btn-group-sm" id="rc_trendRangeGroup" role="group">
       <button type="button" class="btn btn-soft" data-days="7">7D</button>
@@ -142,7 +160,10 @@
 </div>
 
 <div class="section-card">
-  <div class="fw-bold mb-2">Rate History</div>
+  <div class="rc-section-title mb-2">
+    <span class="rc-section-icon"><i class="bi bi-calendar3"></i></span>
+    <div class="fw-bold">Rate History</div>
+  </div>
   <div class="text-muted small mb-2">Daily rate comparison for the selected room over the chosen compare range.</div>
   <div class="rate-shopper-table-wrap">
     <table class="table-modern w-100" id="rc_historyTable"></table>

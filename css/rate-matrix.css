@@ -49,3 +49,35 @@
 
 /* ---------- Filters bar: force a clean two-row wrap instead of squeezed columns ---------- */
 .mx-filters .row > div{ margin-bottom:4px; }
+
+/* ---------- Date Range Picker (Rate Matrix) — presets on the left, a Google
+   Analytics/Power BI-style dual month calendar on the right when "Custom Range" is picked. ---------- */
+#mx_dateRangeMenu{ min-width:230px; border-radius:14px; overflow:hidden; }
+.mx-drp-presets{
+  display:flex; flex-direction:column; padding:8px; min-width:170px;
+  border-right:1px solid var(--border-1);
+}
+.mx-drp-preset{
+  border:none; background:transparent; text-align:left; padding:8px 12px; border-radius:9px;
+  font-size:.85rem; color:var(--text-1); cursor:pointer; transition:background .12s ease;
+}
+.mx-drp-preset:hover{ background:var(--bg-surface-2); }
+.mx-drp-preset.active{ background:var(--brand-50); color:var(--brand-600); font-weight:700; }
+[data-theme="dark"] .mx-drp-preset.active{ background:rgba(56,97,251,.16); }
+
+.mx-drp-custom{ padding:14px 16px; width:400px; }
+.mx-drp-cal{ display:grid; grid-template-columns:repeat(7,1fr); gap:2px; flex:1; }
+.mx-drp-cal .mx-drp-dow{ font-size:.62rem; font-weight:700; color:var(--text-3); text-align:center; padding:4px 0; text-transform:uppercase; }
+.mx-drp-cal .mx-drp-day{
+  border:none; background:transparent; font-size:.78rem; color:var(--text-1); border-radius:8px;
+  aspect-ratio:1; display:flex; align-items:center; justify-content:center; cursor:pointer;
+}
+.mx-drp-cal .mx-drp-day:hover:not(:disabled){ background:var(--bg-surface-2); }
+.mx-drp-cal .mx-drp-day:disabled{ color:var(--border-2); cursor:default; }
+.mx-drp-cal .mx-drp-day.mx-drp-in-range{ background:var(--brand-50); border-radius:0; }
+[data-theme="dark"] .mx-drp-cal .mx-drp-day.mx-drp-in-range{ background:rgba(56,97,251,.14); }
+.mx-drp-cal .mx-drp-day.mx-drp-endpoint{ background:var(--brand-500); color:#fff; font-weight:700; }
+.mx-drp-cal .mx-drp-day.mx-drp-endpoint.mx-drp-range-start{ border-radius:8px 0 0 8px; }
+.mx-drp-cal .mx-drp-day.mx-drp-endpoint.mx-drp-range-end{ border-radius:0 8px 8px 0; }
+.mx-drp-cal .mx-drp-day.mx-drp-today:not(.mx-drp-endpoint){ box-shadow:inset 0 0 0 1.5px var(--brand-300); }
+.mx-drp-footer{ border-top:1px solid var(--border-1); }

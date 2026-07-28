@@ -42,8 +42,12 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
   document.getElementById('rc_date').value = PORTALDATA.dateKeyOffset(0);
   document.getElementById('rc_room').innerHTML += myRooms.map(r=>`<option value="${r.id}">${r.name}</option>`).join('');
-  document.getElementById('rc_ratePlan').innerHTML += PORTALDATA.MEAL_PLANS.map(m=>`<option value="${m}">${m}</option>`).join('');
   document.getElementById('rc_channel').innerHTML += PORTALDATA.CHANNELS.map(c=>`<option value="${c.key}">${c.label}</option>`).join('');
+
+  // Meal plan (All Plans/EP/CP/MAP/AP) — the single shared control that now drives both the
+  // Rate Plan Trend Analysis charts/KPIs above AND the merged-in Room Comparison table below,
+  // via the #rpta_mealPlanGroup buttons (there's no separate table-only meal plan filter anymore).
+  let mealPlanFilter = '';
 
   // ---- date-range helper: last `days` dates ending today ----
   function rangeDates(days){ return Array.from({length:days}).map((_,d)=> PORTALDATA.dateKeyOffset(d - (days-1))); }
@@ -131,7 +135,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
   function applyFilters(rows){
     const roomId = document.getElementById('rc_room').value;
-    const mealPlan = document.getElementById('rc_ratePlan').value;
+    const mealPlan = mealPlanFilter;
     const search = document.getElementById('rc_search').value.trim().toLowerCase();
     return rows.filter(r=>{
       if(roomId && r.myRoomId !== roomId) return false;
@@ -162,7 +166,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   // Plan/Date/Rate-Metric filters as the rest of the page, so they always adapt to them. ----
   function buildFrozenRows(dateKey, useAvg, days, channelFilter){
     const roomId = document.getElementById('rc_room').value;
-    const mealPlan = document.getElementById('rc_ratePlan').value;
+    const mealPlan = mealPlanFilter;
     const rooms = roomId ? myRooms.filter(r=>r.id===roomId) : myRooms;
     const rows = [];
     rooms.forEach(room=>{
@@ -227,9 +231,11 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const compareDays = Number(document.getElementById('rc_compare').value);
     const channelFilter = document.getElementById('rc_channel').value;
     const frozenRows = buildFrozenRows(dateKey, useAvg, compareDays, channelFilter);
-    const frozenHtml = frozenRows.map(r=>`
+    // The "My Property" label + star only need to appear once — the row tint already groups
+    // every frozen row visually, so repeating the label on each one was just noise.
+    const frozenHtml = frozenRows.map((r,i)=>`
       <tr class="rc-frozen-row">
-        <td class="fw-semibold"><i class="bi bi-star-fill me-1" style="color:var(--brand-500)"></i>My Property</td>
+        <td class="fw-semibold">${i===0 ? '<i class="bi bi-star-fill me-1" style="color:var(--brand-500)"></i>My Property' : ''}</td>
         <td>${r.roomName}</td>
         <td>${PWIDGETS.channelChip(channelFilter || 'direct')}</td>
         <td style="font-size:.78rem">${r.ratePlanName}</td>
@@ -489,7 +495,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     renderHistory(channelFilter, compareDays);
   }
 
-  ['rc_date','rc_room','rc_ratePlan','rc_channel','rc_compare','rc_rateMetric'].forEach(id=>{
+  ['rc_date','rc_room','rc_channel','rc_compare','rc_rateMetric'].forEach(id=>{
     document.getElementById(id).addEventListener('input', ()=>{ rcPage = 0; renderAll(); });
   });
   document.getElementById('rc_search').addEventListener('input', ()=>{ rcPage = 0; renderTable(); });
@@ -509,11 +515,11 @@ document.addEventListener('DOMContentLoaded', ()=>{
   });
 
   /* ======================================================================
-     Rate Plan Trend Analysis — meal-plan-scoped (EP/CP/MAP/AP) rate vs.
-     market, independent of the table filters above. Own controls: meal
-     plan + chart style (line/bar), both re-render instantly on click.
+     Rate Plan Trend Analysis — meal-plan-scoped (All Plans/EP/CP/MAP/AP) rate
+     vs. market. The meal plan control here is shared with the merged-in Room
+     Comparison table below (mealPlanFilter, declared above) — picking a plan
+     re-renders both together. Chart style (line/bar) stays local to the charts.
      ====================================================================== */
-  let rptaMealPlan = 'EP';
   let rptaStyle = 'line';
   let rptaYearChart = null, rptaMonthChart = null;
   const RPTA_PALETTE = ['#a9b0c9','#9fd6ca','#c3aee8','#f2c194','#e6a8c4'];
@@ -539,10 +545,10 @@ document.addEventListener('DOMContentLoaded', ()=>{
   }
 
   function rptaDatasets(points, styleIsBar){
-    const myData = points.map(p=> PORTALDATA.mealPlanRateOnDate(propertyId, rptaMealPlan, p.dateKey));
+    const myData = points.map(p=> PORTALDATA.mealPlanRateOnDate(propertyId, mealPlanFilter, p.dateKey));
     const compSeries = compsAll.slice(0,5).map((c,i)=>({
       comp: c,
-      data: points.map(p=> PORTALDATA.mealPlanRateOnDate(c.realPropertyId, rptaMealPlan, p.dateKey)),
+      data: points.map(p=> PORTALDATA.mealPlanRateOnDate(c.realPropertyId, mealPlanFilter, p.dateKey)),
       color: RPTA_PALETTE[i%RPTA_PALETTE.length]
     }));
     // My property is always the thicker, solid, unmistakably-mine series; every competitor is a
@@ -569,18 +575,19 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const gapPct = marketAvg ? ((myAvg-marketAvg)/marketAvg*100) : 0;
     const sorted = [...compAvgs].sort((a,b)=>b.avg-a.avg);
     const highest = sorted[0], lowest = sorted[sorted.length-1];
+    const planLabel = mealPlanFilter || 'All Plans';
 
     document.getElementById('rpta_kpis').innerHTML = [
-      PWIDGETS.kpiCard({icon:'bi-house-door-fill', color:'#3861fb', bg:'#eef4ff', label:`My 12-Mo. Avg (${rptaMealPlan})`, value:APP.fmtCurrency(myAvg),
-        desc:`Your average ${rptaMealPlan} rate across the trailing 12 months.`}),
+      PWIDGETS.kpiCard({icon:'bi-house-door-fill', color:'#3861fb', bg:'#eef4ff', label:`My 12-Mo. Avg (${planLabel})`, value:APP.fmtCurrency(myAvg),
+        desc:`Your average ${planLabel} rate across the trailing 12 months.`}),
       PWIDGETS.kpiCard({icon:'bi-graph-up-arrow', color:'#8c5cf7', bg:'#f3eeff', label:'Market Average', value:APP.fmtCurrency(marketAvg),
-        desc:`The average ${rptaMealPlan} rate across every tracked competitor, same 12-month window.`}),
+        desc:`The average ${planLabel} rate across every tracked competitor, same 12-month window.`}),
       PWIDGETS.kpiCard({icon: gapPct<=0?'bi-arrow-down-circle':'bi-arrow-up-circle', color: gapPct<=0?'#12b76a':'#ff4d5e', bg: gapPct<=0?'#e7faf1':'#fff0f1', label:'Your Gap vs. Market', value:`${gapPct>=0?'+':''}${gapPct.toFixed(1)}%`,
         desc: gapPct<=0 ? 'You are priced below the market average.' : 'You are priced above the market average.'}),
       PWIDGETS.kpiCard({icon:'bi-arrow-up-circle', color:'#ff4d5e', bg:'#fff0f1', label:'Highest Competitor', value: highest?APP.fmtCurrency(highest.avg):'—',
-        desc: highest ? `${highest.comp.name}, for ${rptaMealPlan}.` : 'No tracked competitors yet.'}),
+        desc: highest ? `${highest.comp.name}, for ${planLabel}.` : 'No tracked competitors yet.'}),
       PWIDGETS.kpiCard({icon:'bi-arrow-down-circle', color:'#12b76a', bg:'#e7faf1', label:'Lowest Competitor', value: lowest?APP.fmtCurrency(lowest.avg):'—',
-        desc: lowest ? `${lowest.comp.name}, for ${rptaMealPlan}.` : 'No tracked competitors yet.'}),
+        desc: lowest ? `${lowest.comp.name}, for ${planLabel}.` : 'No tracked competitors yet.'}),
     ].join('');
   }
 
@@ -615,10 +622,12 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
   document.querySelectorAll('#rpta_mealPlanGroup button').forEach(btn=>{
     btn.addEventListener('click', function(){
-      rptaMealPlan = this.dataset.plan;
+      mealPlanFilter = this.dataset.plan;
       document.querySelectorAll('#rpta_mealPlanGroup button').forEach(b=>{ b.classList.remove('btn-outline-primary'); b.classList.add('btn-soft'); });
       this.classList.remove('btn-soft'); this.classList.add('btn-outline-primary');
+      rcPage = 0;
       renderRpta();
+      renderAll(); // the merged-in Room Comparison table/KPIs below share this same meal plan filter
     });
   });
   document.querySelectorAll('#rpta_chartStyleGroup button').forEach(btn=>{

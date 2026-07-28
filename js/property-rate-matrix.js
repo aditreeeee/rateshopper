@@ -7,11 +7,33 @@
    first column instead of across the header. View-only: no inline editing,
    no occupancy/ADR/RevPAR/booking data — rate comparison only.
    ========================================================================== */
-let mxGridStart = new Date();
-let mxRangeMode = '14';
+let mxRangeStart = null, mxRangeEnd = null; // the matrix's active date range — drives the grid, CSV export, and Rate Parity alike
+let mxPreset = '7';
 let mxSelectedCompetitors = null; // Set of competitor ids, null = not yet initialized (defaults to all)
 let mxHiddenGroups = new Set();   // competitor ids hidden via the Properties selector
 let mxCollapsedGroups = new Set(); // competitor ids collapsed (rows hidden, divider still shown)
+
+// ---- date helpers shared by the range picker, the grid, CSV export, and Rate Parity ----
+function mxStartOfDay(d){ const x=new Date(d); x.setHours(0,0,0,0); return x; }
+function mxAddDays(d,n){ const x=new Date(d); x.setDate(x.getDate()+n); return x; }
+function mxAddMonths(d,n){ const x=new Date(d); x.setMonth(x.getMonth()+n); return x; }
+function mxSameDay(a,b){ return !!a && !!b && a.toDateString()===b.toDateString(); }
+function mxFmtShort(d){ return d.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}); }
+function mxPresetRange(key){
+  const today = mxStartOfDay(new Date());
+  if(key==='today') return { start:today, end:today };
+  if(key==='yesterday'){ const y=mxAddDays(today,-1); return { start:y, end:y }; }
+  if(key==='7') return { start:today, end:mxAddDays(today,6) };
+  if(key==='14') return { start:today, end:mxAddDays(today,13) };
+  if(key==='30') return { start:today, end:mxAddDays(today,29) };
+  if(key==='lastMonth'){
+    const firstOfThisMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+    const lastMonthEnd = mxAddDays(firstOfThisMonth,-1);
+    const lastMonthStart = new Date(lastMonthEnd.getFullYear(), lastMonthEnd.getMonth(), 1);
+    return { start:lastMonthStart, end:lastMonthEnd };
+  }
+  return { start:today, end:mxAddDays(today,6) };
+}
 
 document.addEventListener('DOMContentLoaded', ()=>{
   const me = PORTAL.mount({ title:'Rate Matrix', subtitle:'Your rate vs. every mapped competitor room, side by side across a date range.' });
@@ -133,16 +155,17 @@ document.addEventListener('DOMContentLoaded', ()=>{
     return groups;
   }
 
-  function numDaysFor(range){
-    return Number(range);
+  // Every date in the currently selected range (inclusive) — shared by the grid, CSV export,
+  // and Rate Parity, so all three always agree on "what dates am I looking at right now".
+  function currentDates(){
+    const dates = [];
+    let d = new Date(mxRangeStart);
+    while(d <= mxRangeEnd){ dates.push(new Date(d)); d = mxAddDays(d,1); }
+    return dates;
   }
 
   function renderGrid(){
-    const days = numDaysFor(mxRangeMode);
-    const dates = [];
-    for(let i=0;i<days;i++){ const d = new Date(mxGridStart); d.setDate(mxGridStart.getDate()+i); dates.push(d); }
-    document.getElementById('periodLabel').textContent =
-      `${dates[0].toLocaleDateString('en-IN',{day:'2-digit',month:'short'})} – ${dates[dates.length-1].toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'})}`;
+    const dates = currentDates();
 
     const occ = Number(document.getElementById('mx_occ').value);
     const mealPlanFilter = document.getElementById('mx_mealPlan').value;
@@ -246,25 +269,18 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
   /* ==========================================================================
      Rate Parity — for one room/rate plan/occupancy, shows every channel that lists
-     a matching room (rows) against every date from today through end of this month
-     (columns), so you can eyeball how your price compares day-by-day. Ported
-     verbatim from the Rate Calendar's own implementation.
+     a matching room (rows) against every date in the matrix's currently selected
+     date range (columns), so switching the Date Range Picker up top changes what
+     Rate Parity shows too, instead of always defaulting to "today through end of
+     this month" regardless of what the matrix itself is displaying.
      ========================================================================== */
-  function datesTodayThroughEndOfMonth(){
-    const start = new Date(); start.setHours(0,0,0,0);
-    const end = new Date(start.getFullYear(), start.getMonth()+1, 0);
-    const dates = [];
-    for(let d=new Date(start); d<=end; d.setDate(d.getDate()+1)) dates.push(new Date(d));
-    return dates;
-  }
-
   function openRateParity(roomId, planId, occ, currentChannel, forPropertyId){
     const room = DB.rooms.get(roomId);
     const originPlan = DB.ratePlans.get(planId);
     if(!room || !originPlan) return;
 
     const channels = DB.channels.byProperty(forPropertyId || propertyId);
-    const dates = datesTodayThroughEndOfMonth();
+    const dates = currentDates();
 
     const rows = channels.map(chan=>{
       const matchRooms = DB.rooms.byChannel(chan.id).filter(r=> r.name===room.name);
@@ -289,7 +305,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
       return { ...row, prices };
     });
 
-    document.getElementById('parityMeta').textContent = `${room.name}  •  ${originPlan.name}  •  ${occ} Pax`;
+    document.getElementById('parityMeta').textContent = `${room.name}  •  ${originPlan.name}  •  ${occ} Pax  •  ${mxFmtShort(dates[0])} – ${mxFmtShort(dates[dates.length-1])}`;
 
     const todayKey = DB.fmtDate(new Date());
     const theadDates = dates.map(d=>{
@@ -321,11 +337,6 @@ document.addEventListener('DOMContentLoaded', ()=>{
     new bootstrap.Modal(document.getElementById('parityModal')).show();
   }
 
-  function shiftPeriod(dir){
-    mxGridStart.setDate(mxGridStart.getDate() + dir*numDaysFor(mxRangeMode));
-    renderGrid();
-  }
-
   function resetFilters(){
     document.getElementById('mx_room').value = '';
     document.getElementById('mx_occ').value = '2';
@@ -348,9 +359,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const ratePlanFilter = document.getElementById('mx_ratePlan').value;
     const channelId = document.getElementById('mx_channel').value;
     const myChannel = DB.channels.get(channelId) || ourMaster;
-    const days = numDaysFor(mxRangeMode);
-    const dates = [];
-    for(let i=0;i<days;i++){ const d=new Date(mxGridStart); d.setDate(mxGridStart.getDate()+i); dates.push(d); }
+    const dates = currentDates();
 
     const dateHeaders = dates.map(d=>APP.fmtDateReadable(DB.fmtDate(d)));
     const lines = [['Property / Room', ...dateHeaders].map(v=>`"${v}"`).join(',')];
@@ -376,22 +385,110 @@ document.addEventListener('DOMContentLoaded', ()=>{
     APP.toast('Export Complete', 'Your CSV file has been downloaded.', 'success');
   }
 
-  // ---- Wiring ----
-  document.getElementById('prevPeriod').addEventListener('click', ()=> shiftPeriod(-1));
-  document.getElementById('nextPeriod').addEventListener('click', ()=> shiftPeriod(1));
-  document.getElementById('btnToday').addEventListener('click', ()=>{ mxGridStart = new Date(); renderGrid(); });
+  /* ==========================================================================
+     Date Range Picker — presets (Today/Yesterday/7/14/30 Days/Last Month) plus a
+     Google Analytics / Power BI-style dual month calendar for Custom Range. This
+     replaces the old prev/next-arrow + fixed 7/14/30-day toolbar entirely — the
+     grid, CSV export, and Rate Parity all read the resulting mxRangeStart/mxRangeEnd.
+     ========================================================================== */
+  let mxCalMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1); // left calendar's anchor month; right = +1 month
+  let mxPickStart = null, mxPickEnd = null; // in-progress Custom Range selection, not yet applied
 
-  document.querySelectorAll('#rangeFilter [data-range]').forEach(btn=>{
-    btn.addEventListener('click', function(){
-      mxRangeMode = this.dataset.range;
-      document.querySelectorAll('#rangeFilter [data-range]').forEach(b=>{
-        const active = b===this;
-        b.classList.toggle('btn-soft', !active);
-        b.classList.toggle('btn-outline-primary', active);
-      });
-      renderGrid();
+  function applyRange(start, end, presetKey){
+    mxRangeStart = mxStartOfDay(start); mxRangeEnd = mxStartOfDay(end);
+    mxPreset = presetKey;
+    document.querySelectorAll('.mx-drp-preset').forEach(b=> b.classList.toggle('active', b.dataset.preset===presetKey));
+    document.getElementById('mx_dateRangeLabel').textContent = mxSameDay(mxRangeStart,mxRangeEnd)
+      ? mxFmtShort(mxRangeStart) : `${mxFmtShort(mxRangeStart)} – ${mxFmtShort(mxRangeEnd)}`;
+    renderGrid();
+  }
+
+  function mxDaysInMonthGrid(monthDate){
+    const first = new Date(monthDate.getFullYear(), monthDate.getMonth(), 1);
+    const gridStart = mxAddDays(first, -first.getDay());
+    return Array.from({length:42}).map((_,i)=> mxAddDays(gridStart, i));
+  }
+
+  function renderCalMonth(hostId, labelId, monthDate){
+    document.getElementById(labelId).textContent = monthDate.toLocaleDateString('en-IN',{month:'long',year:'numeric'});
+    const today = mxStartOfDay(new Date());
+    const dowLabels = ['S','M','T','W','T','F','S'];
+    const cellsHtml = mxDaysInMonthGrid(monthDate).map(d=>{
+      const inMonth = d.getMonth()===monthDate.getMonth();
+      if(!inMonth) return `<button type="button" class="mx-drp-day" disabled tabindex="-1" style="visibility:hidden"></button>`;
+      let cls = 'mx-drp-day';
+      const isStart = mxSameDay(d, mxPickStart), isEnd = mxSameDay(d, mxPickEnd);
+      const inRange = mxPickStart && mxPickEnd && d > mxPickStart && d < mxPickEnd;
+      if(mxSameDay(d, today)) cls += ' mx-drp-today';
+      if(isStart || isEnd) cls += ' mx-drp-endpoint';
+      if(isStart) cls += ' mx-drp-range-start';
+      if(isEnd) cls += ' mx-drp-range-end';
+      if(inRange) cls += ' mx-drp-in-range';
+      return `<button type="button" class="${cls}" data-date="${DB.fmtDate(d)}">${d.getDate()}</button>`;
+    }).join('');
+    document.getElementById(hostId).innerHTML = dowLabels.map(d=>`<div class="mx-drp-dow">${d}</div>`).join('') + cellsHtml;
+  }
+
+  function mxPickDate(d){
+    if(!mxPickStart || (mxPickStart && mxPickEnd)){ mxPickStart = d; mxPickEnd = null; }
+    else if(d < mxPickStart){ mxPickEnd = mxPickStart; mxPickStart = d; }
+    else mxPickEnd = d;
+    renderDualCalendar();
+  }
+
+  function updateSelectedLabel(){
+    const lbl = document.getElementById('mx_drpSelectedLabel');
+    const applyBtn = document.getElementById('mx_drpApply');
+    if(mxPickStart && mxPickEnd){ lbl.textContent = `${mxFmtShort(mxPickStart)} – ${mxFmtShort(mxPickEnd)}`; applyBtn.disabled = false; }
+    else if(mxPickStart){ lbl.textContent = `${mxFmtShort(mxPickStart)} – select end date`; applyBtn.disabled = true; }
+    else { lbl.textContent = 'Select a start and end date'; applyBtn.disabled = true; }
+  }
+
+  function renderDualCalendar(){
+    renderCalMonth('mx_drpCal1', 'mx_drpMonthLabel1', mxCalMonth);
+    renderCalMonth('mx_drpCal2', 'mx_drpMonthLabel2', mxAddMonths(mxCalMonth, 1));
+    updateSelectedLabel();
+    document.querySelectorAll('#mx_drpCal1 .mx-drp-day:not(:disabled), #mx_drpCal2 .mx-drp-day:not(:disabled)').forEach(btn=>{
+      btn.addEventListener('click', ()=> mxPickDate(new Date(btn.dataset.date+'T00:00:00')));
+    });
+  }
+
+  function closeDateRangeMenu(){
+    bootstrap.Dropdown.getOrCreateInstance(document.getElementById('mx_dateRangeBtn')).hide();
+  }
+
+  document.querySelectorAll('.mx-drp-preset').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const key = btn.dataset.preset;
+      if(key === 'custom'){
+        document.querySelectorAll('.mx-drp-preset').forEach(b=>b.classList.remove('active'));
+        btn.classList.add('active');
+        mxPickStart = new Date(mxRangeStart); mxPickEnd = new Date(mxRangeEnd);
+        mxCalMonth = new Date(mxPickStart.getFullYear(), mxPickStart.getMonth(), 1);
+        document.getElementById('mx_drpCustom').classList.remove('d-none');
+        renderDualCalendar();
+        return;
+      }
+      document.getElementById('mx_drpCustom').classList.add('d-none');
+      const { start, end } = mxPresetRange(key);
+      applyRange(start, end, key);
+      closeDateRangeMenu();
     });
   });
+  document.getElementById('mx_drpPrevMonth').addEventListener('click', ()=>{ mxCalMonth = mxAddMonths(mxCalMonth, -1); renderDualCalendar(); });
+  document.getElementById('mx_drpNextMonth').addEventListener('click', ()=>{ mxCalMonth = mxAddMonths(mxCalMonth, 1); renderDualCalendar(); });
+  document.getElementById('mx_drpCancel').addEventListener('click', ()=>{
+    document.getElementById('mx_drpCustom').classList.add('d-none');
+    closeDateRangeMenu();
+  });
+  document.getElementById('mx_drpApply').addEventListener('click', ()=>{
+    if(!mxPickStart || !mxPickEnd) return;
+    applyRange(mxPickStart, mxPickEnd, 'custom');
+    document.getElementById('mx_drpCustom').classList.add('d-none');
+    closeDateRangeMenu();
+  });
+
+  // ---- Wiring ----
 
   ['mx_room','mx_occ','mx_mealPlan','mx_channel','mx_ratePlan'].forEach(id=>{
     document.getElementById(id).addEventListener('change', renderGrid);
@@ -406,5 +503,5 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
   renderCompetitorMenu();
   renderColumnMenu();
-  renderGrid();
+  { const { start, end } = mxPresetRange(mxPreset); applyRange(start, end, mxPreset); }
 });
