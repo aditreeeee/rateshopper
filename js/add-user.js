@@ -26,7 +26,10 @@ document.addEventListener('DOMContentLoaded', ()=>{
   if(existing) roleSelect.disabled = true; // role/hierarchy is fixed once created in this demo
 
   const me = RBAC.currentUser();
-  const propertyPool = RBAC.isCompanyLevel() ? DB.properties.all() : DB.properties.all().filter(p=> RBAC.assignedPropertyIds().includes(p.id));
+
+  let parentFinder = null; // single-select PropertyFinder — the Parent Property
+  let finder = null;       // multi-select PropertyFinder — the Comparison Properties
+  // Both mounted lazily the first time the Owner role is selected.
 
   function refreshRoleDependentUI(){
     const role = roleSelect.value;
@@ -41,34 +44,25 @@ document.addEventListener('DOMContentLoaded', ()=>{
     document.getElementById('f_lastName').required = isOwner;
 
     document.getElementById('ownerParentPropertyCard').classList.toggle('d-none', !isOwner);
-    const parentSel = document.getElementById('f_ownerParentProperty');
-    if(isOwner){
-      const ownerPool = RBAC.isCompanyLevel() ? DB.properties.all() : propertyPool;
-      parentSel.innerHTML = ownerPool.length ? ownerPool.map(p=>`<option value="${p.id}">${p.name}</option>`).join('') : `<option value="">No properties available</option>`;
-      if(existing && existing.parentPropertyId) parentSel.value = existing.parentPropertyId;
-    }
-
     document.getElementById('propertyAssignmentCard').classList.toggle('d-none', !isOwner);
     document.getElementById('propertyAssignmentTitle').textContent = 'Comparison Properties';
-    document.getElementById('propertyAssignmentHint').textContent = "Optionally select other properties to benchmark this owner's rates against in their Rate Shopper portal. Their own Parent Property never appears here — it can't be a comparison for itself. This does not grant management access — only their Parent Property does.";
+    document.getElementById('propertyAssignmentHint').textContent = "Search and select other properties to benchmark this owner's rates against in their Rate Shopper portal. Their own Parent Property never appears here — it can't be a comparison for itself. This does not grant management access — only their Parent Property does.";
 
-    refreshComparisonGrid();
-    parentSel.onchange = refreshComparisonGrid; // Parent Property choice excludes itself from the grid below
-  }
-
-  function refreshComparisonGrid(){
-    const excludeId = document.getElementById('f_ownerParentProperty').value;
-    const pool = excludeId ? propertyPool.filter(p=>p.id!==excludeId) : propertyPool;
-
-    document.getElementById('propertyAssignmentGrid').innerHTML = pool.length ? pool.map(p=>{
-      const checked = existing && (existing.assignedProperties||[]).includes(p.id);
-      return `<div class="col-md-6">
-        <label class="d-flex align-items-center gap-2 p-2 border rounded-3" style="border-color:var(--border-1) !important">
-          <input type="checkbox" name="propertyAssign" class="form-check-input property-assign-check" value="${p.id}" ${checked?'checked':''}>
-          <span style="font-size:.85rem">${p.name}</span>
-        </label>
-      </div>`;
-    }).join('') : `<div class="col-12 text-muted small">No properties available to assign.</div>`;
+    if(isOwner && !parentFinder){
+      parentFinder = PropertyFinder.mount(document.getElementById('parentPropertyFinder'), {
+        mode: 'single',
+        selectedIds: existing && existing.parentPropertyId ? [existing.parentPropertyId] : [],
+        onChange: (ids)=>{
+          // Primary Property choice excludes itself from the Comparison Properties picker below —
+          // a property can't be its own comparison.
+          if(finder) finder.setExcludeId(ids[0] || null);
+        }
+      });
+      finder = PropertyFinder.mount(document.getElementById('competitorFinder'), {
+        selectedIds: existing ? (existing.assignedProperties||[]) : [],
+        excludeId: parentFinder.getSelectedId()
+      });
+    }
   }
 
   if(existing){
@@ -100,9 +94,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const role = roleSelect.value;
     const isOwner = role === RBAC.ROLES.PROPERTY_OWNER;
 
-    let assignedProperties = isOwner
-      ? [...document.querySelectorAll('.property-assign-check:checked')].map(c=>c.value)
-      : [];
+    let assignedProperties = isOwner && finder ? finder.getSelectedIds() : [];
 
     let firstName = '', lastName = '', fullName = '';
     if(isOwner){
@@ -116,7 +108,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
     let ownerParentPropertyId = null;
     if(isOwner){
-      ownerParentPropertyId = document.getElementById('f_ownerParentProperty').value;
+      ownerParentPropertyId = parentFinder ? parentFinder.getSelectedId() : null;
       if(!ownerParentPropertyId){ APP.toast('No Parent Property', "Select this Property Owner's own hotel.", 'danger'); return; }
       // A property can never be its own comparison target.
       assignedProperties = assignedProperties.filter(id=> id !== ownerParentPropertyId);

@@ -1,0 +1,208 @@
+/* ==========================================================================
+   Company Portal Dashboard — premium enterprise visual layer.
+   Scoped entirely under .company-dashboard (set on #app-shell in dashboard.html)
+   so it never leaks into the rest of the app. Sidebar/topbar/nav are untouched —
+   this only restyles the dashboard's own content: cards, KPIs, charts, table,
+   typography and motion. Palette stays on the app's existing deep-blue/teal
+   tokens (--brand-500, --accent, --bg-sidebar) rather than introducing new hues,
+   just applied with more restraint and polish.
+   ========================================================================== */
+
+.company-dashboard{
+  --cd-radius: 18px;
+  --cd-radius-sm: 12px;
+  --cd-border: rgba(20,30,70,.08);
+  --cd-shadow: 0 1px 2px rgba(15,23,42,.04), 0 16px 36px -18px rgba(20,30,70,.16);
+  --cd-shadow-hover: 0 4px 10px rgba(15,23,42,.06), 0 22px 46px -16px rgba(20,30,70,.22);
+  --cd-teal: var(--accent);
+  --cd-blue: var(--brand-500);
+}
+[data-theme="dark"] .company-dashboard{
+  --cd-border: rgba(255,255,255,.07);
+  --cd-shadow: 0 1px 2px rgba(0,0,0,.25), 0 16px 36px -18px rgba(0,0,0,.5);
+  --cd-shadow-hover: 0 4px 10px rgba(0,0,0,.3), 0 22px 46px -16px rgba(0,0,0,.55);
+}
+
+/* Subtle wash behind the whole page so white cards read as "floating" rather than flat */
+.company-dashboard .page-body{
+  background:
+    radial-gradient(900px 320px at 8% -10%, rgba(56,97,251,.06), transparent 60%),
+    radial-gradient(700px 280px at 95% 0%, rgba(0,194,168,.06), transparent 55%);
+}
+[data-theme="dark"] .company-dashboard .page-body{
+  background:
+    radial-gradient(900px 320px at 8% -10%, rgba(56,97,251,.10), transparent 60%),
+    radial-gradient(700px 280px at 95% 0%, rgba(0,194,168,.08), transparent 55%);
+}
+
+/* ---- Section cards: slimmer, softer, with a quiet gradient hairline on top ---- */
+.company-dashboard .section-card{
+  border-radius: var(--cd-radius);
+  border: 1px solid var(--cd-border);
+  box-shadow: var(--cd-shadow);
+  padding: 20px 22px;
+  position: relative;
+  overflow: hidden;
+}
+.company-dashboard .section-card::before{
+  content:''; position:absolute; top:0; left:0; right:0; height:3px;
+  background: linear-gradient(90deg, var(--cd-blue), var(--cd-teal));
+  opacity:.55;
+}
+.company-dashboard .section-title{
+  font-size: .98rem; font-weight: 700; letter-spacing: -.01em;
+  display:flex; align-items:center; gap:10px;
+}
+.company-dashboard .section-sub{ font-size: .78rem; letter-spacing:.01em; }
+
+/* Bootstrap's default .text-muted grey doesn't adapt to the dark theme and reads too low-contrast
+   against these deeper card surfaces — swap it for the app's own theme-aware muted token. */
+.company-dashboard .text-muted{ color: var(--text-3) !important; }
+
+/* Small gradient icon badge placed in front of a section title (see .section-icon span in HTML) */
+.company-dashboard .section-icon{
+  width: 28px; height: 28px; border-radius: 9px; flex: 0 0 auto;
+  display:flex; align-items:center; justify-content:center; font-size:.82rem; color:#fff;
+  background: linear-gradient(135deg, var(--cd-blue), var(--cd-teal));
+  box-shadow: 0 4px 10px rgba(56,97,251,.28);
+}
+
+/* ---- KPI cards: smaller, denser, quieter accent (slim gradient top bar, not a heavy border) ---- */
+.company-dashboard .kpi-card{
+  padding: 13px 15px; gap: 11px;
+  border-radius: var(--cd-radius-sm);
+  border: 1px solid var(--cd-border);
+  box-shadow: var(--cd-shadow);
+  transition: transform .18s cubic-bezier(.2,.7,.3,1), box-shadow .18s ease, border-color .18s ease;
+  position: relative; overflow: hidden;
+}
+.company-dashboard .kpi-card::before{
+  content:''; position:absolute; top:0; left:0; right:0; height:2.5px; background:var(--cd-border);
+}
+.company-dashboard .kpi-card:hover{
+  transform: translateY(-3px);
+  box-shadow: var(--cd-shadow-hover);
+  border-color: rgba(56,97,251,.22);
+}
+.company-dashboard .kpi-icon{
+  width: 36px; height: 36px; border-radius: 10px; font-size: .95rem;
+}
+.company-dashboard .kpi-card h4{ font-size: 1.16rem; letter-spacing:-.01em; }
+.company-dashboard .kpi-card .kpi-label{ font-size: .63rem; letter-spacing:.045em; }
+.company-dashboard .kpi-card .kpi-sub{ font-size: .64rem; }
+.company-dashboard .kpi-card-accent-warn::before{ background: linear-gradient(90deg, var(--warn), #ffd479); }
+.company-dashboard .kpi-card-accent-danger::before{ background: linear-gradient(90deg, var(--danger), #ff8a95); }
+
+/* Staggered entrance — quiet, quick, once. Respects reduced-motion. */
+@media (prefers-reduced-motion: no-preference){
+  .company-dashboard #kpiCards > div{ animation: cdRise .45s cubic-bezier(.2,.7,.3,1) both; }
+  .company-dashboard #kpiCards > div:nth-child(1){ animation-delay: .02s }
+  .company-dashboard #kpiCards > div:nth-child(2){ animation-delay: .06s }
+  .company-dashboard #kpiCards > div:nth-child(3){ animation-delay: .10s }
+  .company-dashboard #kpiCards > div:nth-child(4){ animation-delay: .14s }
+  .company-dashboard #kpiCards > div:nth-child(5){ animation-delay: .18s }
+  .company-dashboard #kpiCards > div:nth-child(6){ animation-delay: .22s }
+  .company-dashboard #kpiCards > div:nth-child(7){ animation-delay: .26s }
+  .company-dashboard #kpiCards > div:nth-child(8){ animation-delay: .30s }
+  .company-dashboard .section-card{ animation: cdFadeUp .5s cubic-bezier(.2,.7,.3,1) both; }
+}
+@keyframes cdRise{ from{ opacity:0; transform:translateY(10px) scale(.98); } to{ opacity:1; transform:none; } }
+@keyframes cdFadeUp{ from{ opacity:0; transform:translateY(14px); } to{ opacity:1; transform:none; } }
+
+/* ---- Alerts: quieter surface, top accent bar instead of a heavy left rail ---- */
+.company-dashboard .alert-tile{
+  border-radius: var(--cd-radius-sm);
+  border: 1px solid var(--cd-border);
+  border-left: none;
+  background: var(--bg-surface);
+  box-shadow: var(--cd-shadow);
+  padding: 13px 14px;
+  transition: transform .16s cubic-bezier(.2,.7,.3,1), box-shadow .16s ease;
+}
+.company-dashboard .alert-tile::before{
+  content:''; position:absolute; inset:0 0 auto 0; height:3px; border-radius:var(--cd-radius-sm) var(--cd-radius-sm) 0 0;
+}
+.company-dashboard .alert-tile{ position:relative; overflow:hidden; }
+.company-dashboard .alert-tile-danger::before{ background: linear-gradient(90deg, var(--danger), #ff8a95); }
+.company-dashboard .alert-tile-warn::before{ background: linear-gradient(90deg, var(--warn), #ffd479); }
+.company-dashboard .alert-tile:hover{ transform: translateY(-2px); box-shadow: var(--cd-shadow-hover); }
+
+/* ---- Charts: smaller footprint, tidier surrounding chrome ---- */
+.company-dashboard canvas{ max-height: 108px; }
+.company-dashboard #ownerChart{ max-height: 118px; }
+
+/* ---- Table: refined header, gentler hover, crisper corners ---- */
+.company-dashboard .card-surface{ border-radius: var(--cd-radius-sm); border-color: var(--cd-border); box-shadow: var(--cd-shadow); }
+.company-dashboard .table-modern thead th{
+  font-size: .66rem; letter-spacing:.06em; font-weight:700; color: var(--text-3);
+  background: linear-gradient(180deg, var(--bg-surface-2), var(--bg-surface));
+}
+.company-dashboard .table-modern tbody tr:hover{
+  background: linear-gradient(90deg, rgba(56,97,251,.05), rgba(0,194,168,.04));
+}
+.company-dashboard .table-sticky-wrap thead th{ box-shadow: 0 1px 0 var(--cd-border); }
+
+/* ---- Mini bar rows (Geographic Distribution / Brand Breakdown) — tidier bars ---- */
+.company-dashboard .mini-bar-row .progress-thin{ height: 6px; }
+.company-dashboard .mini-bar-row.clickable{ border-radius: 8px; padding: 4px 6px; margin: -4px -6px 10px; transition: background .14s ease; }
+.company-dashboard .mini-bar-row.clickable:hover{ background: rgba(56,97,251,.06); }
+
+/* ---- Quick Actions — a touch more lift on hover for a tactile, premium feel ---- */
+.company-dashboard #quickActions .btn{
+  border-radius: 11px; transition: transform .14s cubic-bezier(.2,.7,.3,1), box-shadow .14s ease, background .14s ease;
+}
+.company-dashboard #quickActions .btn:hover{ transform: translateY(-2px); box-shadow: 0 8px 18px -8px rgba(56,97,251,.35); }
+
+/* ---- Activity / login timeline rows — slightly denser, refined icon chips ---- */
+.company-dashboard .activity-ico{ width: 32px; height: 32px; border-radius: 9px; font-size: .82rem; }
+.company-dashboard .activity-item{ padding: 9px 0; }
+
+/* ---- Divider columns (Portfolio Overview / User Overview) — quieter hairline ---- */
+@media (min-width:992px){
+  .company-dashboard .portfolio-col{ border-right-color: var(--cd-border); }
+}
+
+@media (max-width: 767px){
+  .company-dashboard .kpi-card{ padding: 11px 12px; }
+  .company-dashboard .section-card{ padding: 16px 16px; }
+}
+
+/* ---- Quick Actions headbar: a slim toolbar strip, not a full card — secondary/bulk admin
+   actions live here, one click away at the top of the page without competing visually with
+   the KPIs or the single primary "Add Property" action in the page header. ---- */
+.qa-headbar{
+  display:flex; align-items:center; gap:14px; flex-wrap:wrap;
+  padding: 9px 16px;
+  border-radius: 999px;
+  background: var(--bg-surface);
+  border: 1px solid var(--cd-border, var(--border-1));
+  box-shadow: var(--cd-shadow, var(--shadow-sm));
+}
+.qa-headbar-label{
+  display:flex; align-items:center; gap:6px; flex:0 0 auto;
+  font-size:.72rem; font-weight:700; letter-spacing:.04em; text-transform:uppercase;
+  color: var(--text-3); padding-right:4px; border-right:1px solid var(--cd-border, var(--border-1));
+}
+.qa-headbar-label i{ color: var(--brand-500); font-size:.85rem; }
+.qa-headbar-actions{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; flex:1 1 auto; }
+.qa-chip{
+  display:inline-flex; align-items:center; gap:7px;
+  padding: 7px 14px; border-radius: 999px; white-space:nowrap;
+  font-size:.79rem; font-weight:600; color: var(--text-2);
+  background: var(--bg-surface-2); border:1px solid transparent;
+  text-decoration:none; cursor:pointer;
+  transition: transform .14s cubic-bezier(.2,.7,.3,1), background .14s ease, color .14s ease, border-color .14s ease, box-shadow .14s ease;
+}
+.qa-chip i{ font-size:.85rem; color: var(--brand-500); }
+.qa-chip:hover{
+  transform: translateY(-1px);
+  background: linear-gradient(135deg, rgba(56,97,251,.10), rgba(0,194,168,.10));
+  border-color: rgba(56,97,251,.25);
+  color: var(--brand-600);
+  box-shadow: 0 6px 14px -8px rgba(56,97,251,.4);
+}
+
+@media (max-width: 767px){
+  .qa-headbar{ border-radius: var(--cd-radius-sm, 12px); }
+  .qa-headbar-label{ border-right:none; padding-right:0; width:100%; }
+}

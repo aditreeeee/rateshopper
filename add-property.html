@@ -89,10 +89,34 @@
       </div>
     </div>
 
-    <div class="section-card">
+    <div class="section-card mb-3">
       <div class="section-title mb-3">Amenities</div>
       <div class="row g-2" id="amenitiesGrid">
         ${''}
+      </div>
+    </div>
+
+    <div class="section-card" id="channelsCard">
+      <div class="section-title mb-1">Channel Connections</div>
+      <div class="section-sub mb-3">Direct is included automatically for every property and never appears below. Pick any other channels this property sells through — the list only ever shows channels that aren't connected yet.</div>
+
+      <div id="connectedChannelsWrap" class="d-none mb-3">
+        <div class="fw-semibold mb-2" style="font-size:.8rem">Already Connected</div>
+        <div id="connectedChannelsList" class="d-flex flex-wrap gap-2"></div>
+      </div>
+
+      <div class="fw-semibold mb-2" style="font-size:.8rem">Quick Add</div>
+      <div id="quickAddChannels" class="d-flex flex-wrap gap-2 mb-3"></div>
+
+      <div class="fw-semibold mb-2" style="font-size:.8rem">Add Another Channel</div>
+      <div class="d-flex gap-2 mb-3">
+        <select class="form-select" id="f_channelPicker"><option value="">Select a channel to add...</option></select>
+        <button type="button" class="btn btn-soft text-nowrap" id="addChannelBtn"><i class="bi bi-plus-lg me-1"></i>Add Channel</button>
+      </div>
+
+      <div id="channelsToAddWrap" class="d-none">
+        <div class="fw-semibold mb-2" style="font-size:.8rem">Channels to Add</div>
+        <div id="channelsToAddList" class="d-flex flex-column gap-2"></div>
       </div>
     </div>
   </div>

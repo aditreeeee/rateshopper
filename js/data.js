@@ -110,14 +110,18 @@ const DB = (() => {
   }
 
   const CITIES = [
-    {name:'Grand Horizon Resort', city:'Goa', country:'India', addr:'Candolim Beach Road, Goa 403515', img:'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800&q=60'},
-    {name:'Metropolitan Business Hotel', city:'Mumbai', country:'India', addr:'Bandra Kurla Complex, Mumbai 400051', img:'https://images.unsplash.com/photo-1551882547-ff40c63fe5fa?w=800&q=60'},
-    {name:'The Heritage Palace', city:'Jaipur', country:'India', addr:'MI Road, Jaipur 302001', img:'https://images.unsplash.com/photo-1582719508461-905c673771fd?w=800&q=60'},
-    {name:'Emerald Hills Retreat', city:'Manali', country:'India', addr:'Old Manali, Himachal Pradesh 175131', img:'https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?w=800&q=60'},
-    {name:'Sunset Bay Boutique Inn', city:'Kochi', country:'India', addr:'Marine Drive, Kochi 682031', img:'https://images.unsplash.com/photo-1571003123894-1f0594d2b5d9?w=800&q=60'},
-    {name:'Skyline Downtown Suites', city:'Dubai', country:'UAE', addr:'Sheikh Zayed Road, Dubai', img:'https://images.unsplash.com/photo-1512453979798-5ea266f8880c?w=800&q=60'},
-    {name:'Maple Leaf Lodge', city:'Toronto', country:'Canada', addr:'Queen Street West, Toronto, ON', img:'https://images.unsplash.com/photo-1445019980597-93fa8acb246c?w=800&q=60'}
+    {name:'Grand Horizon Resort', city:'Goa', state:'Goa', country:'India', addr:'Candolim Beach Road, Goa 403515', img:'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800&q=60'},
+    {name:'Metropolitan Business Hotel', city:'Mumbai', state:'Maharashtra', country:'India', addr:'Bandra Kurla Complex, Mumbai 400051', img:'https://images.unsplash.com/photo-1551882547-ff40c63fe5fa?w=800&q=60'},
+    {name:'The Heritage Palace', city:'Jaipur', state:'Rajasthan', country:'India', addr:'MI Road, Jaipur 302001', img:'https://images.unsplash.com/photo-1582719508461-905c673771fd?w=800&q=60'},
+    {name:'Emerald Hills Retreat', city:'Manali', state:'Himachal Pradesh', country:'India', addr:'Old Manali, Himachal Pradesh 175131', img:'https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?w=800&q=60'},
+    {name:'Sunset Bay Boutique Inn', city:'Kochi', state:'Kerala', country:'India', addr:'Marine Drive, Kochi 682031', img:'https://images.unsplash.com/photo-1571003123894-1f0594d2b5d9?w=800&q=60'},
+    {name:'Skyline Downtown Suites', city:'Dubai', state:'Dubai', country:'UAE', addr:'Sheikh Zayed Road, Dubai', img:'https://images.unsplash.com/photo-1512453979798-5ea266f8880c?w=800&q=60'},
+    {name:'Maple Leaf Lodge', city:'Toronto', state:'Ontario', country:'Canada', addr:'Queen Street West, Toronto, ON', img:'https://images.unsplash.com/photo-1445019980597-93fa8acb246c?w=800&q=60'}
   ];
+
+  // Brand affiliation pool — independent hotels vs. chain-managed properties, used by the
+  // Property Finder's Brand filter/search (mirrors a future `Brands` lookup table in SQL Server).
+  const PROPERTY_BRANDS = ['Independent','Horizon Collection','Metro Stays','Heritage Group','Emerald Hospitality','SunBay Hotels'];
 
   const ROOM_TYPES = [
     {name:'Deluxe Room', bed:'King Bed', cap:2, category:'Deluxe', img:'https://images.unsplash.com/photo-1611892440504-42a792e24d32?w=700&q=60'},
@@ -192,7 +196,10 @@ const DB = (() => {
       name: c.name,
       type: pick(['Resort','Business Hotel','Heritage Hotel','Boutique Hotel']),
       city: c.city,
+      state: c.state || '',
       country: c.country,
+      brand: pick(PROPERTY_BRANDS),
+      code: 'PRC-' + String(1000+i),
       address: c.addr,
       phone: '+91 98' + rand(10000000,99999999),
       email: c.name.toLowerCase().replace(/[^a-z]+/g,'.') + '@hotelmail.com',
@@ -417,8 +424,22 @@ const DB = (() => {
     get: id=> channels.all().find(c=>c.id===id),
     save: c=>{
       const list = channels.all();
-      if(c.id){ const i=list.findIndex(x=>x.id===c.id); list[i]=c; }
-      else { c.id=uid('chan'); c.createdAt=fmtDate(new Date()); list.push(c); }
+      if(c.id){
+        const i=list.findIndex(x=>x.id===c.id);
+        if(i>-1) list[i]=c; else { c.createdAt = c.createdAt || fmtDate(new Date()); list.push(c); }
+      } else {
+        // Data-layer safety net — one connection per master channel per property. Mirrors a
+        // future UNIQUE(PropertyId, ChannelCode) constraint: if a channel with this exact
+        // propertyId+channelCode already exists, update that record instead of creating a
+        // duplicate, no matter which caller forgot to check first.
+        const dupe = list.find(x=>x.propertyId===c.propertyId && x.channelCode===c.channelCode);
+        if(dupe){
+          c.id = dupe.id; c.createdAt = dupe.createdAt;
+          const i = list.findIndex(x=>x.id===dupe.id); list[i]=c;
+        } else {
+          c.id = uid('chan'); c.createdAt = fmtDate(new Date()); list.push(c);
+        }
+      }
       set(KEYS.channels,list); return c;
     },
     // The Master Channel represents the property's own direct inventory and can't be removed —
@@ -502,6 +523,15 @@ const DB = (() => {
       }
       masterByProperty[p.id] = master.id;
     });
+    // Backfill Brand/Property Code/State on any property saved before the Property Finder
+    // existed, so search/filter never chokes on undefined fields.
+    let propertiesFieldsChanged = false;
+    allProperties.forEach((p,i)=>{
+      if(p.brand == null){ p.brand = pick(PROPERTY_BRANDS); propertiesFieldsChanged = true; }
+      if(p.code == null){ p.code = 'PRC-' + String(1000+i); propertiesFieldsChanged = true; }
+      if(p.state == null){ p.state = ''; propertiesFieldsChanged = true; }
+    });
+    if(propertiesFieldsChanged) set(KEYS.properties, allProperties);
     // Backfill channelCode on any channel saved before this field existed, so every record
     // stays SQL-ready (NOT NULL INT) without needing a one-time server-side migration later.
     allChannels.forEach(c=>{

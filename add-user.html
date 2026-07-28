@@ -9,6 +9,7 @@
 <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link href="css/style.css" rel="stylesheet">
+<link href="css/property-finder.css" rel="stylesheet">
 </head>
 <body>
 <div id="app-shell">
@@ -56,14 +57,8 @@
 
     <div class="section-card mb-3 d-none" id="ownerParentPropertyCard">
       <div class="section-title mb-1">Parent Property</div>
-      <div class="section-sub mb-2">Select this Property Owner's own hotel.</div>
-      <select class="form-select" id="f_ownerParentProperty"></select>
-    </div>
-
-    <div class="section-card mb-3 d-none" id="propertyAssignmentCard">
-      <div class="section-title mb-1" id="propertyAssignmentTitle">Comparison Properties</div>
-      <div class="section-sub mb-3" id="propertyAssignmentHint">Select which properties this user can access.</div>
-      <div id="propertyAssignmentGrid" class="row g-2"></div>
+      <div class="section-sub mb-2">Search and select this Property Owner's own hotel.</div>
+      <div id="parentPropertyFinder"></div>
     </div>
   </div>
 
@@ -80,6 +75,14 @@
       <a href="users.html" class="btn btn-light w-100">Cancel</a>
     </div>
   </div>
+
+  <div class="col-12">
+    <div class="section-card mb-3 d-none" id="propertyAssignmentCard">
+      <div class="section-title mb-1" id="propertyAssignmentTitle">Comparison Properties</div>
+      <div class="section-sub mb-3" id="propertyAssignmentHint">Select which properties this user can access.</div>
+      <div id="competitorFinder"></div>
+    </div>
+  </div>
 </div>
 </form>
 
@@ -89,6 +92,7 @@
 <script src="js/data.js"></script>
 <script src="js/rbac.js"></script>
 <script src="js/main.js"></script>
+<script src="js/property-finder.js"></script>
 <script src="js/add-user.js"></script>
 </body>
 </html>

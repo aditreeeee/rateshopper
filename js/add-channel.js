@@ -52,10 +52,13 @@ document.addEventListener('DOMContentLoaded', ()=>{
   }
 
   function refreshChannelOptions(){
+    // Only unassigned channels are ever listed — a channel this property already has isn't
+    // shown at all, not just greyed out, so there's no way to pick it twice from this screen.
     const used = propertySelect.value ? usedCodesForProperty(propertySelect.value) : new Set();
-    channelSelect.innerHTML = DB.CHANNEL_CATALOG.map(c=>
-      `<option value="${c.code}" ${used.has(c.code)?'disabled':''}>${c.code} — ${c.name}${used.has(c.code)?' (already added)':''}</option>`
-    ).join('');
+    const available = DB.CHANNEL_CATALOG.filter(c=> !used.has(c.code));
+    channelSelect.innerHTML = available.length
+      ? available.map(c=> `<option value="${c.code}">${c.code} — ${c.name}</option>`).join('')
+      : `<option value="">No unassigned channels left for this property</option>`;
     if(existing) channelSelect.value = existing.channelCode;
     channelCodeLabel.textContent = channelSelect.value || '-';
   }
@@ -89,9 +92,17 @@ document.addEventListener('DOMContentLoaded', ()=>{
     e.preventDefault();
     if(!this.checkValidity()){ this.reportValidity(); return; }
 
+    if(!isMaster && !channelSelect.value){ APP.toast('No Channel Selected', 'This property has no unassigned channels left to add.', 'danger'); return; }
     const channelCode = isMaster ? DB.MASTER_CHANNEL_CODE : Number(channelSelect.value);
     const catalogEntry = DB.channelCatalogEntry(channelCode);
     if(!catalogEntry){ APP.toast('Invalid Channel', 'Please choose a channel from the list.', 'error'); return; }
+    // Belt-and-braces against a stale/duplicate submit (e.g. two tabs open) — the data layer
+    // also enforces this, but fail fast here with a clear message instead of a silent overwrite.
+    if(!isMaster && usedCodesForProperty(propertySelect.value).has(channelCode)){
+      APP.toast('Channel Already Added', 'This property is already connected to that channel.', 'danger');
+      refreshChannelOptions();
+      return;
+    }
 
     // type stays a loose legacy key purely for icon/color lookups elsewhere (they all fall back
     // to the generic 'custom' style for any code outside the 5 originally-special-cased OTAs).

@@ -49,16 +49,17 @@ document.addEventListener('DOMContentLoaded', ()=>{
   function rangeDates(days){ return Array.from({length:days}).map((_,d)=> PORTALDATA.dateKeyOffset(d - (days-1))); }
   function avgOf(vals){ return vals.length ? Math.round(vals.reduce((a,b)=>a+b,0)/vals.length) : 0; }
 
-  // ---- "My Rate" for a room, either on one date or averaged over the compare range ----
-  function myRoomRate(room, dateKey, useAvg, days){
+  // ---- "My Rate" for a room, either on one date or averaged over the compare range. Runs the
+  // same channelRate() markup/markdown the competitor side already gets, so switching the
+  // Channel filter moves our own rate too — otherwise "My Rate" silently stayed pinned to the
+  // flat Direct/master price no matter what channel was selected. ----
+  function myRoomRate(room, dateKey, useAvg, days, channelFilter){
     const plans = DB.ratePlans.byRoom(room.id);
     const rp = plans[0];
     if(!rp) return room.basePrice;
-    if(!useAvg){
-      const day = DB.rates.forPlan(rp.id)[dateKey];
-      return day ? day.price : room.basePrice;
-    }
-    return avgOf(rangeDates(days).map(dk=>{ const d=DB.rates.forPlan(rp.id)[dk]; return d ? d.price : room.basePrice; }));
+    const baseFor = dk=>{ const day = DB.rates.forPlan(rp.id)[dk]; return day ? day.price : room.basePrice; };
+    const raw = useAvg ? avgOf(rangeDates(days).map(baseFor)) : baseFor(dateKey);
+    return channelFilter ? PORTALDATA.channelRate(raw, channelFilter, useAvg ? PORTALDATA.dateKeyOffset(0) : dateKey) : raw;
   }
 
   // ---- Competitor's matched-room rate for a specific room, either snapshot or averaged ----
@@ -83,9 +84,11 @@ document.addEventListener('DOMContentLoaded', ()=>{
     myRooms.forEach(room=>{
       const plans = DB.ratePlans.byRoom(room.id);
       plans.forEach(rp=>{
-        const myRate = useAvg
-          ? avgOf(rangeDates(days).map(dk=>{ const d=DB.rates.forPlan(rp.id)[dk]; return d ? d.price : room.basePrice; }))
-          : (()=>{ const d=DB.rates.forPlan(rp.id)[dateKey]; return d ? d.price : room.basePrice; })();
+        // Same channel-adjustment myRoomRate() applies, but scoped to this specific rate plan
+        // (myRoomRate always uses the room's first plan — buildRows needs each plan in turn).
+        const myBaseFor = dk=>{ const d=DB.rates.forPlan(rp.id)[dk]; return d ? d.price : room.basePrice; };
+        const myRaw = useAvg ? avgOf(rangeDates(days).map(myBaseFor)) : myBaseFor(dateKey);
+        const myRate = channelFilter ? PORTALDATA.channelRate(myRaw, channelFilter, useAvg ? PORTALDATA.dateKeyOffset(0) : dateKey) : myRaw;
 
         compsAll.forEach(comp=>{
           const compChannels = DB.channels.byProperty(comp.realPropertyId);
@@ -150,7 +153,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   // ---- Frozen reference rows: my own room(s), pinned to the top of the table so they stay
   // visible while scrolling through competitor rows below. Rebuilt from the same Room/Rate
   // Plan/Date/Rate-Metric filters as the rest of the page, so they always adapt to them. ----
-  function buildFrozenRows(dateKey, useAvg, days){
+  function buildFrozenRows(dateKey, useAvg, days, channelFilter){
     const roomId = document.getElementById('rc_room').value;
     const mealPlan = document.getElementById('rc_ratePlan').value;
     const rooms = roomId ? myRooms.filter(r=>r.id===roomId) : myRooms;
@@ -159,18 +162,18 @@ document.addEventListener('DOMContentLoaded', ()=>{
       let plans = DB.ratePlans.byRoom(room.id);
       if(mealPlan) plans = plans.filter(p=>p.mealPlan===mealPlan);
       plans.forEach(rp=>{
-        const myRate = useAvg
-          ? avgOf(rangeDates(days).map(dk=>{ const d=DB.rates.forPlan(rp.id)[dk]; return d ? d.price : room.basePrice; }))
-          : (()=>{ const d=DB.rates.forPlan(rp.id)[dateKey]; return d ? d.price : room.basePrice; })();
+        const myBaseFor = dk=>{ const d=DB.rates.forPlan(rp.id)[dk]; return d ? d.price : room.basePrice; };
+        const myRaw = useAvg ? avgOf(rangeDates(days).map(myBaseFor)) : myBaseFor(dateKey);
+        const myRate = channelFilter ? PORTALDATA.channelRate(myRaw, channelFilter, useAvg ? PORTALDATA.dateKeyOffset(0) : dateKey) : myRaw;
         rows.push({ roomName:room.name, ratePlanName:rp.name, myRate });
       });
     });
     return rows;
   }
 
-  function renderKpis(filteredRows, dateKey, useAvg, days){
+  function renderKpis(filteredRows, dateKey, useAvg, days, channelFilter){
     const roomsInScope = focusRooms();
-    const myRatesUnique = roomsInScope.map(r=> myRoomRate(r, dateKey, useAvg, days));
+    const myRatesUnique = roomsInScope.map(r=> myRoomRate(r, dateKey, useAvg, days, channelFilter));
     const ourAvg = avgOf(myRatesUnique);
     const compRates = filteredRows.map(r=>r.compRate);
     const compAvg = avgOf(compRates);
@@ -179,7 +182,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
     document.getElementById('rcKpis').innerHTML = [
       PWIDGETS.kpiCard({icon:'bi-house-door-fill', color:'#3861fb', bg:'#eef4ff', label:'Our Avg. Rate', value:APP.fmtCurrency(ourAvg),
-        desc:'The average rate across the rooms in scope (all rooms, or just the one selected) on the Master (Direct) channel.'}),
+        desc:'The average rate across the rooms in scope (all rooms, or just the one selected), on the channel selected in the Channel filter (Direct by default).'}),
       PWIDGETS.kpiCard({icon:'bi-buildings', color:'#8c5cf7', bg:'#f3eeff', label:'Competitors Avg. Rate', value:APP.fmtCurrency(compAvg),
         desc:'The average rate across every matched competitor room in the current filter selection.'}),
       PWIDGETS.kpiCard({icon:'bi-arrow-down-circle', color:'#12b76a', bg:'#e7faf1', label:'Cheaper Than Us', value:cheaper,
@@ -215,12 +218,13 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const dateKey = document.getElementById('rc_date').value || PORTALDATA.dateKeyOffset(0);
     const useAvg = document.getElementById('rc_rateMetric').value === 'avg';
     const compareDays = Number(document.getElementById('rc_compare').value);
-    const frozenRows = buildFrozenRows(dateKey, useAvg, compareDays);
+    const channelFilter = document.getElementById('rc_channel').value;
+    const frozenRows = buildFrozenRows(dateKey, useAvg, compareDays, channelFilter);
     const frozenHtml = frozenRows.map(r=>`
       <tr class="rc-frozen-row">
         <td class="fw-semibold"><i class="bi bi-star-fill me-1" style="color:var(--brand-500)"></i>My Property</td>
         <td>${r.roomName}</td>
-        <td>${PWIDGETS.channelChip('direct')}</td>
+        <td>${PWIDGETS.channelChip(channelFilter || 'direct')}</td>
         <td style="font-size:.78rem">${r.ratePlanName}</td>
         <td class="fw-bold">${APP.fmtCurrency(r.myRate)}</td>
         <td class="text-muted">—</td>
@@ -296,7 +300,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
     if(rooms.length === 1){
       const room = rooms[0];
-      const myRate = myRoomRate(room, dateKey, useAvg, days);
+      const myRate = myRoomRate(room, dateKey, useAvg, days, channelFilter);
       const top5 = topCompetitorsForRoom(room, dateKey, channelFilter, useAvg, days, 5);
       const labels = ['My Room', ...top5.map(t=>t.comp.name)];
       const data = [myRate, ...top5.map(t=>t.rate)];
@@ -313,7 +317,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
     // "All Rooms": grouped bars per room — My Rate vs Market Average for that room.
     const labels = rooms.map(r=>r.name);
-    const myData = rooms.map(r=> myRoomRate(r, dateKey, useAvg, days));
+    const myData = rooms.map(r=> myRoomRate(r, dateKey, useAvg, days, channelFilter));
     const marketData = rooms.map(r=>{
       const rates = matchedCompsForRoom(r).map(c=>compRoomRate(c, r, dateKey, channelFilter, useAvg, days)).filter(v=>v!=null);
       return avgOf(rates);
@@ -336,7 +340,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
     let list = [];
     rooms.forEach(room=>{
-      const myRate = myRoomRate(room, dateKey, useAvg, days);
+      const myRate = myRoomRate(room, dateKey, useAvg, days, channelFilter);
       matchedCompsForRoom(room).forEach(c=>{
         const rate = compRoomRate(c, room, dateKey, channelFilter, useAvg, days);
         if(rate!=null) list.push({ name:c.name, roomName:room.name, rate, isMe:false });
@@ -346,7 +350,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     list.sort((a,b)=>a.rate-b.rate);
     if(rooms.length > 1) list = list.slice(0, 25); // cap the combined view to a readable top slice
 
-    const myRateLookup = new Map(rooms.map(r=>[r.name, myRoomRate(r, dateKey, useAvg, days)]));
+    const myRateLookup = new Map(rooms.map(r=>[r.name, myRoomRate(r, dateKey, useAvg, days, channelFilter)]));
 
     document.getElementById('rc_rankTable').innerHTML = `
       <thead><tr><th>Rank</th><th>Property</th><th>Room</th><th>Current Rate</th><th>Difference vs. Mine</th></tr></thead>
@@ -367,7 +371,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const data = [];
     for(let d=-rcTrendDays; d<=0; d++){
       const dk = PORTALDATA.dateKeyOffset(d);
-      data.push(myRoomRate(room, dk, false, 1));
+      data.push(myRoomRate(room, dk, false, 1, channelFilter));
     }
     return data;
   }
@@ -396,7 +400,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
       const myData = [], marketData = [];
       for(let d=-rcTrendDays; d<=0; d++){
         const dk = PORTALDATA.dateKeyOffset(d);
-        myData.push(avgOf(rooms.map(r=>myRoomRate(r, dk, false, 1))));
+        myData.push(avgOf(rooms.map(r=>myRoomRate(r, dk, false, 1, channelFilter))));
         const marketVals = [];
         rooms.forEach(r=> matchedCompsForRoom(r).forEach(c=>{ const rate=compRoomRate(c, r, dk, channelFilter, false, 1); if(rate!=null) marketVals.push(rate); }));
         marketData.push(avgOf(marketVals));
@@ -425,7 +429,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
     const days = rangeDates(compareDays);
     const rows = days.map(dk=>{
-      const myRate = avgOf(rooms.map(r=>myRoomRate(r, dk, false, 1)));
+      const myRate = avgOf(rooms.map(r=>myRoomRate(r, dk, false, 1, channelFilter)));
       const rates = [];
       rooms.forEach(r=> matchedCompsForRoom(r).forEach(c=>{ const rate=compRoomRate(c, r, dk, channelFilter, false, 1); if(rate!=null) rates.push(rate); }));
       const marketAvg = rates.length ? avgOf(rates) : myRate;
@@ -471,7 +475,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const compareDays = Number(document.getElementById('rc_compare').value);
     rcAllRows = buildRows(dateKey, channelFilter, useAvg, compareDays);
     const filtered = renderTable();
-    renderKpis(filtered, dateKey, useAvg, compareDays);
+    renderKpis(filtered, dateKey, useAvg, compareDays, channelFilter);
     renderDistribution(dateKey, channelFilter, useAvg, compareDays);
     renderRanking(dateKey, channelFilter, useAvg, compareDays);
     renderTrend(channelFilter);

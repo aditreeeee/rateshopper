@@ -1,0 +1,102 @@
+/* Property Finder — search-first competitor picker */
+.pf-widget{ display:flex; flex-direction:column; gap:.5rem; }
+
+.pf-search-row{ display:flex; gap:.5rem; flex-wrap:wrap; }
+.pf-search-input{ position:relative; flex:1 1 260px; }
+.pf-search-input i{ position:absolute; left:.75rem; top:50%; transform:translateY(-50%); color:var(--text-muted,#8a94a6); }
+.pf-search-input input{ padding-left:2.1rem; }
+.pf-sort{ width:auto; min-width:170px; }
+
+.pf-filter-panel{ background:var(--bg-soft,#f7f8fa); border:1px solid var(--border-1); border-radius:12px; padding:.75rem; }
+.pf-filter-label{ font-size:.68rem; text-transform:uppercase; letter-spacing:.03em; color:var(--text-muted,#8a94a6); margin-bottom:.15rem; display:block; }
+
+.pf-results-meta{ min-height:1.1em; }
+.pf-results{
+  border:1px solid var(--border-1);
+  border-radius:12px;
+  max-height:380px;
+  overflow-y:auto;
+  background:var(--bg-body,#fff);
+}
+.pf-row{
+  display:flex; align-items:flex-start; gap:.65rem;
+  padding:.6rem .75rem;
+  border-bottom:1px solid var(--border-1);
+  cursor:pointer;
+  transition:background .12s ease;
+}
+.pf-row:last-child{ border-bottom:none; }
+.pf-row:hover{ background:var(--bg-soft,#f7f8fa); }
+.pf-row-checked{ background:var(--primary-subtle,rgba(56,97,251,.07)); }
+.pf-row input[type="checkbox"]{ margin-top:.25rem; flex-shrink:0; }
+.pf-row-body{ min-width:0; flex:1; }
+.pf-row-top{ display:flex; align-items:center; justify-content:space-between; gap:.5rem; }
+.pf-row-name{ font-weight:600; font-size:.86rem; }
+.pf-row-stars{ color:#f5a623; font-size:.72rem; white-space:nowrap; }
+.pf-row-meta{ font-size:.74rem; color:var(--text-muted,#8a94a6); margin-top:.1rem; }
+.pf-dot{ margin:0 .3rem; }
+
+.pf-loading, .pf-loading-more, .pf-empty{ text-align:center; }
+
+.pf-selected-panel{
+  border:1px solid var(--border-1);
+  border-radius:12px;
+  height:100%;
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
+}
+.pf-selected-header{
+  display:flex; align-items:center; justify-content:space-between;
+  padding:.6rem .75rem;
+  border-bottom:1px solid var(--border-1);
+  font-weight:600; font-size:.82rem;
+  background:var(--bg-soft,#f7f8fa);
+}
+.pf-selected-list{ overflow-y:auto; max-height:380px; padding:.5rem; display:flex; flex-direction:column; gap:.4rem; }
+.pf-chip{
+  display:flex; align-items:flex-start; gap:.5rem;
+  border:1px solid var(--border-1);
+  border-radius:10px;
+  padding:.5rem .6rem;
+  background:var(--bg-body,#fff);
+}
+.pf-chip-body{ min-width:0; flex:1; }
+.pf-chip-name{ font-weight:600; font-size:.82rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.pf-chip-meta{ font-size:.7rem; color:var(--text-muted,#8a94a6); margin-top:.1rem; }
+.pf-chip-remove{
+  border:none; background:transparent; color:var(--text-muted,#8a94a6);
+  width:22px; height:22px; border-radius:6px; flex-shrink:0;
+  display:flex; align-items:center; justify-content:center; font-size:.7rem;
+}
+.pf-chip-remove:hover{ background:#fde8e8; color:#d0021b; }
+
+.pf-row input[type="radio"]{ margin-top:.25rem; flex-shrink:0; }
+
+/* Single-select mode (Parent Property) — one highlighted card in place of the picker */
+.pf-widget-single .pf-results{ max-height:340px; }
+.pf-single-card{
+  display:flex; align-items:flex-start; gap:.75rem;
+  border:1px solid var(--primary,#3861fb);
+  background:var(--primary-subtle,rgba(56,97,251,.07));
+  border-radius:14px;
+  padding:.85rem 1rem;
+}
+.pf-single-card-icon{
+  width:38px; height:38px; border-radius:10px;
+  background:var(--primary,#3861fb); color:#fff;
+  display:flex; align-items:center; justify-content:center;
+  font-size:1.05rem; flex-shrink:0;
+}
+.pf-single-card-body{ min-width:0; flex:1; }
+.pf-single-card-label{ font-size:.66rem; text-transform:uppercase; letter-spacing:.04em; color:var(--primary,#3861fb); font-weight:700; }
+.pf-single-card-name{ font-weight:700; font-size:.94rem; margin-top:.1rem; }
+.pf-single-card-meta{ font-size:.76rem; color:var(--text-muted,#8a94a6); margin-top:.15rem; }
+.pf-single-card-actions{ display:flex; align-items:center; gap:.4rem; flex-shrink:0; }
+
+@media (prefers-color-scheme: dark){
+  .pf-filter-panel, .pf-selected-header{ background:rgba(255,255,255,.03); }
+  .pf-row:hover{ background:rgba(255,255,255,.04); }
+  .pf-results, .pf-chip{ background:transparent; }
+  .pf-single-card{ background:rgba(56,97,251,.12); }
+}
