@@ -18,7 +18,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   const today = PORTALDATA.dateKeyOffset(0);
 
   if(!comps.length){
-    document.getElementById('marketTrendKpis').innerHTML = `<div class="col-12">${PWIDGETS.emptyState('bi-globe-americas','No comparison properties assigned yet','Your Company Admin hasn\'t selected any benchmark properties for you yet.')}</div>`;
+    document.getElementById('marketKpis').innerHTML = `<div class="col-12">${PWIDGETS.emptyState('bi-globe-americas','No comparison properties assigned yet','Your Company Admin hasn\'t selected any benchmark properties for you yet.')}</div>`;
     return;
   }
 
@@ -41,7 +41,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     label, value:`${pct>=0?'+':''}${pct}%`, desc
   });
 
-  document.getElementById('marketTrendKpis').innerHTML = [
+  document.getElementById('marketKpis').innerHTML = [
     PWIDGETS.kpiCard({icon:'bi-bar-chart', color:'#3861fb', bg:'#eef4ff', label:'Market Average', value:APP.fmtCurrency(marketAvg),
       desc:'The average rate across all your assigned comparison properties today.'}),
     PWIDGETS.kpiCard({icon:'bi-distribute-vertical', color:'#8c5cf7', bg:'#f3eeff', label:'Median Rate', value:APP.fmtCurrency(median),
@@ -69,34 +69,52 @@ document.addEventListener('DOMContentLoaded', ()=>{
     options:{ responsive:true, animation:chartAnim(false), plugins:{legend:{display:false}}, scales:{y:{ticks:{callback:v=>APP.fmtCurrency(v)}}} }
   });
 
-  const buckets={}; rates.forEach(r=>{ const b=Math.floor(r/1000)*1000; buckets[b]=(buckets[b]||0)+1; });
-  const bkeys = Object.keys(buckets).map(Number).sort((a,b)=>a-b);
-  new Chart(document.getElementById('marketDistChart'), {
-    type:'bar',
-    data:{ labels:bkeys.map(k=>`₹${k/1000}k+`), datasets:[{label:'Hotels', data:bkeys.map(k=>buckets[k]), backgroundColor:'#3861fb', borderRadius:6}] },
-    options:{ responsive:true, animation:chartAnim(true), plugins:{legend:{display:false}} }
-  });
-
-  // ---- Competitor Pricing Matrix: competitor rows x next 7 days ----
+  // ---- Competitor Pricing Matrix: My Property (pinned reference row) + every competitor,
+  // day by day for the next 7 days, each cell colored relative to my own rate that day, plus a
+  // 7-day average column so you can see who's cheaper/pricier at a glance without doing the math. ----
   const matrixDays = Array.from({length:7}).map((_,d)=> PORTALDATA.dateKeyOffset(d));
-  document.getElementById('pricingMatrixTable').innerHTML = `
-    <thead><tr><th>Competitor</th>${matrixDays.map(dk=>`<th>${new Date(dk+'T00:00:00').toLocaleDateString('en-IN',{weekday:'short',day:'2-digit',month:'short'})}</th>`).join('')}</tr></thead>
-    <tbody>${comps.map(c=>`<tr>
-      <td class="fw-semibold">${c.name}</td>
-      ${matrixDays.map(dk=>`<td>${APP.fmtCurrency(PORTALDATA.competitorRateOnDate(c,dk))}</td>`).join('')}
-    </tr>`).join('')}</tbody>`;
+  const myMatrixRates = matrixDays.map(dk=> PORTALDATA.myRateOnDate(propertyId, dk));
+  const myMatrixAvg = Math.round(myMatrixRates.reduce((a,b)=>a+b,0)/myMatrixRates.length);
 
+  const myRowHtml = `<tr class="rc-frozen-row">
+    <td class="fw-semibold"><i class="bi bi-star-fill me-1" style="color:var(--brand-500)"></i>My Property</td>
+    ${myMatrixRates.map(r=>`<td class="fw-bold">${APP.fmtCurrency(r)}</td>`).join('')}
+    <td class="fw-bold">${APP.fmtCurrency(myMatrixAvg)}</td>
+  </tr>`;
+  const compRowsHtml = comps.map(c=>{
+    const compRates = matrixDays.map(dk=> PORTALDATA.competitorRateOnDate(c,dk));
+    const compAvg = Math.round(compRates.reduce((a,b)=>a+b,0)/compRates.length);
+    return `<tr>
+      <td class="fw-semibold">${c.name}</td>
+      ${compRates.map((r,i)=>{
+        const cls = r < myMatrixRates[i] ? 'text-success' : r > myMatrixRates[i] ? 'text-danger' : '';
+        return `<td class="${cls}">${APP.fmtCurrency(r)}</td>`;
+      }).join('')}
+      <td class="fw-semibold ${compAvg<myMatrixAvg?'text-success':compAvg>myMatrixAvg?'text-danger':''}">${APP.fmtCurrency(compAvg)}</td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('pricingMatrixTable').innerHTML = `
+    <thead><tr><th>Competitor</th>${matrixDays.map(dk=>`<th>${new Date(dk+'T00:00:00').toLocaleDateString('en-IN',{weekday:'short',day:'2-digit',month:'short'})}</th>`).join('')}<th>7-Day Avg</th></tr></thead>
+    <tbody>${myRowHtml}${compRowsHtml}</tbody>`;
+
+  // ---- Competitor Movement: biggest 7-day movers, plus where each now sits vs. my rate today
+  // (not just how much they moved) — the movement alone doesn't say whether that's something to
+  // react to; "vs. My Rate Today" does. ----
+  const myRateToday = PORTALDATA.myRateOnDate(propertyId, today);
   const movement = [...comps].map(c=>{
     const t = PORTALDATA.competitorRateOnDate(c,today), y = PORTALDATA.competitorRateOnDate(c, PORTALDATA.dateKeyOffset(-7));
-    return {c, chg:((t-y)/y*100)};
+    const vsMine = ((t-myRateToday)/myRateToday*100);
+    return {c, chg:((t-y)/y*100), today:t, vsMine};
   }).sort((a,b)=>Math.abs(b.chg)-Math.abs(a.chg)).slice(0,10);
   document.getElementById('movementTable').innerHTML = `
-    <thead><tr><th>Competitor</th><th>7 Days Ago</th><th>Today</th><th>Change</th></tr></thead>
+    <thead><tr><th>Competitor</th><th>7 Days Ago</th><th>Today</th><th>7-Day Change</th><th>vs. My Rate Today</th></tr></thead>
     <tbody>${movement.map(m=>`<tr>
       <td>${m.c.name}</td>
       <td>${APP.fmtCurrency(PORTALDATA.competitorRateOnDate(m.c, PORTALDATA.dateKeyOffset(-7)))}</td>
-      <td>${APP.fmtCurrency(PORTALDATA.competitorRateOnDate(m.c, today))}</td>
-      <td class="${m.chg>=0?'text-danger':'text-success'} fw-semibold">${m.chg>=0?'+':''}${m.chg.toFixed(1)}%</td>
+      <td class="fw-semibold">${APP.fmtCurrency(m.today)}</td>
+      <td class="${m.chg>=0?'text-danger':'text-success'} fw-semibold">${PWIDGETS.trendIcon(m.chg>0?'up':m.chg<0?'down':'flat')} ${m.chg>=0?'+':''}${m.chg.toFixed(1)}%</td>
+      <td class="${m.vsMine<=0?'text-success':'text-danger'} fw-semibold">${m.vsMine>=0?'+':''}${m.vsMine.toFixed(1)}%</td>
     </tr>`).join('')}</tbody>`;
 
   document.getElementById('marketSummary').innerHTML = `

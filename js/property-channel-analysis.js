@@ -76,52 +76,70 @@ document.addEventListener('DOMContentLoaded', ()=>{
   });
 
   // ---- Channels Display: Room / Rate Plan parity table, property-wide, for today ----
-  const otaChannels = channels.filter(c=>c.id !== (master && master.id));
-  const rows = [];
+  // Room + Channel filters: Room narrows which rows show; Channel narrows the OTA comparison
+  // down to one specific channel instead of averaging across all of them (so "OTA Rate" becomes
+  // "that channel's rate" and Difference/Cheapest/Priciest are computed against just that channel).
+  const otaChannelsAll = channels.filter(c=>c.id !== (master && master.id));
+  const myRoomsAll = master ? DB.rooms.byChannel(master.id) : [];
 
-  if(master){
-    DB.rooms.byChannel(master.id).forEach(room=>{
-      DB.ratePlans.byRoom(room.id).forEach(rp=>{
-        const directData = DB.rates.forPlan(rp.id)[todayKey];
-        const directRate = directData ? directData.price : room.basePrice;
+  document.getElementById('ca_room').innerHTML += myRoomsAll.map(r=>`<option value="${r.id}">${r.name}</option>`).join('');
+  document.getElementById('ca_channel').innerHTML += otaChannelsAll.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
 
-        const channelRates = [{ label: master.name, rate: directRate }];
-        otaChannels.forEach(chan=>{
-          const matchRoom = DB.rooms.byChannel(chan.id).find(r=> r.name===room.name);
-          if(!matchRoom) return;
-          const plans = DB.ratePlans.byRoom(matchRoom.id);
-          const matchPlan = plans.find(p=> p.mealPlan===rp.mealPlan) || plans[0];
-          if(!matchPlan) return;
-          const dayData = DB.rates.forPlan(matchPlan.id)[todayKey];
-          channelRates.push({ label: chan.name, rate: dayData ? dayData.price : matchRoom.basePrice });
+  function renderParityTable(){
+    const roomFilter = document.getElementById('ca_room').value;
+    const channelFilter = document.getElementById('ca_channel').value;
+    const otaChannels = channelFilter ? otaChannelsAll.filter(c=>c.id===channelFilter) : otaChannelsAll;
+    const rows = [];
+
+    if(master){
+      myRoomsAll.filter(room=> !roomFilter || room.id===roomFilter).forEach(room=>{
+        DB.ratePlans.byRoom(room.id).forEach(rp=>{
+          const directData = DB.rates.forPlan(rp.id)[todayKey];
+          const directRate = directData ? directData.price : room.basePrice;
+
+          const channelRates = [{ label: master.name, rate: directRate }];
+          otaChannels.forEach(chan=>{
+            const matchRoom = DB.rooms.byChannel(chan.id).find(r=> r.name===room.name);
+            if(!matchRoom) return;
+            const plans = DB.ratePlans.byRoom(matchRoom.id);
+            const matchPlan = plans.find(p=> p.mealPlan===rp.mealPlan) || plans[0];
+            if(!matchPlan) return;
+            const dayData = DB.rates.forPlan(matchPlan.id)[todayKey];
+            channelRates.push({ label: chan.name, rate: dayData ? dayData.price : matchRoom.basePrice });
+          });
+
+          const otaRates = channelRates.filter(c=>c.label!==master.name);
+          const otaAvg = otaRates.length ? Math.round(otaRates.reduce((s,c)=>s+c.rate,0)/otaRates.length) : null;
+          const diff = otaAvg!=null ? otaAvg-directRate : null;
+          const cheapest = channelRates.reduce((min,c)=> c.rate<min.rate?c:min, channelRates[0]);
+          const priciest = channelRates.reduce((max,c)=> c.rate>max.rate?c:max, channelRates[0]);
+
+          let status, statusClass;
+          if(!otaRates.length){ status='No OTA Data'; statusClass='badge-inactive'; }
+          else if(cheapest.label===master.name){ status='At Parity'; statusClass='badge-active'; }
+          else { status='Undercut'; statusClass='badge-inactive'; }
+
+          rows.push({ room, rp, directRate, otaAvg, diff, cheapest, priciest, status, statusClass });
         });
-
-        const otaRates = channelRates.filter(c=>c.label!==master.name);
-        const otaAvg = otaRates.length ? Math.round(otaRates.reduce((s,c)=>s+c.rate,0)/otaRates.length) : null;
-        const diff = otaAvg!=null ? otaAvg-directRate : null;
-        const cheapest = channelRates.reduce((min,c)=> c.rate<min.rate?c:min, channelRates[0]);
-        const priciest = channelRates.reduce((max,c)=> c.rate>max.rate?c:max, channelRates[0]);
-
-        let status, statusClass;
-        if(!otaRates.length){ status='No OTA Data'; statusClass='badge-inactive'; }
-        else if(cheapest.label===master.name){ status='At Parity'; statusClass='badge-active'; }
-        else { status='Undercut'; statusClass='badge-inactive'; }
-
-        rows.push({ room, rp, directRate, otaAvg, diff, cheapest, priciest, status, statusClass });
       });
-    });
+    }
+
+    const otaRateLabel = channelFilter ? (otaChannelsAll.find(c=>c.id===channelFilter)||{}).name+' Rate' : 'OTA Rate (Avg.)';
+    document.getElementById('parityTable').innerHTML = `
+      <thead><tr><th>Room</th><th>Rate Plan</th><th>Direct Rate</th><th>${otaRateLabel}</th><th>Difference</th><th>Cheapest Channel</th><th>Most Expensive Channel</th><th>Parity Status</th></tr></thead>
+      <tbody>${rows.map(r=>`<tr>
+        <td class="fw-semibold">${r.room.name}</td>
+        <td>${r.rp.name}</td>
+        <td class="fw-semibold">${APP.fmtCurrency(r.directRate)}</td>
+        <td>${r.otaAvg!=null?APP.fmtCurrency(r.otaAvg):'—'}</td>
+        <td class="${r.diff==null?'':r.diff<0?'text-danger':'text-success'}">${r.diff==null?'—':`${r.diff>=0?'+':''}${APP.fmtCurrency(r.diff)}`}</td>
+        <td>${r.cheapest.label}</td>
+        <td>${r.priciest.label}</td>
+        <td><span class="badge-status ${r.statusClass}">${r.status}</span></td>
+      </tr>`).join('') || `<tr><td colspan="8" class="text-center text-muted py-4">No rooms found for these filters.</td></tr>`}</tbody>`;
   }
 
-  document.getElementById('parityTable').innerHTML = `
-    <thead><tr><th>Room</th><th>Rate Plan</th><th>Direct Rate</th><th>OTA Rate</th><th>Difference</th><th>Cheapest Channel</th><th>Most Expensive Channel</th><th>Parity Status</th></tr></thead>
-    <tbody>${rows.map(r=>`<tr>
-      <td class="fw-semibold">${r.room.name}</td>
-      <td>${r.rp.name}</td>
-      <td class="fw-semibold">${APP.fmtCurrency(r.directRate)}</td>
-      <td>${r.otaAvg!=null?APP.fmtCurrency(r.otaAvg):'—'}</td>
-      <td class="${r.diff==null?'':r.diff<0?'text-danger':'text-success'}">${r.diff==null?'—':`${r.diff>=0?'+':''}${APP.fmtCurrency(r.diff)}`}</td>
-      <td>${r.cheapest.label}</td>
-      <td>${r.priciest.label}</td>
-      <td><span class="badge-status ${r.statusClass}">${r.status}</span></td>
-    </tr>`).join('') || `<tr><td colspan="8" class="text-center text-muted py-4">No rooms found for this property.</td></tr>`}</tbody>`;
+  document.getElementById('ca_room').addEventListener('change', renderParityTable);
+  document.getElementById('ca_channel').addEventListener('change', renderParityTable);
+  renderParityTable();
 });

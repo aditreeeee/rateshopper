@@ -208,17 +208,23 @@ const PORTALDATA = (() => {
   // ---- meal-plan-scoped rate (EP/CP/MAP/AP) — used by the Rate Plan Trend Analysis panel to
   // compare "my EP rate vs. the market's EP rate" etc., independent of any single room/date
   // filter. Same deterministic seasonal/weekend math as myRateOnDate/competitorRateOnDate, just
-  // averaged over whichever of a property's rooms actually offer that meal plan. ----
+  // averaged over whichever of a property's rooms actually offer that meal plan.
+  // Returns null (not a silent all-rooms fallback) when a specific meal plan is requested and
+  // NONE of the property's rooms actually offer it — a property/competitor that genuinely has no
+  // EP rooms should show as "no data", not quietly substitute the all-rooms average, which used
+  // to make picking a meal plan with no matching rooms look like the filter wasn't doing anything. ----
   function mealPlanBaseRate(propertyId, mealPlan){
     const channels = DB.channels.byProperty(propertyId);
     const master = channels.find(c=>c.type==='master');
     const rooms = master ? DB.rooms.byChannel(master.id) : DB.rooms.byProperty(propertyId);
+    if(!mealPlan) return rooms.length ? Math.round(rooms.reduce((s,r)=>s+r.basePrice,0)/rooms.length) : myBaseRate(propertyId);
     const matched = rooms.filter(r=> DB.ratePlans.byRoom(r.id).some(p=>p.mealPlan===mealPlan));
-    const pool = matched.length ? matched : rooms;
-    return pool.length ? Math.round(pool.reduce((s,r)=>s+r.basePrice,0)/pool.length) : myBaseRate(propertyId);
+    if(!matched.length) return null;
+    return Math.round(matched.reduce((s,r)=>s+r.basePrice,0)/matched.length);
   }
   function mealPlanRateOnDate(propertyId, mealPlan, dateKey){
     const base = mealPlanBaseRate(propertyId, mealPlan);
+    if(base==null) return null;
     const variance = 0.96 + seededFloat(propertyId+mealPlan+dateKey) * 0.08;
     return Math.round(base * variance * premiumFactor(dateKey) * trendFactor(propertyId+mealPlan, dateKey) / 10) * 10;
   }

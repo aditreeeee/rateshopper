@@ -8,12 +8,11 @@
    ranking, trend, history) compare across every one of the owner's rooms
    instead of defaulting to a single one.
    ========================================================================== */
-let rcTrendChart = null, rcDistChart = null;
+let rcDistChart = null;
 let rcAllRows = [];
 let rcPage = 0;
 const RC_PAGE_SIZE = 50;
 let rcSort = { key:'compRate', dir:'asc' };
-let rcTrendDays = 30;
 
 // Shared Chart.js animation preset — same helper as the Dashboard/Market Intelligence pages;
 // bars cascade in one-by-one, lines draw in with a smooth ease.
@@ -43,6 +42,10 @@ document.addEventListener('DOMContentLoaded', ()=>{
   document.getElementById('rc_date').value = PORTALDATA.dateKeyOffset(0);
   document.getElementById('rc_room').innerHTML += myRooms.map(r=>`<option value="${r.id}">${r.name}</option>`).join('');
   document.getElementById('rc_channel').innerHTML += PORTALDATA.CHANNELS.map(c=>`<option value="${c.key}">${c.label}</option>`).join('');
+  // Second Channel selector, right on the Room Comparison table itself — kept in sync with the
+  // top filters-bar's rc_channel (either one can drive the filter without the two disagreeing).
+  document.getElementById('rc_channel2').innerHTML += PORTALDATA.CHANNELS.map(c=>`<option value="${c.key}">${c.label}</option>`).join('');
+  document.getElementById('rpta_channel').innerHTML += PORTALDATA.CHANNELS.map(c=>`<option value="${c.key}">${c.label}</option>`).join('');
 
   // Meal plan (All Plans/EP/CP/MAP/AP) — the single shared control that now drives both the
   // Rate Plan Trend Analysis charts/KPIs above AND the merged-in Room Comparison table below,
@@ -51,7 +54,10 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
   // ---- date-range helper: last `days` dates ending today ----
   function rangeDates(days){ return Array.from({length:days}).map((_,d)=> PORTALDATA.dateKeyOffset(d - (days-1))); }
-  function avgOf(vals){ return vals.length ? Math.round(vals.reduce((a,b)=>a+b,0)/vals.length) : 0; }
+  function avgOf(vals){
+    const nums = vals.filter(v=>v!=null);
+    return nums.length ? Math.round(nums.reduce((a,b)=>a+b,0)/nums.length) : 0;
+  }
 
   // ---- "My Rate" for a room, either on one date or averaged over the compare range. Runs the
   // same channelRate() markup/markdown the competitor side already gets, so switching the
@@ -380,62 +386,6 @@ document.addEventListener('DOMContentLoaded', ()=>{
       }).join('') || `<tr><td colspan="5" class="text-center text-muted py-3">No data</td></tr>`}</tbody>`;
   }
 
-  function trendSeriesForRoom(room, channelFilter){
-    const data = [];
-    for(let d=-rcTrendDays; d<=0; d++){
-      const dk = PORTALDATA.dateKeyOffset(d);
-      data.push(myRoomRate(room, dk, false, 1, channelFilter));
-    }
-    return data;
-  }
-
-  function renderTrend(channelFilter){
-    const rooms = focusRooms();
-    if(!rooms.length) return;
-    const dateKey = document.getElementById('rc_date').value || PORTALDATA.dateKeyOffset(0);
-    const labels = [];
-    for(let d=-rcTrendDays; d<=0; d++) labels.push(PORTALDATA.dateKeyOffset(d).slice(5));
-
-    let datasets;
-    if(rooms.length === 1){
-      const room = rooms[0];
-      const top5 = topCompetitorsForRoom(room, dateKey, channelFilter, false, 1, 5);
-      const myData = trendSeriesForRoom(room, channelFilter);
-      datasets = [{ label:'My Room Rate', data:myData, borderColor:'#3861fb', backgroundColor:'rgba(56,97,251,.1)', borderWidth:3, fill:true, tension:.3, pointRadius:0 }];
-      const palette = ['#a9b0c9','#9fd6ca','#c3aee8','#f2c194','#e6a8c4'];
-      top5.forEach((t,i)=>{
-        const data = [];
-        for(let d=-rcTrendDays; d<=0; d++){ const dk=PORTALDATA.dateKeyOffset(d); data.push(compRoomRate(t.comp, room, dk, channelFilter, false, 1) ?? 0); }
-        datasets.push({ label:t.comp.name, data, borderColor:palette[i%5], backgroundColor:'transparent', borderWidth:1.5, tension:.3, pointRadius:0 });
-      });
-    } else {
-      // "All Rooms": aggregate — My Rooms Avg vs. Market Avg across every room's matches.
-      const myData = [], marketData = [];
-      for(let d=-rcTrendDays; d<=0; d++){
-        const dk = PORTALDATA.dateKeyOffset(d);
-        myData.push(avgOf(rooms.map(r=>myRoomRate(r, dk, false, 1, channelFilter))));
-        const marketVals = [];
-        rooms.forEach(r=> matchedCompsForRoom(r).forEach(c=>{ const rate=compRoomRate(c, r, dk, channelFilter, false, 1); if(rate!=null) marketVals.push(rate); }));
-        marketData.push(avgOf(marketVals));
-      }
-      datasets = [
-        { label:'My Rooms Avg', data:myData, borderColor:'#3861fb', backgroundColor:'rgba(56,97,251,.1)', borderWidth:3, fill:true, tension:.3, pointRadius:0 },
-        { label:'Market Avg', data:marketData, borderColor:'#8c5cf7', backgroundColor:'transparent', borderDash:[5,4], borderWidth:2, tension:.3, pointRadius:0 }
-      ];
-    }
-
-    if(rcTrendChart) rcTrendChart.destroy();
-    rcTrendChart = new Chart(document.getElementById('rc_trendChart'), {
-      type:'line',
-      data:{ labels, datasets },
-      options:{
-        responsive:true, interaction:{mode:'index', intersect:false}, animation:chartAnim(false),
-        plugins:{ legend:{position:'bottom'}, tooltip:{callbacks:{label:ctx=>`${ctx.dataset.label}: ${APP.fmtCurrency(ctx.parsed.y)}`}} },
-        scales:{ y:{ticks:{callback:v=>APP.fmtCurrency(v)}} }
-      }
-    });
-  }
-
   function renderHistory(channelFilter, compareDays){
     const rooms = focusRooms();
     if(!rooms.length){ document.getElementById('rc_historyTable').innerHTML = ''; return; }
@@ -491,12 +441,20 @@ document.addEventListener('DOMContentLoaded', ()=>{
     renderKpis(filtered, dateKey, useAvg, compareDays, channelFilter);
     renderDistribution(dateKey, channelFilter, useAvg, compareDays);
     renderRanking(dateKey, channelFilter, useAvg, compareDays);
-    renderTrend(channelFilter);
     renderHistory(channelFilter, compareDays);
   }
 
   ['rc_date','rc_room','rc_channel','rc_compare','rc_rateMetric'].forEach(id=>{
     document.getElementById(id).addEventListener('input', ()=>{ rcPage = 0; renderAll(); });
+  });
+  // The Room Comparison table's own Channel selector mirrors the top filters-bar one — changing
+  // either updates both, so there's never a mismatch between the two.
+  document.getElementById('rc_channel2').addEventListener('input', function(){
+    document.getElementById('rc_channel').value = this.value;
+    rcPage = 0; renderAll();
+  });
+  document.getElementById('rc_channel').addEventListener('input', function(){
+    document.getElementById('rc_channel2').value = this.value;
   });
   document.getElementById('rc_search').addEventListener('input', ()=>{ rcPage = 0; renderTable(); });
   document.getElementById('rc_prevPage').addEventListener('click', ()=>{ rcPage--; renderTable(); });
@@ -505,15 +463,6 @@ document.addEventListener('DOMContentLoaded', ()=>{
   document.getElementById('rc_exportExcel').addEventListener('click', ()=> APP.toast('Export Started', 'Your Excel workbook is being prepared for download.', 'success'));
   document.getElementById('rc_print').addEventListener('click', ()=> window.print());
 
-  document.querySelectorAll('#rc_trendRangeGroup button').forEach(btn=>{
-    btn.addEventListener('click', function(){
-      rcTrendDays = Number(this.dataset.days);
-      document.querySelectorAll('#rc_trendRangeGroup button').forEach(b=>{ b.classList.remove('btn-outline-primary'); b.classList.add('btn-soft'); });
-      this.classList.remove('btn-soft'); this.classList.add('btn-outline-primary');
-      renderTrend(document.getElementById('rc_channel').value);
-    });
-  });
-
   /* ======================================================================
      Rate Plan Trend Analysis — meal-plan-scoped (All Plans/EP/CP/MAP/AP) rate
      vs. market. The meal plan control here is shared with the merged-in Room
@@ -521,6 +470,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
      re-renders both together. Chart style (line/bar) stays local to the charts.
      ====================================================================== */
   let rptaStyle = 'line';
+  let rptaChannel = ''; // '' = All Channels — independent from the merged table's own rc_channel filter
   let rptaYearChart = null, rptaMonthChart = null;
   const RPTA_PALETTE = ['#a9b0c9','#9fd6ca','#c3aee8','#f2c194','#e6a8c4'];
 
@@ -544,13 +494,25 @@ document.addEventListener('DOMContentLoaded', ()=>{
     });
   }
 
+  // Meal-plan rate, then the Channel filter's markup/markdown on top — same two-step composition
+  // myRoomRate()/compRoomRate() already use elsewhere on this page. Returns null when the
+  // property/competitor has no rooms on this meal plan at all (see mealPlanRateOnDate).
+  function rptaRateFor(pid, dateKey){
+    const base = PORTALDATA.mealPlanRateOnDate(pid, mealPlanFilter, dateKey);
+    if(base==null) return null;
+    return rptaChannel ? PORTALDATA.channelRate(base, rptaChannel, dateKey) : base;
+  }
+
   function rptaDatasets(points, styleIsBar){
-    const myData = points.map(p=> PORTALDATA.mealPlanRateOnDate(propertyId, mealPlanFilter, p.dateKey));
-    const compSeries = compsAll.slice(0,5).map((c,i)=>({
+    const myData = points.map(p=> rptaRateFor(propertyId, p.dateKey));
+    const compSeriesRaw = compsAll.slice(0,5).map((c,i)=>({
       comp: c,
-      data: points.map(p=> PORTALDATA.mealPlanRateOnDate(c.realPropertyId, mealPlanFilter, p.dateKey)),
+      data: points.map(p=> rptaRateFor(c.realPropertyId, p.dateKey)),
       color: RPTA_PALETTE[i%RPTA_PALETTE.length]
     }));
+    // A competitor with zero data points for this meal plan (they simply don't offer it) is
+    // dropped from the chart/legend entirely instead of drawing an invisible, all-gap line.
+    const compSeries = compSeriesRaw.filter(cs=> cs.data.some(v=>v!=null));
     // My property is always the thicker, solid, unmistakably-mine series; every competitor is a
     // thinner dashed line (or a lighter bar) so the two never compete for attention.
     const datasets = [{
@@ -571,23 +533,34 @@ document.addEventListener('DOMContentLoaded', ()=>{
   }
 
   function renderRptaKpis(myAvg, compAvgs){
-    const marketAvg = avgOf(compAvgs.map(c=>c.avg));
-    const gapPct = marketAvg ? ((myAvg-marketAvg)/marketAvg*100) : 0;
+    const planLabel = mealPlanFilter || 'All Plans';
+    const channelLabel = rptaChannel ? (PORTALDATA.CHANNELS.find(c=>c.key===rptaChannel)||{}).label : 'all channels';
+
+    // No data at all for my property under this meal plan — say so plainly instead of silently
+    // showing a number that isn't really about the plan the buttons say is selected.
+    if(myAvg==null){
+      document.getElementById('rpta_kpis').innerHTML = `<div class="col-12">${
+        PWIDGETS.emptyState('bi-slash-circle', `No ${planLabel} rooms`, `Your property doesn't have any ${planLabel} rate plans, so there's nothing to compare for this meal plan.`)
+      }</div>`;
+      return;
+    }
+
+    const marketAvg = compAvgs.length ? avgOf(compAvgs.map(c=>c.avg)) : null;
+    const gapPct = marketAvg ? ((myAvg-marketAvg)/marketAvg*100) : null;
     const sorted = [...compAvgs].sort((a,b)=>b.avg-a.avg);
     const highest = sorted[0], lowest = sorted[sorted.length-1];
-    const planLabel = mealPlanFilter || 'All Plans';
 
     document.getElementById('rpta_kpis').innerHTML = [
       PWIDGETS.kpiCard({icon:'bi-house-door-fill', color:'#3861fb', bg:'#eef4ff', label:`My 12-Mo. Avg (${planLabel})`, value:APP.fmtCurrency(myAvg),
-        desc:`Your average ${planLabel} rate across the trailing 12 months.`}),
-      PWIDGETS.kpiCard({icon:'bi-graph-up-arrow', color:'#8c5cf7', bg:'#f3eeff', label:'Market Average', value:APP.fmtCurrency(marketAvg),
-        desc:`The average ${planLabel} rate across every tracked competitor, same 12-month window.`}),
-      PWIDGETS.kpiCard({icon: gapPct<=0?'bi-arrow-down-circle':'bi-arrow-up-circle', color: gapPct<=0?'#12b76a':'#ff4d5e', bg: gapPct<=0?'#e7faf1':'#fff0f1', label:'Your Gap vs. Market', value:`${gapPct>=0?'+':''}${gapPct.toFixed(1)}%`,
-        desc: gapPct<=0 ? 'You are priced below the market average.' : 'You are priced above the market average.'}),
+        desc:`Your average ${planLabel} rate across the trailing 12 months, on ${channelLabel}.`}),
+      PWIDGETS.kpiCard({icon:'bi-graph-up-arrow', color:'#8c5cf7', bg:'#f3eeff', label:'Market Average', value: marketAvg!=null?APP.fmtCurrency(marketAvg):'—',
+        desc: marketAvg!=null ? `The average ${planLabel} rate across every tracked competitor, same 12-month window.` : `No tracked competitors offer ${planLabel}.`}),
+      PWIDGETS.kpiCard({icon: (gapPct==null||gapPct<=0)?'bi-arrow-down-circle':'bi-arrow-up-circle', color: (gapPct==null||gapPct<=0)?'#12b76a':'#ff4d5e', bg: (gapPct==null||gapPct<=0)?'#e7faf1':'#fff0f1', label:'Your Gap vs. Market', value: gapPct!=null?`${gapPct>=0?'+':''}${gapPct.toFixed(1)}%`:'—',
+        desc: gapPct==null ? 'No market data to compare against.' : gapPct<=0 ? 'You are priced below the market average.' : 'You are priced above the market average.'}),
       PWIDGETS.kpiCard({icon:'bi-arrow-up-circle', color:'#ff4d5e', bg:'#fff0f1', label:'Highest Competitor', value: highest?APP.fmtCurrency(highest.avg):'—',
-        desc: highest ? `${highest.comp.name}, for ${planLabel}.` : 'No tracked competitors yet.'}),
+        desc: highest ? `${highest.comp.name}, for ${planLabel}.` : `No tracked competitors offer ${planLabel}.`}),
       PWIDGETS.kpiCard({icon:'bi-arrow-down-circle', color:'#12b76a', bg:'#e7faf1', label:'Lowest Competitor', value: lowest?APP.fmtCurrency(lowest.avg):'—',
-        desc: lowest ? `${lowest.comp.name}, for ${planLabel}.` : 'No tracked competitors yet.'}),
+        desc: lowest ? `${lowest.comp.name}, for ${planLabel}.` : `No tracked competitors offer ${planLabel}.`}),
     ].join('');
   }
 
@@ -597,8 +570,9 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const days = currentMonthDays();
 
     const yearly = rptaDatasets(months, styleIsBar);
+    const myValid = yearly.myData.filter(v=>v!=null);
     const compAvgs = yearly.compSeries.map(cs=>({ comp:cs.comp, avg: avgOf(cs.data) }));
-    renderRptaKpis(avgOf(yearly.myData), compAvgs);
+    renderRptaKpis(myValid.length ? avgOf(myValid) : null, compAvgs);
 
     const tooltipFmt = { plugins:{ tooltip:{ callbacks:{ label: ctx=>`${ctx.dataset.label}: ${APP.fmtCurrency(ctx.parsed.y)}` } }, legend:{ position:'bottom', labels:{ boxWidth:10, boxHeight:10 } } } };
 
@@ -637,6 +611,10 @@ document.addEventListener('DOMContentLoaded', ()=>{
       this.classList.remove('btn-soft'); this.classList.add('btn-outline-primary');
       renderRpta();
     });
+  });
+  document.getElementById('rpta_channel').addEventListener('change', function(){
+    rptaChannel = this.value;
+    renderRpta();
   });
 
   if(!myRooms.length){

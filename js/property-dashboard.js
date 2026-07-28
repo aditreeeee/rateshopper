@@ -236,17 +236,6 @@ document.addEventListener('DOMContentLoaded', ()=>{
       <div class="fw-bold" style="font-size:.82rem">${APP.fmtCurrency(c.rate)}</div>
     </div>`).join('');
 
-  // Recommendations widget (top 3)
-  const recs = PORTALDATA.recommendations(propertyId).slice(0,3);
-  document.getElementById('recsWidget').innerHTML = recs.map(r=>`
-    <div class="d-flex align-items-center justify-content-between mb-2 pb-2 border-bottom" style="border-color:var(--border-1) !important">
-      <div>
-        <span class="rec-badge ${r.action}"><i class="bi ${r.action==='increase'?'bi-arrow-up':r.action==='decrease'?'bi-arrow-down':'bi-dash'}"></i>${r.action==='hold'?'Hold':(r.action==='increase'?'+':'-')+APP.fmtCurrency(r.amount)}</span>
-        <div class="text-muted mt-1" style="font-size:.7rem;max-width:220px">${r.reason}</div>
-      </div>
-      <div class="text-end"><div class="fw-bold" style="font-size:.8rem">${r.confidence}%</div><div class="text-muted" style="font-size:.65rem">confidence</div></div>
-    </div>`).join('');
-
   // Upcoming events widget (next 30 days)
   const events = [];
   for(let d=1; d<30; d++){ const dk=PORTALDATA.dateKeyOffset(d); const ev=PORTALDATA.localEventOn(dk); if(ev) events.push({dk,ev}); }

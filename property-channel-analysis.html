@@ -27,7 +27,15 @@
 <div class="section-card p-0">
   <div class="p-3 pb-0">
     <div class="fw-bold">Channels Display — Room / Rate Plan Parity</div>
-    <div class="text-muted small mb-2">Direct (Master Channel) vs. every OTA, for today, across every room in the property.</div>
+    <div class="text-muted small mb-2">Direct (Master Channel) vs. every OTA (or just the one you pick below), for today, across every room in the property.</div>
+    <div class="row g-2 mb-3">
+      <div class="col-6 col-md-3">
+        <select class="form-select form-select-sm" id="ca_room"><option value="">All Rooms</option></select>
+      </div>
+      <div class="col-6 col-md-3">
+        <select class="form-select form-select-sm" id="ca_channel"><option value="">All Channels (OTA Avg.)</option></select>
+      </div>
+    </div>
   </div>
   <div class="table-responsive">
     <table class="table-modern w-100" id="parityTable"></table>

@@ -2,8 +2,8 @@
    Rate Calendar — Flagship feature: enterprise-grade grid pricing management
    Dates run across the top starting today; rooms > rate plans > occupancy run down the side.
    ========================================================================== */
-let gridStart = new Date();       // first visible date column, defaults to today
-let GRID_DAYS = 14;                // visible date columns at once — changeable via the 7/14/30 Days filter
+let calRangeStart = null, calRangeEnd = null; // the calendar's active date range — drives the grid, bulk-update scopes, and Rate Parity alike
+let calPreset = '14';
 let gridWorking = {};             // { ratePlanId: { dateKey: {price, occPrices:{occ:price}} } }
 let gridHistory = [];             // undo stack of gridWorking snapshots
 let gridDirty = false;
@@ -11,6 +11,36 @@ let currentPropertyId = null;     // resolved once from ?propertyId= / ?ratePlan
 let currentChannelId = '';        // always a specific channel id — defaults to the property's Master Channel
 let currentRoomFilter = '';       // '' = All Rooms, otherwise narrows the grid to a single room
 let canEditRates = false;         // RBAC.can(RATE_CALENDAR,'edit') — gates inline edit, bulk update, save/cancel/undo
+
+// ---- date helpers shared by the range picker, the grid, bulk-update scopes, and Rate Parity ----
+function calStartOfDay(d){ const x=new Date(d); x.setHours(0,0,0,0); return x; }
+function calAddDays(d,n){ const x=new Date(d); x.setDate(x.getDate()+n); return x; }
+function calAddMonths(d,n){ const x=new Date(d); x.setMonth(x.getMonth()+n); return x; }
+function calSameDay(a,b){ return !!a && !!b && a.toDateString()===b.toDateString(); }
+function calFmtShort(d){ return d.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}); }
+function calPresetRange(key){
+  const today = calStartOfDay(new Date());
+  if(key==='today') return { start:today, end:today };
+  if(key==='yesterday'){ const y=calAddDays(today,-1); return { start:y, end:y }; }
+  if(key==='7') return { start:today, end:calAddDays(today,6) };
+  if(key==='14') return { start:today, end:calAddDays(today,13) };
+  if(key==='30') return { start:today, end:calAddDays(today,29) };
+  if(key==='lastMonth'){
+    const firstOfThisMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+    const lastMonthEnd = calAddDays(firstOfThisMonth,-1);
+    const lastMonthStart = new Date(lastMonthEnd.getFullYear(), lastMonthEnd.getMonth(), 1);
+    return { start:lastMonthStart, end:lastMonthEnd };
+  }
+  return { start:today, end:calAddDays(today,13) };
+}
+// Every date in the currently selected range (inclusive) — shared by the grid, bulk-update
+// "Currently Visible"/"Weekends Only" scopes, and Rate Parity, so they all always agree.
+function currentDates(){
+  const dates = [];
+  let d = new Date(calRangeStart);
+  while(d <= calRangeEnd){ dates.push(new Date(d)); d = calAddDays(d,1); }
+  return dates;
+}
 
 document.addEventListener('DOMContentLoaded', ()=>{
   // This page only ever loads inside the property's own "Rate Calendar" tab (an iframe) —
@@ -68,22 +98,6 @@ document.addEventListener('DOMContentLoaded', ()=>{
   }
   refreshRoomFilterOptions();
 
-  document.getElementById('prevPeriod').addEventListener('click', ()=> shiftPeriod(-1));
-  document.getElementById('nextPeriod').addEventListener('click', ()=> shiftPeriod(1));
-  document.getElementById('btnToday').addEventListener('click', ()=>{ gridStart = new Date(); renderGrid(); });
-
-  document.querySelectorAll('#rangeFilter [data-days]').forEach(btn=>{
-    btn.addEventListener('click', function(){
-      GRID_DAYS = Number(this.dataset.days);
-      document.querySelectorAll('#rangeFilter [data-days]').forEach(b=>{
-        const active = b===this;
-        b.classList.toggle('btn-soft', active);
-        b.classList.toggle('btn-outline-primary', !active);
-      });
-      renderGrid();
-    });
-  });
-
   document.getElementById('btnUndo').addEventListener('click', undoGrid);
   document.getElementById('btnCancelChanges').addEventListener('click', cancelGridChanges);
   document.getElementById('btnSaveChanges').addEventListener('click', saveGridChanges);
@@ -95,6 +109,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   document.getElementById('bu_apply').addEventListener('click', applyBulkUpdate);
   document.getElementById('bu_clearRates').addEventListener('click', clearBulkRates);
 
+  setupDateRangePicker();
   buildWeekdayButtons();
   loadGrid();
 });
@@ -108,9 +123,112 @@ function buildWeekdayButtons(){
 
 function keyOf(d){ return d.toISOString().slice(0,10); }
 
-function shiftPeriod(dir){
-  gridStart.setDate(gridStart.getDate()+dir*GRID_DAYS);
-  renderGrid();
+/* ==========================================================================
+   Date Range Picker — presets (Today/Yesterday/7/14/30 Days/Last Month) plus a
+   Google Analytics / Power BI-style dual month calendar for Custom Range. Same
+   component as Rate Matrix — the grid, bulk-update scopes, and Rate Parity all
+   read the resulting calRangeStart/calRangeEnd via currentDates().
+   ========================================================================== */
+function setupDateRangePicker(){
+  let calCalMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1); // left calendar's anchor month; right = +1 month
+  let calPickStart = null, calPickEnd = null; // in-progress Custom Range selection, not yet applied
+
+  function applyRange(start, end, presetKey){
+    calRangeStart = calStartOfDay(start); calRangeEnd = calStartOfDay(end);
+    calPreset = presetKey;
+    document.querySelectorAll('.mx-drp-preset').forEach(b=> b.classList.toggle('active', b.dataset.preset===presetKey));
+    document.getElementById('mx_dateRangeLabel').textContent = calSameDay(calRangeStart,calRangeEnd)
+      ? calFmtShort(calRangeStart) : `${calFmtShort(calRangeStart)} – ${calFmtShort(calRangeEnd)}`;
+    renderGrid();
+  }
+
+  function calDaysInMonthGrid(monthDate){
+    const first = new Date(monthDate.getFullYear(), monthDate.getMonth(), 1);
+    const gridStartDay = calAddDays(first, -first.getDay());
+    return Array.from({length:42}).map((_,i)=> calAddDays(gridStartDay, i));
+  }
+
+  function renderCalMonth(hostId, labelId, monthDate){
+    document.getElementById(labelId).textContent = monthDate.toLocaleDateString('en-IN',{month:'long',year:'numeric'});
+    const today = calStartOfDay(new Date());
+    const dowLabels = ['S','M','T','W','T','F','S'];
+    const cellsHtml = calDaysInMonthGrid(monthDate).map(d=>{
+      const inMonth = d.getMonth()===monthDate.getMonth();
+      if(!inMonth) return `<button type="button" class="mx-drp-day" disabled tabindex="-1" style="visibility:hidden"></button>`;
+      let cls = 'mx-drp-day';
+      const isStart = calSameDay(d, calPickStart), isEnd = calSameDay(d, calPickEnd);
+      const inRange = calPickStart && calPickEnd && d > calPickStart && d < calPickEnd;
+      if(calSameDay(d, today)) cls += ' mx-drp-today';
+      if(isStart || isEnd) cls += ' mx-drp-endpoint';
+      if(isStart) cls += ' mx-drp-range-start';
+      if(isEnd) cls += ' mx-drp-range-end';
+      if(inRange) cls += ' mx-drp-in-range';
+      return `<button type="button" class="${cls}" data-date="${keyOf(d)}">${d.getDate()}</button>`;
+    }).join('');
+    document.getElementById(hostId).innerHTML = dowLabels.map(d=>`<div class="mx-drp-dow">${d}</div>`).join('') + cellsHtml;
+  }
+
+  function calPickDate(d){
+    if(!calPickStart || (calPickStart && calPickEnd)){ calPickStart = d; calPickEnd = null; }
+    else if(d < calPickStart){ calPickEnd = calPickStart; calPickStart = d; }
+    else calPickEnd = d;
+    renderDualCalendar();
+  }
+
+  function updateSelectedLabel(){
+    const lbl = document.getElementById('mx_drpSelectedLabel');
+    const applyBtn = document.getElementById('mx_drpApply');
+    if(calPickStart && calPickEnd){ lbl.textContent = `${calFmtShort(calPickStart)} – ${calFmtShort(calPickEnd)}`; applyBtn.disabled = false; }
+    else if(calPickStart){ lbl.textContent = `${calFmtShort(calPickStart)} – select end date`; applyBtn.disabled = true; }
+    else { lbl.textContent = 'Select a start and end date'; applyBtn.disabled = true; }
+  }
+
+  function renderDualCalendar(){
+    renderCalMonth('mx_drpCal1', 'mx_drpMonthLabel1', calCalMonth);
+    renderCalMonth('mx_drpCal2', 'mx_drpMonthLabel2', calAddMonths(calCalMonth, 1));
+    updateSelectedLabel();
+    document.querySelectorAll('#mx_drpCal1 .mx-drp-day:not(:disabled), #mx_drpCal2 .mx-drp-day:not(:disabled)').forEach(btn=>{
+      btn.addEventListener('click', ()=> calPickDate(new Date(btn.dataset.date+'T00:00:00')));
+    });
+  }
+
+  function closeDateRangeMenu(){
+    bootstrap.Dropdown.getOrCreateInstance(document.getElementById('mx_dateRangeBtn')).hide();
+  }
+
+  document.querySelectorAll('.mx-drp-preset').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const key = btn.dataset.preset;
+      if(key === 'custom'){
+        document.querySelectorAll('.mx-drp-preset').forEach(b=>b.classList.remove('active'));
+        btn.classList.add('active');
+        calPickStart = new Date(calRangeStart); calPickEnd = new Date(calRangeEnd);
+        calCalMonth = new Date(calPickStart.getFullYear(), calPickStart.getMonth(), 1);
+        document.getElementById('mx_drpCustom').classList.remove('d-none');
+        renderDualCalendar();
+        return;
+      }
+      document.getElementById('mx_drpCustom').classList.add('d-none');
+      const { start, end } = calPresetRange(key);
+      applyRange(start, end, key);
+      closeDateRangeMenu();
+    });
+  });
+  document.getElementById('mx_drpPrevMonth').addEventListener('click', ()=>{ calCalMonth = calAddMonths(calCalMonth, -1); renderDualCalendar(); });
+  document.getElementById('mx_drpNextMonth').addEventListener('click', ()=>{ calCalMonth = calAddMonths(calCalMonth, 1); renderDualCalendar(); });
+  document.getElementById('mx_drpCancel').addEventListener('click', ()=>{
+    document.getElementById('mx_drpCustom').classList.add('d-none');
+    closeDateRangeMenu();
+  });
+  document.getElementById('mx_drpApply').addEventListener('click', ()=>{
+    if(!calPickStart || !calPickEnd) return;
+    applyRange(calPickStart, calPickEnd, 'custom');
+    document.getElementById('mx_drpCustom').classList.add('d-none');
+    closeDateRangeMenu();
+  });
+
+  const { start, end } = calPresetRange(calPreset);
+  applyRange(start, end, calPreset);
 }
 
 /* ==========================================================================
@@ -136,9 +254,7 @@ function renderGrid(){
   const host = document.getElementById('gridHost');
   const todayKey = keyOf(new Date());
 
-  const dates = [];
-  for(let i=0;i<GRID_DAYS;i++){ const d = new Date(gridStart); d.setDate(gridStart.getDate()+i); dates.push(d); }
-  document.getElementById('periodLabel').textContent = `${dates[0].toLocaleDateString('en-IN',{day:'2-digit',month:'short'})} – ${dates[dates.length-1].toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'})}`;
+  const dates = currentDates();
 
   if(!rooms.length){
     host.innerHTML = `<div class="empty-state"><i class="bi bi-door-closed"></i><h5>No rooms for this property</h5><p>Add a room and rate plan to start pricing.</p><a href="add-room.html?propertyId=${propertyId}" class="btn btn-primary">Add Room</a></div>`;
@@ -348,7 +464,7 @@ function collectBulkDates(){
       for(let d=new Date(from); d<=new Date(to); d.setDate(d.getDate()+1)) dates.push(keyOf(d));
     }
   } else if(scope==='visible'){
-    for(let i=0;i<GRID_DAYS;i++){ const d = new Date(gridStart); d.setDate(gridStart.getDate()+i); dates.push(keyOf(d)); }
+    dates = currentDates().map(d=>keyOf(d));
   } else if(scope==='weekdays'){
     const from = document.getElementById('bu_wdFrom').value;
     const to = document.getElementById('bu_wdTo').value;
@@ -359,10 +475,7 @@ function collectBulkDates(){
       }
     }
   } else if(scope==='weekends'){
-    for(let i=0;i<GRID_DAYS;i++){
-      const d = new Date(gridStart); d.setDate(gridStart.getDate()+i);
-      if(d.getDay()===5 || d.getDay()===6) dates.push(keyOf(d));
-    }
+    dates = currentDates().filter(d=> d.getDay()===5 || d.getDay()===6).map(d=>keyOf(d));
   }
   return dates;
 }
@@ -427,24 +540,18 @@ function clearBulkRates(){
 
 /* ==========================================================================
    Rate Parity — for one room/rate plan/occupancy, shows every channel that lists
-   a matching room (rows) against every date from today through end of this month
-   (columns), so you can eyeball how your price compares day-by-day.
+   a matching room (rows) against every date in the calendar's currently selected
+   date range (columns), so switching the Date Range Picker up top changes what
+   Rate Parity shows too, instead of always defaulting to "today through end of
+   this month" regardless of what the calendar itself is displaying.
    ========================================================================== */
-function datesTodayThroughEndOfMonth(){
-  const start = new Date(); start.setHours(0,0,0,0);
-  const end = new Date(start.getFullYear(), start.getMonth()+1, 0);
-  const dates = [];
-  for(let d=new Date(start); d<=end; d.setDate(d.getDate()+1)) dates.push(new Date(d));
-  return dates;
-}
-
 function openRateParity(roomId, planId, occ){
   const room = DB.rooms.get(roomId);
   const originPlan = DB.ratePlans.get(planId);
   if(!room || !originPlan) return;
 
   const channels = DB.channels.byProperty(currentPropertyId);
-  const dates = datesTodayThroughEndOfMonth();
+  const dates = currentDates();
 
   // One row per channel: match a room with the same name, preferring a rate plan with the
   // same meal plan as the one being compared from; falls back to that room's first plan.
@@ -471,7 +578,7 @@ function openRateParity(roomId, planId, occ){
     return { ...row, prices };
   });
 
-  document.getElementById('parityMeta').textContent = `${room.name}  •  ${originPlan.name}  •  ${occ} Pax`;
+  document.getElementById('parityMeta').textContent = `${room.name}  •  ${originPlan.name}  •  ${occ} Pax  •  ${calFmtShort(dates[0])} – ${calFmtShort(dates[dates.length-1])}`;
 
   const todayKey = keyOf(new Date());
   const theadDates = dates.map(d=>{

@@ -34,6 +34,15 @@
   #rpta_kpis > div{ flex:0 0 33.3333%; max-width:33.3333%; }
 }
 
+/* ---------- Market Intelligence KPI row: same 5-across treatment, so 10 cards form two clean
+   rows of 5 instead of 4-per-row leaving an uneven trailing row. ---------- */
+@media (min-width:1200px){
+  #marketKpis > div{ flex:0 0 20%; max-width:20%; }
+}
+@media (min-width:768px) and (max-width:1199.98px){
+  #marketKpis > div{ flex:0 0 33.3333%; max-width:33.3333%; }
+}
+
 /* ---------- Rate position gauge ---------- */
 .rate-gauge{ display:flex; flex-direction:column; align-items:center; gap:8px; padding:10px 0; }
 .rate-gauge-bar{ position:relative; width:100%; height:10px; border-radius:6px;
