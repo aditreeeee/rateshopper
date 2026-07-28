@@ -189,13 +189,18 @@ document.addEventListener('DOMContentLoaded', ()=>{
       }
       if(collapsed) return;
       g.rooms.forEach(r=>{
+        let rowRoomId = null, rowPlanId = null;
         const cells = dates.map(d=>{
           const dateKey = DB.fmtDate(d);
           const isToday = dateKey===todayKey;
           const channelRoom = findRoomOnChannel(g.propertyIdForLookup, myChannel, r.roomName);
           const result = rateFor(channelRoom, dateKey, occ, mealPlanFilter, ratePlanFilter);
           const price = result ? result.price : null;
-          if(g.isMe){ if(!myRates[r.ourRoomId]) myRates[r.ourRoomId] = {}; myRates[r.ourRoomId][dateKey] = price; }
+          if(channelRoom) rowRoomId = channelRoom.id;
+          if(result) rowPlanId = result.plan.id;
+          if(g.isMe){
+            if(!myRates[r.ourRoomId]) myRates[r.ourRoomId] = {}; myRates[r.ourRoomId][dateKey] = price;
+          }
 
           const myPrice = (myRates[r.ourRoomId]||{})[dateKey];
           let diffTip = '';
@@ -210,7 +215,10 @@ document.addEventListener('DOMContentLoaded', ()=>{
             <div class="py-2 px-1"><div class="gp-price">${price!=null?APP.fmtCurrency(price):'—'}</div></div>
           </td>`;
         }).join('');
-        bodyRows += `<tr><td class="grid-sticky-col ${g.isMe?'mx-mine':''}"><div class="grid-plan-label"><span class="name">${r.roomName}</span></div></td>${cells}</tr>`;
+        const parityBtn = (rowRoomId && rowPlanId)
+          ? `<button type="button" class="btn btn-sm-icon btn-soft parity-btn" style="width:24px;height:24px" title="Compare across channels" data-room="${rowRoomId}" data-plan="${rowPlanId}" data-property="${g.propertyIdForLookup}" data-occ="${occ}"><img src="https://www.eglobe-solutions.com/channelmanager/images/parity-view.png" alt="Rate Parity" class="parity-icon"></button>`
+          : '';
+        bodyRows += `<tr><td class="grid-sticky-col ${g.isMe?'mx-mine':''}"><div class="grid-plan-label d-flex align-items-center justify-content-between gap-2"><span class="name">${r.roomName}</span>${parityBtn}</div></td>${cells}</tr>`;
       });
     });
 
@@ -227,6 +235,90 @@ document.addEventListener('DOMContentLoaded', ()=>{
         renderGrid();
       });
     });
+
+    document.querySelectorAll('.parity-btn').forEach(btn=>{
+      btn.addEventListener('click', function(e){
+        e.stopPropagation();
+        openRateParity(this.dataset.room, this.dataset.plan, Number(this.dataset.occ), myChannel, this.dataset.property);
+      });
+    });
+  }
+
+  /* ==========================================================================
+     Rate Parity — for one room/rate plan/occupancy, shows every channel that lists
+     a matching room (rows) against every date from today through end of this month
+     (columns), so you can eyeball how your price compares day-by-day. Ported
+     verbatim from the Rate Calendar's own implementation.
+     ========================================================================== */
+  function datesTodayThroughEndOfMonth(){
+    const start = new Date(); start.setHours(0,0,0,0);
+    const end = new Date(start.getFullYear(), start.getMonth()+1, 0);
+    const dates = [];
+    for(let d=new Date(start); d<=end; d.setDate(d.getDate()+1)) dates.push(new Date(d));
+    return dates;
+  }
+
+  function openRateParity(roomId, planId, occ, currentChannel, forPropertyId){
+    const room = DB.rooms.get(roomId);
+    const originPlan = DB.ratePlans.get(planId);
+    if(!room || !originPlan) return;
+
+    const channels = DB.channels.byProperty(forPropertyId || propertyId);
+    const dates = datesTodayThroughEndOfMonth();
+
+    const rows = channels.map(chan=>{
+      const matchRooms = DB.rooms.byChannel(chan.id).filter(r=> r.name===room.name);
+      let matchPlan = null;
+      for(const mr of matchRooms){
+        const plans = DB.ratePlans.byRoom(mr.id);
+        matchPlan = plans.find(rp=> rp.mealPlan===originPlan.mealPlan) || plans[0];
+        if(matchPlan) break;
+      }
+      return { channel: chan, ratePlan: matchPlan };
+    }).filter(row=> row.ratePlan);
+
+    if(!rows.length){ APP.toast('No Data', 'No comparable rate plans found on other channels.', 'warn'); return; }
+
+    const priceGrid = rows.map(row=>{
+      const prices = dates.map(d=>{
+        const key = DB.fmtDate(d);
+        const dayData = DB.rates.forPlan(row.ratePlan.id)[key];
+        const price = dayData ? ((dayData.occPrices && dayData.occPrices[occ]!=null) ? dayData.occPrices[occ] : dayData.price) : null;
+        return price;
+      });
+      return { ...row, prices };
+    });
+
+    document.getElementById('parityMeta').textContent = `${room.name}  •  ${originPlan.name}  •  ${occ} Pax`;
+
+    const todayKey = DB.fmtDate(new Date());
+    const theadDates = dates.map(d=>{
+      const isToday = DB.fmtDate(d)===todayKey;
+      return `<th class="${isToday?'today-col':''}">${d.toLocaleDateString('en-IN',{weekday:'short'})}<br>${d.getDate()} ${d.toLocaleDateString('en-IN',{month:'short'})}</th>`;
+    }).join('');
+
+    const bodyRows = priceGrid.map(row=>{
+      const meta = DB.CHANNEL_TYPES[row.channel.type] || DB.CHANNEL_TYPES.custom;
+      const isCurrent = currentChannel && row.channel.id === currentChannel.id;
+      return `<tr>
+        <td class="grid-sticky-col">
+          <div class="grid-plan-label">
+            <div class="name"><i class="bi ${meta.icon} me-1" style="color:${meta.color}"></i>${row.channel.name}${isCurrent?' <span class="badge bg-primary-subtle text-primary" style="font-size:.6rem">Current</span>':''}</div>
+            <div class="meta">${row.ratePlan.name}</div>
+          </div>
+        </td>
+        ${row.prices.map(price=>{
+          return `<td class="grid-price-cell"><div class="py-2 px-1"><div class="gp-price">${price!=null ? APP.fmtCurrency(price) : '—'}</div></div></td>`;
+        }).join('')}
+      </tr>`;
+    }).join('');
+
+    document.getElementById('parityGridHost').innerHTML = `<div class="grid-table-wrap"><table class="grid-table">
+      <thead><tr><th class="grid-sticky-col">Channel</th>${theadDates}</tr></thead>
+      <tbody>${bodyRows}</tbody>
+    </table></div>`;
+
+    new bootstrap.Modal(document.getElementById('parityModal')).show();
   }
 
   function shiftPeriod(dir){
