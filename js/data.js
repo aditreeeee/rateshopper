@@ -411,7 +411,19 @@ const DB = (() => {
   const properties = {
     all: ()=> get(KEYS.properties, []),
     get: id=> properties.all().find(p=>p.id===id),
-    save: p=>{ const list=properties.all(); if(p.id){ const i=list.findIndex(x=>x.id===p.id); list[i]=p; } else { p.id=uid('prop'); p.createdAt=fmtDate(new Date()); list.push(p);} set(KEYS.properties,list); return p; },
+    save: p=>{
+      const list=properties.all();
+      if(p.id){
+        // Merge, don't replace — an edit form only ever sends the fields it actually has inputs
+        // for (e.g. add-property.js has no Brand/State/Property Code inputs). A plain
+        // `list[i]=p` replace silently wiped every field the form didn't know about on each
+        // save, so those fields never carried forward to the rest of the app after a first edit.
+        const i=list.findIndex(x=>x.id===p.id);
+        if(i>-1){ list[i] = {...list[i], ...p}; p = list[i]; }
+        else { p.createdAt=p.createdAt||fmtDate(new Date()); list.push(p); }
+      } else { p.id=uid('prop'); p.createdAt=fmtDate(new Date()); list.push(p); }
+      set(KEYS.properties,list); return p;
+    },
     remove: id=>{
       set(KEYS.properties, properties.all().filter(p=>p.id!==id));
       rooms.all().filter(r=>r.propertyId===id).forEach(r=>rooms.remove(r.id));

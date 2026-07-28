@@ -205,6 +205,24 @@ const PORTALDATA = (() => {
     return Math.round(baseRate * channelVariance(channelKey, dateKey) / 10) * 10;
   }
 
+  // ---- meal-plan-scoped rate (EP/CP/MAP/AP) — used by the Rate Plan Trend Analysis panel to
+  // compare "my EP rate vs. the market's EP rate" etc., independent of any single room/date
+  // filter. Same deterministic seasonal/weekend math as myRateOnDate/competitorRateOnDate, just
+  // averaged over whichever of a property's rooms actually offer that meal plan. ----
+  function mealPlanBaseRate(propertyId, mealPlan){
+    const channels = DB.channels.byProperty(propertyId);
+    const master = channels.find(c=>c.type==='master');
+    const rooms = master ? DB.rooms.byChannel(master.id) : DB.rooms.byProperty(propertyId);
+    const matched = rooms.filter(r=> DB.ratePlans.byRoom(r.id).some(p=>p.mealPlan===mealPlan));
+    const pool = matched.length ? matched : rooms;
+    return pool.length ? Math.round(pool.reduce((s,r)=>s+r.basePrice,0)/pool.length) : myBaseRate(propertyId);
+  }
+  function mealPlanRateOnDate(propertyId, mealPlan, dateKey){
+    const base = mealPlanBaseRate(propertyId, mealPlan);
+    const variance = 0.96 + seededFloat(propertyId+mealPlan+dateKey) * 0.08;
+    return Math.round(base * variance * premiumFactor(dateKey) * trendFactor(propertyId+mealPlan, dateKey) / 10) * 10;
+  }
+
   // ---- calendar signals used for rate intelligence (no occupancy/booking-volume data here —
   // this app only ever reasons about rates, never rooms sold/available) -----------------------
   function localEventOn(dateKey){
@@ -308,7 +326,7 @@ const PORTALDATA = (() => {
     init, dateKeyOffset, dayOfWeek, isWeekend, isHoliday, dayOffsetFromToday,
     competitors, competitor, saveCompetitor, comparisonRealProperties,
     competitorRateOnDate, competitorTrend,
-    myBaseRate, myRateOnDate, channelRate, channelVariance,
+    myBaseRate, myRateOnDate, channelRate, channelVariance, mealPlanBaseRate, mealPlanRateOnDate,
     localEventOn,
     notifications, markNotificationRead, markAllNotificationsRead, unreadNotificationCount,
     settings, saveSettings, recommendations

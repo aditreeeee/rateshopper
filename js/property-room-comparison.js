@@ -508,9 +508,133 @@ document.addEventListener('DOMContentLoaded', ()=>{
     });
   });
 
+  /* ======================================================================
+     Rate Plan Trend Analysis — meal-plan-scoped (EP/CP/MAP/AP) rate vs.
+     market, independent of the table filters above. Own controls: meal
+     plan + chart style (line/bar), both re-render instantly on click.
+     ====================================================================== */
+  let rptaMealPlan = 'EP';
+  let rptaStyle = 'line';
+  let rptaYearChart = null, rptaMonthChart = null;
+  const RPTA_PALETTE = ['#a9b0c9','#9fd6ca','#c3aee8','#f2c194','#e6a8c4'];
+
+  // 12 trailing calendar months ending this month, sampled on the 15th of each — smooth enough
+  // for the seasonal wave in mealPlanRateOnDate without needing a full daily scan per month.
+  function trailingMonths(){
+    const now = new Date();
+    const months = [];
+    for(let i=11; i>=0; i--){
+      const d = new Date(now.getFullYear(), now.getMonth()-i, 15);
+      months.push({ label: d.toLocaleDateString('en-IN',{month:'short',year:'2-digit'}), dateKey: DB.fmtDate(d) });
+    }
+    return months;
+  }
+  function currentMonthDays(){
+    const now = new Date();
+    const daysInMonth = new Date(now.getFullYear(), now.getMonth()+1, 0).getDate();
+    return Array.from({length:daysInMonth}).map((_,i)=>{
+      const d = new Date(now.getFullYear(), now.getMonth(), i+1);
+      return { label: String(i+1), dateKey: DB.fmtDate(d) };
+    });
+  }
+
+  function rptaDatasets(points, styleIsBar){
+    const myData = points.map(p=> PORTALDATA.mealPlanRateOnDate(propertyId, rptaMealPlan, p.dateKey));
+    const compSeries = compsAll.slice(0,5).map((c,i)=>({
+      comp: c,
+      data: points.map(p=> PORTALDATA.mealPlanRateOnDate(c.realPropertyId, rptaMealPlan, p.dateKey)),
+      color: RPTA_PALETTE[i%RPTA_PALETTE.length]
+    }));
+    // My property is always the thicker, solid, unmistakably-mine series; every competitor is a
+    // thinner dashed line (or a lighter bar) so the two never compete for attention.
+    const datasets = [{
+      label: 'My Property', data: myData,
+      borderColor:'#3861fb', backgroundColor: styleIsBar ? '#3861fb' : 'rgba(56,97,251,.12)',
+      borderWidth: styleIsBar ? 0 : 4, fill: !styleIsBar, tension:.35, pointRadius: styleIsBar?0:3,
+      pointBackgroundColor:'#3861fb', order:0
+    }];
+    compSeries.forEach(cs=>{
+      datasets.push({
+        label: cs.comp.name, data: cs.data,
+        borderColor: cs.color, backgroundColor: styleIsBar ? cs.color+'99' : 'transparent',
+        borderWidth: styleIsBar ? 0 : 1.5, borderDash: styleIsBar ? undefined : [5,4],
+        fill:false, tension:.35, pointRadius:0, order:1
+      });
+    });
+    return { myData, compSeries, datasets };
+  }
+
+  function renderRptaKpis(myAvg, compAvgs){
+    const marketAvg = avgOf(compAvgs.map(c=>c.avg));
+    const gapPct = marketAvg ? ((myAvg-marketAvg)/marketAvg*100) : 0;
+    const sorted = [...compAvgs].sort((a,b)=>b.avg-a.avg);
+    const highest = sorted[0], lowest = sorted[sorted.length-1];
+
+    document.getElementById('rpta_kpis').innerHTML = [
+      PWIDGETS.kpiCard({icon:'bi-house-door-fill', color:'#3861fb', bg:'#eef4ff', label:`My 12-Mo. Avg (${rptaMealPlan})`, value:APP.fmtCurrency(myAvg),
+        desc:`Your average ${rptaMealPlan} rate across the trailing 12 months.`}),
+      PWIDGETS.kpiCard({icon:'bi-graph-up-arrow', color:'#8c5cf7', bg:'#f3eeff', label:'Market Average', value:APP.fmtCurrency(marketAvg),
+        desc:`The average ${rptaMealPlan} rate across every tracked competitor, same 12-month window.`}),
+      PWIDGETS.kpiCard({icon: gapPct<=0?'bi-arrow-down-circle':'bi-arrow-up-circle', color: gapPct<=0?'#12b76a':'#ff4d5e', bg: gapPct<=0?'#e7faf1':'#fff0f1', label:'Your Gap vs. Market', value:`${gapPct>=0?'+':''}${gapPct.toFixed(1)}%`,
+        desc: gapPct<=0 ? 'You are priced below the market average.' : 'You are priced above the market average.'}),
+      PWIDGETS.kpiCard({icon:'bi-arrow-up-circle', color:'#ff4d5e', bg:'#fff0f1', label:'Highest Competitor', value: highest?APP.fmtCurrency(highest.avg):'—',
+        desc: highest ? `${highest.comp.name}, for ${rptaMealPlan}.` : 'No tracked competitors yet.'}),
+      PWIDGETS.kpiCard({icon:'bi-arrow-down-circle', color:'#12b76a', bg:'#e7faf1', label:'Lowest Competitor', value: lowest?APP.fmtCurrency(lowest.avg):'—',
+        desc: lowest ? `${lowest.comp.name}, for ${rptaMealPlan}.` : 'No tracked competitors yet.'}),
+    ].join('');
+  }
+
+  function renderRpta(){
+    const styleIsBar = rptaStyle === 'bar';
+    const months = trailingMonths();
+    const days = currentMonthDays();
+
+    const yearly = rptaDatasets(months, styleIsBar);
+    const compAvgs = yearly.compSeries.map(cs=>({ comp:cs.comp, avg: avgOf(cs.data) }));
+    renderRptaKpis(avgOf(yearly.myData), compAvgs);
+
+    const tooltipFmt = { plugins:{ tooltip:{ callbacks:{ label: ctx=>`${ctx.dataset.label}: ${APP.fmtCurrency(ctx.parsed.y)}` } }, legend:{ position:'bottom', labels:{ boxWidth:10, boxHeight:10 } } } };
+
+    if(rptaYearChart) rptaYearChart.destroy();
+    rptaYearChart = new Chart(document.getElementById('rpta_yearChart'), {
+      type: styleIsBar ? 'bar' : 'line',
+      data:{ labels: months.map(m=>m.label), datasets: yearly.datasets },
+      options:{ responsive:true, interaction:{mode:'index', intersect:false}, animation:chartAnim(styleIsBar), ...tooltipFmt,
+        scales:{ y:{ticks:{callback:v=>APP.fmtCurrency(v)}}, x:{grid:{display:false}} } }
+    });
+
+    const monthly = rptaDatasets(days, styleIsBar);
+    if(rptaMonthChart) rptaMonthChart.destroy();
+    rptaMonthChart = new Chart(document.getElementById('rpta_monthChart'), {
+      type: styleIsBar ? 'bar' : 'line',
+      data:{ labels: days.map(d=>d.label), datasets: monthly.datasets },
+      options:{ responsive:true, interaction:{mode:'index', intersect:false}, animation:chartAnim(styleIsBar), ...tooltipFmt,
+        scales:{ y:{ticks:{callback:v=>APP.fmtCurrency(v)}}, x:{grid:{display:false}} } }
+    });
+  }
+
+  document.querySelectorAll('#rpta_mealPlanGroup button').forEach(btn=>{
+    btn.addEventListener('click', function(){
+      rptaMealPlan = this.dataset.plan;
+      document.querySelectorAll('#rpta_mealPlanGroup button').forEach(b=>{ b.classList.remove('btn-outline-primary'); b.classList.add('btn-soft'); });
+      this.classList.remove('btn-soft'); this.classList.add('btn-outline-primary');
+      renderRpta();
+    });
+  });
+  document.querySelectorAll('#rpta_chartStyleGroup button').forEach(btn=>{
+    btn.addEventListener('click', function(){
+      rptaStyle = this.dataset.style;
+      document.querySelectorAll('#rpta_chartStyleGroup button').forEach(b=>{ b.classList.remove('btn-outline-primary'); b.classList.add('btn-soft'); });
+      this.classList.remove('btn-soft'); this.classList.add('btn-outline-primary');
+      renderRpta();
+    });
+  });
+
   if(!myRooms.length){
     document.getElementById('rcKpis').innerHTML = `<div class="col-12">${PWIDGETS.emptyState('bi-door-closed','No rooms found','Add rooms to your property\'s Master Channel to use Room Rate Comparison.')}</div>`;
+    document.getElementById('rptaCard').classList.add('d-none');
     return;
   }
   renderAll();
+  renderRpta();
 });

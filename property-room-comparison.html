@@ -50,6 +50,38 @@
 
 <div class="row g-3 mb-1" id="rcKpis"></div>
 
+<!-- Rate Plan Trend Analysis — meal-plan-scoped (EP/CP/MAP/AP) view of my rate vs. the market,
+     independent of the table filters above: a 12-month seasonal trend plus a current-month
+     day-by-day breakdown, with its own meal-plan and chart-style controls. -->
+<div class="chart-card mb-3" id="rptaCard">
+  <div class="d-flex justify-content-between align-items-start mb-3 flex-wrap gap-3">
+    <div>
+      <div class="fw-bold">Rate Plan Trend Analysis</div>
+      <div class="text-muted small">My rate vs. the market for one meal plan at a time — trailing 12 months, plus this month day-by-day.</div>
+    </div>
+    <div class="d-flex align-items-center gap-2 flex-wrap">
+      <div class="btn-group btn-group-sm" id="rpta_mealPlanGroup" role="group">
+        <button type="button" class="btn btn-outline-primary" data-plan="EP">EP</button>
+        <button type="button" class="btn btn-soft" data-plan="CP">CP</button>
+        <button type="button" class="btn btn-soft" data-plan="MAP">MAP</button>
+        <button type="button" class="btn btn-soft" data-plan="AP">AP</button>
+      </div>
+      <div class="btn-group btn-group-sm" id="rpta_chartStyleGroup" role="group">
+        <button type="button" class="btn btn-outline-primary" data-style="line" title="Line chart"><i class="bi bi-graph-up"></i></button>
+        <button type="button" class="btn btn-soft" data-style="bar" title="Bar chart"><i class="bi bi-bar-chart-fill"></i></button>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-2 mb-4" id="rpta_kpis"></div>
+
+  <div class="fw-semibold small mb-2">12-Month Trend</div>
+  <canvas id="rpta_yearChart" height="85"></canvas>
+
+  <div class="fw-semibold small mb-2 mt-4">This Month — Day by Day</div>
+  <canvas id="rpta_monthChart" height="85"></canvas>
+</div>
+
 <div class="d-flex justify-content-between align-items-center mb-2 mt-3 flex-wrap gap-2">
   <div>
     <div class="fw-bold">Room Comparison</div>
