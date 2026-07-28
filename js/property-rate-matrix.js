@@ -26,6 +26,7 @@ function mxPresetRange(key){
   if(key==='7') return { start:today, end:mxAddDays(today,6) };
   if(key==='14') return { start:today, end:mxAddDays(today,13) };
   if(key==='30') return { start:today, end:mxAddDays(today,29) };
+  if(key==='90') return { start:today, end:mxAddDays(today,89) };
   if(key==='lastMonth'){
     const firstOfThisMonth = new Date(today.getFullYear(), today.getMonth(), 1);
     const lastMonthEnd = mxAddDays(firstOfThisMonth,-1);
@@ -36,7 +37,20 @@ function mxPresetRange(key){
 }
 
 document.addEventListener('DOMContentLoaded', ()=>{
-  const me = PORTAL.mount({ title:'Rate Matrix', subtitle:'Your rate vs. every mapped competitor room, side by side across a date range.' });
+  // Embedded mode: mounted inline inside another page (Rate Shopper's "vs. every competitor
+  // room" section) rather than as its own standalone sidebar page — skip the page chrome
+  // (sidebar/topbar/header) entirely, same pattern as js/rate-calendar.js's iframe embed.
+  const embed = APP.qs('embed') === '1';
+  let me;
+  if(embed){
+    me = PORTAL.guard();
+    if(!me) return;
+    APP.initTheme();
+    document.body.classList.add('cal-embed');
+    document.getElementById('app-shell').classList.add('p-0');
+  } else {
+    me = PORTAL.mount({ title:'Rate Matrix', subtitle:'Your rate vs. every mapped competitor room, side by side across a date range.' });
+  }
   if(!me) return;
   const propertyId = PORTAL.activePropertyId(me);
   const property = DB.properties.get(propertyId);
@@ -386,18 +400,23 @@ document.addEventListener('DOMContentLoaded', ()=>{
   }
 
   /* ==========================================================================
-     Date Range Picker — presets (Today/Yesterday/7/14/30 Days/Last Month) plus a
-     Google Analytics / Power BI-style dual month calendar for Custom Range. This
-     replaces the old prev/next-arrow + fixed 7/14/30-day toolbar entirely — the
-     grid, CSV export, and Rate Parity all read the resulting mxRangeStart/mxRangeEnd.
+     Time Range — a sleek pill/segmented single-select (7D/14D/30D/90D) inline with the page
+     header controls, plus a "Custom" pill that pops open a Google Analytics/Power BI-style dual
+     month calendar. Replaces the old dropdown-with-presets-list entirely — every fixed option is
+     now one click away instead of two. The grid, CSV export, and Rate Parity all still read the
+     resulting mxRangeStart/mxRangeEnd exactly as before.
      ========================================================================== */
   let mxCalMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1); // left calendar's anchor month; right = +1 month
   let mxPickStart = null, mxPickEnd = null; // in-progress Custom Range selection, not yet applied
 
+  function setActiveSeg(presetKey){
+    document.querySelectorAll('.mx-seg-btn[data-preset]').forEach(b=> b.classList.toggle('active', b.dataset.preset===presetKey));
+  }
+
   function applyRange(start, end, presetKey){
     mxRangeStart = mxStartOfDay(start); mxRangeEnd = mxStartOfDay(end);
     mxPreset = presetKey;
-    document.querySelectorAll('.mx-drp-preset').forEach(b=> b.classList.toggle('active', b.dataset.preset===presetKey));
+    setActiveSeg(presetKey);
     document.getElementById('mx_dateRangeLabel').textContent = mxSameDay(mxRangeStart,mxRangeEnd)
       ? mxFmtShort(mxRangeStart) : `${mxFmtShort(mxRangeStart)} – ${mxFmtShort(mxRangeEnd)}`;
     renderGrid();
@@ -453,39 +472,37 @@ document.addEventListener('DOMContentLoaded', ()=>{
     });
   }
 
-  function closeDateRangeMenu(){
-    bootstrap.Dropdown.getOrCreateInstance(document.getElementById('mx_dateRangeBtn')).hide();
+  function closeCustomDropdown(){
+    bootstrap.Dropdown.getOrCreateInstance(document.getElementById('mx_customBtn')).hide();
   }
 
-  document.querySelectorAll('.mx-drp-preset').forEach(btn=>{
+  // 7D/14D/30D/90D — plain single-select pills, applied immediately on click.
+  document.querySelectorAll('.mx-seg-btn[data-preset]:not(#mx_customBtn)').forEach(btn=>{
     btn.addEventListener('click', ()=>{
-      const key = btn.dataset.preset;
-      if(key === 'custom'){
-        document.querySelectorAll('.mx-drp-preset').forEach(b=>b.classList.remove('active'));
-        btn.classList.add('active');
-        mxPickStart = new Date(mxRangeStart); mxPickEnd = new Date(mxRangeEnd);
-        mxCalMonth = new Date(mxPickStart.getFullYear(), mxPickStart.getMonth(), 1);
-        document.getElementById('mx_drpCustom').classList.remove('d-none');
-        renderDualCalendar();
-        return;
-      }
-      document.getElementById('mx_drpCustom').classList.add('d-none');
-      const { start, end } = mxPresetRange(key);
-      applyRange(start, end, key);
-      closeDateRangeMenu();
+      const { start, end } = mxPresetRange(btn.dataset.preset);
+      applyRange(start, end, btn.dataset.preset);
     });
+  });
+
+  // Custom — opening the popover seeds the calendar from whatever range is currently active,
+  // so re-opening it always shows where you already are, not a stale/blank selection. If there
+  // isn't enough room below the trigger to fit the whole dual calendar, flip it to open upward
+  // instead of silently letting the bottom half render off-screen/under the fold.
+  document.getElementById('mx_customDropdown').addEventListener('show.bs.dropdown', (e)=>{
+    mxPickStart = new Date(mxRangeStart); mxPickEnd = new Date(mxRangeEnd);
+    mxCalMonth = new Date(mxPickStart.getFullYear(), mxPickStart.getMonth(), 1);
+    renderDualCalendar();
+    const triggerRect = e.relatedTarget.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - triggerRect.bottom;
+    document.getElementById('mx_customDropdown').classList.toggle('dropup', spaceBelow < 340 && triggerRect.top > 340);
   });
   document.getElementById('mx_drpPrevMonth').addEventListener('click', ()=>{ mxCalMonth = mxAddMonths(mxCalMonth, -1); renderDualCalendar(); });
   document.getElementById('mx_drpNextMonth').addEventListener('click', ()=>{ mxCalMonth = mxAddMonths(mxCalMonth, 1); renderDualCalendar(); });
-  document.getElementById('mx_drpCancel').addEventListener('click', ()=>{
-    document.getElementById('mx_drpCustom').classList.add('d-none');
-    closeDateRangeMenu();
-  });
+  document.getElementById('mx_drpCancel').addEventListener('click', closeCustomDropdown);
   document.getElementById('mx_drpApply').addEventListener('click', ()=>{
     if(!mxPickStart || !mxPickEnd) return;
     applyRange(mxPickStart, mxPickEnd, 'custom');
-    document.getElementById('mx_drpCustom').classList.add('d-none');
-    closeDateRangeMenu();
+    closeCustomDropdown();
   });
 
   // ---- Wiring ----

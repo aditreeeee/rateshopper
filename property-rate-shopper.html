@@ -37,46 +37,12 @@
   <canvas id="rs_chart" height="90"></canvas>
 </div>
 
-<div class="filters-bar">
-  <div class="row g-2 align-items-center">
-    <div class="col-md-3">
-      <label class="form-label mb-1" style="font-size:.72rem" for="rs_date">Rate Date <i class="bi bi-info-circle text-muted" title="The stay date every rate on this page — tickers, chart, and table — is priced for."></i></label>
-      <input type="date" class="form-control" id="rs_date">
-    </div>
-    <div class="col-md-3">
-      <label class="form-label mb-1" style="font-size:.72rem" for="rs_channel">Channel <i class="bi bi-info-circle text-muted" title="Which channel the Competitor Rate column is priced on. Your own My Rate is always your Direct (Master) channel rate."></i></label>
-      <select class="form-select" id="rs_channel"><option value="">All Channels (each competitor's own primary channel)</option></select>
-    </div>
-    <div class="col-md-3">
-      <label class="form-label mb-1" style="font-size:.72rem" for="rs_status">Status</label>
-      <select class="form-select" id="rs_status">
-        <option value="">All Status</option>
-        <option value="cheaper">Cheaper Than Me</option>
-        <option value="pricier">Pricier Than Me</option>
-        <option value="parity">At Parity</option>
-      </select>
-    </div>
-    <div class="col-md-3">
-      <label class="form-label mb-1" style="font-size:.72rem" for="rs_search">Search</label>
-      <input type="text" class="form-control" id="rs_search" placeholder="Search competitor...">
-    </div>
-  </div>
+<div class="mb-2">
+  <div class="fw-bold">Rate Matrix</div>
+  <div class="text-muted small">Your rate vs. every mapped competitor room, side by side across a date range.</div>
 </div>
-
-<div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
-  <div class="text-muted small" id="rs_summary">-</div>
-  <div class="d-flex gap-2">
-    <div class="btn-group btn-group-sm">
-      <button class="btn btn-soft" id="rs_pinnedOnly"><i class="bi bi-pin-angle me-1"></i>Pinned Only</button>
-    </div>
-    <button class="btn btn-outline-primary btn-sm" id="rs_export"><i class="bi bi-download me-1"></i>Export</button>
-  </div>
-</div>
-
 <div class="section-card p-0">
-  <div class="rate-shopper-table-wrap">
-    <table class="table-modern w-100" id="rateShopperTable"></table>
-  </div>
+  <iframe id="rs_matrixFrame" src="" style="width:100%;height:900px;border:none;display:block"></iframe>
 </div>
 
 </div>

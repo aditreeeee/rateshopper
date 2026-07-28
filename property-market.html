@@ -14,6 +14,13 @@
 <body>
 <div id="app-shell">
 
+<ul class="nav nav-tabs mb-3" id="mi_tabs">
+  <li class="nav-item"><button class="nav-link active" type="button" data-tab="overview">Market Overview</button></li>
+  <li class="nav-item"><button class="nav-link" type="button" data-tab="recommendations">Pricing Recommendations</button></li>
+  <li class="nav-item"><button class="nav-link" type="button" data-tab="channels">Channel Analysis</button></li>
+</ul>
+
+<div id="mi_tabOverview">
 <div class="row g-3 mb-1" id="marketKpis"></div>
 
 <div class="row g-3 mt-1">
@@ -41,6 +48,39 @@
     <div class="section-card">
       <div class="fw-bold mb-2">New Listings</div>
       <div id="newListings"></div>
+    </div>
+  </div>
+</div>
+</div>
+
+<div id="mi_tabRecommendations" class="d-none">
+  <div class="text-muted small mb-3">AI-style pricing guidance based on market movement and rate positioning.</div>
+  <div class="row g-3" id="recGrid"></div>
+</div>
+
+<div id="mi_tabChannels" class="d-none">
+  <div class="row g-3 mb-3" id="channelCards"></div>
+
+  <div class="chart-card mb-3">
+    <div class="fw-bold mb-2">Current Rate by Channel</div>
+    <canvas id="channelRateChart" height="90"></canvas>
+  </div>
+
+  <div class="section-card p-0">
+    <div class="p-3 pb-0">
+      <div class="fw-bold">Channels Display — Room / Rate Plan Parity</div>
+      <div class="text-muted small mb-2">Direct (Master Channel) vs. every OTA (or just the one you pick below), for today, across every room in the property.</div>
+      <div class="row g-2 mb-3">
+        <div class="col-6 col-md-3">
+          <select class="form-select form-select-sm" id="ca_room"><option value="">All Rooms</option></select>
+        </div>
+        <div class="col-6 col-md-3">
+          <select class="form-select form-select-sm" id="ca_channel"><option value="">All Channels (OTA Avg.)</option></select>
+        </div>
+      </div>
+    </div>
+    <div class="table-responsive">
+      <table class="table-modern w-100" id="parityTable"></table>
     </div>
   </div>
 </div>

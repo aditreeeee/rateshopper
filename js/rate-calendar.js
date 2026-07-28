@@ -133,10 +133,14 @@ function setupDateRangePicker(){
   let calCalMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1); // left calendar's anchor month; right = +1 month
   let calPickStart = null, calPickEnd = null; // in-progress Custom Range selection, not yet applied
 
+  function setActiveSeg(presetKey){
+    document.querySelectorAll('.mx-seg-btn[data-preset]').forEach(b=> b.classList.toggle('active', b.dataset.preset===presetKey));
+  }
+
   function applyRange(start, end, presetKey){
     calRangeStart = calStartOfDay(start); calRangeEnd = calStartOfDay(end);
     calPreset = presetKey;
-    document.querySelectorAll('.mx-drp-preset').forEach(b=> b.classList.toggle('active', b.dataset.preset===presetKey));
+    setActiveSeg(presetKey);
     document.getElementById('mx_dateRangeLabel').textContent = calSameDay(calRangeStart,calRangeEnd)
       ? calFmtShort(calRangeStart) : `${calFmtShort(calRangeStart)} – ${calFmtShort(calRangeEnd)}`;
     renderGrid();
@@ -192,39 +196,37 @@ function setupDateRangePicker(){
     });
   }
 
-  function closeDateRangeMenu(){
-    bootstrap.Dropdown.getOrCreateInstance(document.getElementById('mx_dateRangeBtn')).hide();
+  function closeCustomDropdown(){
+    bootstrap.Dropdown.getOrCreateInstance(document.getElementById('mx_customBtn')).hide();
   }
 
-  document.querySelectorAll('.mx-drp-preset').forEach(btn=>{
+  // 7D/14D/30D — plain single-select pills, applied immediately on click.
+  document.querySelectorAll('.mx-seg-btn[data-preset]:not(#mx_customBtn)').forEach(btn=>{
     btn.addEventListener('click', ()=>{
-      const key = btn.dataset.preset;
-      if(key === 'custom'){
-        document.querySelectorAll('.mx-drp-preset').forEach(b=>b.classList.remove('active'));
-        btn.classList.add('active');
-        calPickStart = new Date(calRangeStart); calPickEnd = new Date(calRangeEnd);
-        calCalMonth = new Date(calPickStart.getFullYear(), calPickStart.getMonth(), 1);
-        document.getElementById('mx_drpCustom').classList.remove('d-none');
-        renderDualCalendar();
-        return;
-      }
-      document.getElementById('mx_drpCustom').classList.add('d-none');
-      const { start, end } = calPresetRange(key);
-      applyRange(start, end, key);
-      closeDateRangeMenu();
+      const { start, end } = calPresetRange(btn.dataset.preset);
+      applyRange(start, end, btn.dataset.preset);
     });
+  });
+
+  // Custom — opening the popover seeds the calendar from whatever range is currently active,
+  // so re-opening it always shows where you already are, not a stale/blank selection. If there
+  // isn't enough room below the trigger to fit the whole dual calendar, flip it to open upward
+  // instead of silently letting the bottom half render off-screen/under the fold.
+  document.getElementById('mx_customDropdown').addEventListener('show.bs.dropdown', (e)=>{
+    calPickStart = new Date(calRangeStart); calPickEnd = new Date(calRangeEnd);
+    calCalMonth = new Date(calPickStart.getFullYear(), calPickStart.getMonth(), 1);
+    renderDualCalendar();
+    const triggerRect = e.relatedTarget.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - triggerRect.bottom;
+    document.getElementById('mx_customDropdown').classList.toggle('dropup', spaceBelow < 340 && triggerRect.top > 340);
   });
   document.getElementById('mx_drpPrevMonth').addEventListener('click', ()=>{ calCalMonth = calAddMonths(calCalMonth, -1); renderDualCalendar(); });
   document.getElementById('mx_drpNextMonth').addEventListener('click', ()=>{ calCalMonth = calAddMonths(calCalMonth, 1); renderDualCalendar(); });
-  document.getElementById('mx_drpCancel').addEventListener('click', ()=>{
-    document.getElementById('mx_drpCustom').classList.add('d-none');
-    closeDateRangeMenu();
-  });
+  document.getElementById('mx_drpCancel').addEventListener('click', closeCustomDropdown);
   document.getElementById('mx_drpApply').addEventListener('click', ()=>{
     if(!calPickStart || !calPickEnd) return;
     applyRange(calPickStart, calPickEnd, 'custom');
-    document.getElementById('mx_drpCustom').classList.add('d-none');
-    closeDateRangeMenu();
+    closeCustomDropdown();
   });
 
   const { start, end } = calPresetRange(calPreset);

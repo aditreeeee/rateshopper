@@ -33,6 +33,11 @@ document.addEventListener('DOMContentLoaded', ()=>{
     breadcrumb: breadcrumbFor(preselectProperty)
   });
 
+  // A rate plan links to a specific room by id — a brand-new room has no id yet (it's only
+  // assigned on save), so there's nothing to link against until the room exists. Show this
+  // section only once editing an existing room.
+  if(!existing) document.getElementById('linkedRatePlansCard').classList.add('d-none');
+
   const cancelBtn = document.getElementById('cancelBtn');
   function updateCancelHref(propertyId){
     cancelBtn.href = propertyId ? `property-details.html?id=${propertyId}&tab=rooms` : 'properties.html';

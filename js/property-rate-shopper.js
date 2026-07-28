@@ -1,4 +1,3 @@
-let rsPinnedOnly = false;
 let rsChart = null;
 let rsRangeDays = 30;
 let rsHidden = new Set(); // series keys hidden from the chart
@@ -23,17 +22,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   if(!me) return;
   const propertyId = PORTAL.activePropertyId(me);
 
-  document.getElementById('rs_date').value = PORTALDATA.dateKeyOffset(0);
-  document.getElementById('rs_channel').innerHTML += PORTALDATA.CHANNELS.map(c=>`<option value="${c.key}">${c.label}</option>`).join('');
-
-  ['rs_date','rs_channel','rs_status','rs_search'].forEach(id=> document.getElementById(id).addEventListener('input', renderAll));
-  document.getElementById('rs_pinnedOnly').addEventListener('click', function(){
-    rsPinnedOnly = !rsPinnedOnly;
-    this.classList.toggle('btn-primary', rsPinnedOnly);
-    this.classList.toggle('btn-soft', !rsPinnedOnly);
-    renderAll();
-  });
-  document.getElementById('rs_export').addEventListener('click', ()=> APP.toast('Export Started', 'Your Rate Shopper comparison is being prepared for download.', 'success'));
+  document.getElementById('rs_matrixFrame').src = 'property-rate-matrix.html?embed=1';
 
   document.querySelectorAll('#rs_rangeGroup button').forEach(btn=>{
     btn.addEventListener('click', function(){
@@ -63,7 +52,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   // today) so it's never ambiguous which stay date the top-of-page prices are for — they move
   // together with the table below rather than always showing "today" regardless of the filter.
   function renderTickers(){
-    const dateKey = document.getElementById('rs_date').value || PORTALDATA.dateKeyOffset(0);
+    const dateKey = PORTALDATA.dateKeyOffset(0);
     const prev = prevDateKey(dateKey);
     const list = seriesList();
 
@@ -144,86 +133,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     });
   }
 
-  function renderTable(){
-    const dateKey = document.getElementById('rs_date').value || PORTALDATA.dateKeyOffset(0);
-    const channelFilter = document.getElementById('rs_channel').value;
-    const statusFilter = document.getElementById('rs_status').value;
-    const search = document.getElementById('rs_search').value.trim().toLowerCase();
-
-    const myRate = PORTALDATA.myRateOnDate(propertyId, dateKey);
-    let comps = PORTALDATA.comparisonRealProperties();
-    if(rsPinnedOnly) comps = comps.filter(c=>c.pinned);
-    if(search) comps = comps.filter(c=>c.name.toLowerCase().includes(search));
-
-    let rows = comps.map(c=>{
-      const channel = channelFilter || c.primaryChannel;
-      const baseRate = PORTALDATA.competitorRateOnDate(c, dateKey);
-      const rate = PORTALDATA.channelRate(baseRate, channel, dateKey);
-      const diff = rate - myRate;
-      const diffPct = (diff/myRate)*100;
-      const status = Math.abs(diffPct) < 2 ? 'parity' : diff>0 ? 'pricier' : 'cheaper';
-      return { c, channel, rate, diff, diffPct, status, trend: PORTALDATA.competitorTrend(c, dateKey) };
-    });
-    if(statusFilter) rows = rows.filter(r=>r.status===statusFilter);
-    rows.sort((a,b)=>a.rate-b.rate);
-
-    document.getElementById('rs_summary').textContent = `Showing ${rows.length} of ${comps.length} benchmark properties for ${APP.fmtDateReadable(dateKey)} — My Rate (Direct channel): ${APP.fmtCurrency(myRate)}`;
-
-    const bodyRows = rows.map((r,i)=>`
-      <tr>
-        <td>
-          <div class="d-flex align-items-center gap-2">
-            <img src="${r.c.image}" style="width:34px;height:34px;border-radius:8px;object-fit:cover">
-            <div>
-              <div class="fw-semibold" style="font-size:.82rem">${r.c.name} <span class="badge bg-primary-subtle text-primary" style="font-size:.6rem">Benchmark</span> ${r.c.pinned?'<i class="bi bi-pin-angle-fill text-warning" style="font-size:.7rem"></i>':''}</div>
-              <div class="text-muted" style="font-size:.7rem">${r.c.city}, ${r.c.country}</div>
-            </div>
-          </div>
-        </td>
-        <td>${r.c.stars}★</td>
-        <td>${r.c.roomType}</td>
-        <td>${r.c.mealPlan}</td>
-        <td>${PWIDGETS.channelChip(r.channel)}</td>
-        <td class="fw-semibold">${APP.fmtCurrency(myRate)}</td>
-        <td class="fw-semibold">${APP.fmtCurrency(r.rate)}</td>
-        <td class="${r.diff>=0?'text-danger':'text-success'}">${r.diff>=0?'+':''}${APP.fmtCurrency(r.diff)}</td>
-        <td class="${r.diff>=0?'text-danger':'text-success'}">${r.diff>=0?'+':''}${r.diffPct.toFixed(1)}%</td>
-        <td>#${i+1}</td>
-        <td style="font-size:.72rem">${r.c.cancellationPolicy}</td>
-        <td>${PWIDGETS.trendIcon(r.trend)}</td>
-        <td>${PWIDGETS.statusBadge(r.status)}</td>
-        <td class="text-end">
-          <button class="btn btn-sm-icon btn-soft" onclick="togglePin('${r.c.id}')" title="Pin"><i class="bi ${r.c.pinned?'bi-pin-angle-fill':'bi-pin-angle'}"></i></button>
-          <a href="property-competitors.html?id=${r.c.id}" class="btn btn-sm-icon btn-soft" title="View"><i class="bi bi-eye"></i></a>
-        </td>
-      </tr>`).join('');
-
-    document.getElementById('rateShopperTable').innerHTML = `
-      <thead><tr>
-        <th>Competitor</th><th>Stars</th><th>Room</th><th>Meal Plan</th><th>Channel</th>
-        <th title="Your Direct (Master) channel rate for the selected date — always, regardless of the Channel filter above.">My Rate (Direct)</th>
-        <th title="The competitor's rate on the channel shown in the Channel column, for the selected date.">Competitor Rate</th>
-        <th>Difference</th><th>Diff %</th><th>Rank</th>
-        <th>Cancellation</th><th>Trend</th><th>Status</th><th></th>
-      </tr></thead>
-      <tbody>${bodyRows || `<tr><td colspan="14" class="text-center text-muted py-4">${comps.length ? 'No competitors match these filters.' : "No comparison properties assigned yet — ask your Company Admin to select some."}</td></tr>`}</tbody>`;
-  }
-
-  window.togglePin = function(id){
-    const c = PORTALDATA.competitor(propertyId, id);
-    if(!c) return;
-    c.pinned = !c.pinned;
-    PORTALDATA.saveCompetitor(propertyId, c);
-    renderAll();
-  };
-
-  function renderAll(){
-    renderTickers();
-    renderTable();
-  }
-
   renderTickers();
   renderLegend();
   renderChart();
-  renderTable();
 });
