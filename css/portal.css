@@ -87,6 +87,9 @@
 }
 .competitor-card .comp-body{ padding:14px; display:flex; flex-direction:column; gap:6px; flex:1; }
 
+/* ---------- Competitor list view ---------- */
+.comp-list-thumb{ width:42px; height:42px; border-radius:10px; background-size:cover; background-position:center; flex:0 0 auto; background-color:var(--bg-surface-2); }
+
 /* ---------- Score ring ---------- */
 .score-ring{ position:relative; width:88px; height:88px; }
 .score-ring svg{ transform:rotate(-90deg); }

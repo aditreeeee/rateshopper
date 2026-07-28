@@ -35,10 +35,30 @@
         <option value="pinned">Pinned</option>
       </select>
     </div>
+    <div class="col-md-2 d-flex justify-content-md-end">
+      <div class="btn-group" role="group" aria-label="View toggle">
+        <button type="button" class="btn btn-soft" id="cp_viewGrid" title="Grid view"><i class="bi bi-grid-3x3-gap-fill"></i></button>
+        <button type="button" class="btn btn-soft" id="cp_viewList" title="List view"><i class="bi bi-list-ul"></i></button>
+      </div>
+    </div>
   </div>
 </div>
 
 <div class="row g-3" id="competitorGrid"></div>
+
+<div class="card-surface p-0 overflow-hidden d-none" id="competitorListWrap">
+  <div class="table-responsive">
+    <table class="table-modern w-100">
+      <thead><tr>
+        <th>Competitor</th><th>Location</th><th class="text-center">Star Rating</th>
+        <th class="text-end">Current Rate</th><th class="text-end">vs. Mine</th><th class="text-center">Trend</th>
+        <th>Mapping</th><th class="text-end">Actions</th>
+      </tr></thead>
+      <tbody id="competitorList"></tbody>
+    </table>
+  </div>
+  <div id="competitorListEmpty"></div>
+</div>
 
 <!-- Competitor Profile Modal -->
 <div class="modal fade" id="competitorProfileModal" tabindex="-1">

@@ -62,12 +62,22 @@ document.addEventListener('DOMContentLoaded', ()=>{
     return channelFilter ? PORTALDATA.channelRate(raw, channelFilter, useAvg ? PORTALDATA.dateKeyOffset(0) : dateKey) : raw;
   }
 
+  // ---- Resolve a competitor's mapped room for one of ours via the same Room Mapping system
+  // Rate Matrix uses (MAPPING.ensureAutoMapped/evaluate) — fuzzy name-similarity auto-matching
+  // that self-heals on load, instead of requiring an exact room-name match. An exact-match lookup
+  // silently dropped a competitor from every comparison the moment their room naming differed
+  // even slightly (e.g. "Deluxe Room" vs "Deluxe King Room"), which meant "all assigned
+  // competitors" in practice was only "competitors who happen to name rooms identically to us". ----
+  function mappedCompRoom(comp, room){
+    MAPPING.ensureAutoMapped(propertyId, comp.realPropertyId);
+    const ev = MAPPING.evaluate(propertyId, comp.realPropertyId);
+    const entry = ev.rooms.find(r=>r.ourRoom.id===room.id);
+    return entry && entry.compRoom ? entry.compRoom : null;
+  }
+
   // ---- Competitor's matched-room rate for a specific room, either snapshot or averaged ----
   function compRoomRate(comp, room, dateKey, channelFilter, useAvg, days){
-    const compChannels = DB.channels.byProperty(comp.realPropertyId);
-    const compMaster = compChannels.find(c=>c.type==='master');
-    if(!compMaster) return null;
-    const compRoom = DB.rooms.byChannel(compMaster.id).find(r=>r.name===room.name);
+    const compRoom = mappedCompRoom(comp, room);
     if(!compRoom) return null;
     const compPlan = DB.ratePlans.byRoom(compRoom.id)[0];
     const baseFor = dk=>{
@@ -91,10 +101,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
         const myRate = channelFilter ? PORTALDATA.channelRate(myRaw, channelFilter, useAvg ? PORTALDATA.dateKeyOffset(0) : dateKey) : myRaw;
 
         compsAll.forEach(comp=>{
-          const compChannels = DB.channels.byProperty(comp.realPropertyId);
-          const compMaster = compChannels.find(c=>c.type==='master');
-          if(!compMaster) return;
-          const compRoom = DB.rooms.byChannel(compMaster.id).find(r=>r.name===room.name);
+          const compRoom = mappedCompRoom(comp, room);
           if(!compRoom) return;
           const compPlans = DB.ratePlans.byRoom(compRoom.id);
           const compPlan = compPlans.find(p=>p.mealPlan===rp.mealPlan) || compPlans[0];

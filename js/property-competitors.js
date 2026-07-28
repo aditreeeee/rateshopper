@@ -8,6 +8,22 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
   ['cp_search','cp_sort','cp_filter'].forEach(id=> document.getElementById(id).addEventListener('input', render));
 
+  // ---- Grid / List view toggle — persisted per-browser so it sticks across visits ----
+  let cpView = localStorage.getItem('hop_cp_view') === 'list' ? 'list' : 'grid';
+  function setView(view){
+    cpView = view;
+    localStorage.setItem('hop_cp_view', view);
+    document.getElementById('cp_viewGrid').classList.toggle('btn-primary', view==='grid');
+    document.getElementById('cp_viewGrid').classList.toggle('btn-soft', view!=='grid');
+    document.getElementById('cp_viewList').classList.toggle('btn-primary', view==='list');
+    document.getElementById('cp_viewList').classList.toggle('btn-soft', view!=='list');
+    document.getElementById('competitorGrid').classList.toggle('d-none', view!=='grid');
+    document.getElementById('competitorListWrap').classList.toggle('d-none', view!=='list');
+  }
+  document.getElementById('cp_viewGrid').addEventListener('click', ()=>{ setView('grid'); });
+  document.getElementById('cp_viewList').addEventListener('click', ()=>{ setView('list'); });
+  setView(cpView);
+
   function render(){
     const search = document.getElementById('cp_search').value.trim().toLowerCase();
     const sort = document.getElementById('cp_sort').value;
@@ -28,25 +44,30 @@ document.addEventListener('DOMContentLoaded', ()=>{
       return 0;
     });
 
-    document.getElementById('competitorGrid').innerHTML = comps.length ? comps.map(c=>{
+    // Rooms/rate plans are auto-matched the moment this property and competitor are first seen
+    // together (and self-healed on every load) — a human only needs the Review Mapping action
+    // when something couldn't be confidently resolved automatically. Computed once and shared
+    // by both the grid and list views below.
+    const enriched = comps.map(c=>{
       const diffPct = ((c.rate-myRate)/myRate)*100;
-      // Rooms/rate plans are auto-matched the moment this property and competitor are first
-      // seen together (and self-healed on every load) — a human only needs the Review Mapping
-      // action when something couldn't be confidently resolved automatically.
-      let mappingBadge = '';
+      let mappingBadge = '', mappingCount = 0;
       if(c.isReal){
         MAPPING.ensureAutoMapped(propertyId, c.realPropertyId);
         const ev = MAPPING.evaluate(propertyId, c.realPropertyId);
         const nRooms = ev.flaggedRooms.length, nPlans = ev.flaggedPlans.length;
-        const total = nRooms + nPlans;
-        if(total>0){
+        mappingCount = nRooms + nPlans;
+        if(mappingCount>0){
           const parts = [];
           if(nRooms) parts.push(`${nRooms} room${nRooms>1?'s':''}`);
           if(nPlans) parts.push(`${nPlans} rate plan${nPlans>1?'s':''}`);
           mappingBadge = `<button type="button" class="rm-review-badge" onclick="reviewMapping('${c.id}')" title="Open Mapping Review">
-            <i class="bi bi-exclamation-triangle-fill"></i>${parts.join(' & ')} ${total===1?'needs':'need'} mapping review</button>`;
+            <i class="bi bi-exclamation-triangle-fill"></i>${parts.join(' & ')} ${mappingCount===1?'needs':'need'} mapping review</button>`;
         }
       }
+      return { c, diffPct, mappingBadge, mappingCount };
+    });
+
+    document.getElementById('competitorGrid').innerHTML = enriched.length ? enriched.map(({c, diffPct, mappingBadge})=>{
       return `<div class="col-md-6 col-xl-4 col-xxl-3">
         <div class="competitor-card">
           <div class="comp-img" style="background-image:url('${c.image}')">
@@ -79,6 +100,44 @@ document.addEventListener('DOMContentLoaded', ()=>{
         ? PWIDGETS.emptyState('bi-building','No competitors found','Try adjusting your search or filters.')
         : PWIDGETS.emptyState('bi-building','No comparison properties assigned yet','Your Company Admin hasn\'t selected any comparison properties for you yet.')
     }</div>`;
+
+    // ---- List view: same dataset, denser row-per-competitor layout for scanning many at once ----
+    const listEmpty = document.getElementById('competitorListEmpty');
+    if(!enriched.length){
+      document.getElementById('competitorList').innerHTML = '';
+      listEmpty.classList.remove('d-none');
+      listEmpty.innerHTML = PORTALDATA.comparisonRealProperties().length
+        ? PWIDGETS.emptyState('bi-building','No competitors found','Try adjusting your search or filters.')
+        : PWIDGETS.emptyState('bi-building','No comparison properties assigned yet','Your Company Admin hasn\'t selected any comparison properties for you yet.');
+    } else {
+      listEmpty.classList.add('d-none');
+      document.getElementById('competitorList').innerHTML = enriched.map(({c, diffPct, mappingBadge, mappingCount})=>`
+        <tr>
+          <td>
+            <div class="d-flex align-items-center gap-2">
+              <div class="comp-list-thumb" style="background-image:url('${c.image}')"></div>
+              <div>
+                <div class="fw-semibold" style="font-size:.85rem">${c.name}${c.pinned?' <i class="bi bi-pin-angle-fill text-primary" style="font-size:.7rem"></i>':''}</div>
+                ${mappingBadge ? `<div class="mt-1">${mappingBadge}</div>` : ''}
+              </div>
+            </div>
+          </td>
+          <td class="text-muted" style="font-size:.82rem">${c.isReal ? `${c.city}, ${c.country}` : `${c.distanceKm} km away`}</td>
+          <td class="text-center">${c.stars ? `${c.stars}★` : '—'}</td>
+          <td class="text-end fw-semibold">${APP.fmtCurrency(c.rate)}</td>
+          <td class="text-end ${diffPct>=0?'text-danger':'text-success'} fw-semibold" style="font-size:.85rem">${diffPct>=0?'+':''}${diffPct.toFixed(1)}%</td>
+          <td class="text-center">${PWIDGETS.trendIcon(c.trend)}</td>
+          <td>${c.favorite?'<i class="bi bi-star-fill text-warning" title="Favorite"></i>':''}</td>
+          <td class="text-end">
+            <div class="d-flex gap-1 justify-content-end">
+              <button class="btn btn-sm-icon btn-soft" onclick="openProfile('${c.id}')" title="Details"><i class="bi bi-eye"></i></button>
+              ${c.isReal ? `<button class="btn btn-sm-icon btn-soft" onclick="reviewMapping('${c.id}')" title="Review Mapping"><i class="bi bi-signpost-split"></i></button>` : ''}
+              <button class="btn btn-sm-icon ${c.favorite?'btn-primary':'btn-soft'}" onclick="toggleFavorite('${c.id}')" title="Favorite"><i class="bi ${c.favorite?'bi-star-fill':'bi-star'}"></i></button>
+              <button class="btn btn-sm-icon ${c.pinned?'btn-primary':'btn-soft'}" onclick="togglePinC('${c.id}')" title="Pin for comparison"><i class="bi bi-pin-angle${c.pinned?'-fill':''}"></i></button>
+            </div>
+          </td>
+        </tr>`).join('');
+    }
   }
 
   window.toggleFavorite = function(id){ const c=PORTALDATA.competitor(propertyId,id); c.favorite=!c.favorite; PORTALDATA.saveCompetitor(propertyId,c); render(); };
