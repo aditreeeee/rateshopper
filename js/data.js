@@ -488,7 +488,22 @@ const DB = (() => {
     all: ()=> get(KEYS.rates, {}),
     forPlan: rpId=> (get(KEYS.rates,{})[rpId]) || {},
     setDay: (rpId, dateKey, data)=>{ const all=get(KEYS.rates,{}); if(!all[rpId]) all[rpId]={}; all[rpId][dateKey] = {...(all[rpId][dateKey]||{}), ...data}; set(KEYS.rates, all); },
-    saveAll: (rpId, obj)=>{ const all=get(KEYS.rates,{}); all[rpId]=obj; set(KEYS.rates, all); }
+    saveAll: (rpId, obj)=>{ const all=get(KEYS.rates,{}); all[rpId]=obj; set(KEYS.rates, all); },
+    // Sets one fixed price for every date in [startKey, endKey] inclusive — a quick "pricing
+    // range" action for a single rate plan (pick a date range, apply one price), same idea as
+    // the Rate Calendar's Bulk Update but scoped to one plan and reachable from the Rate Plans
+    // list directly instead of needing to open the calendar first.
+    setRange: (rpId, startKey, endKey, price, baseOccupancy, extraAdultPrice, maxOcc)=>{
+      const all = get(KEYS.rates,{});
+      if(!all[rpId]) all[rpId] = {};
+      let d = new Date(startKey+'T00:00:00');
+      const end = new Date(endKey+'T00:00:00');
+      while(d <= end){
+        all[rpId][fmtDate(d)] = { price, occPrices: buildOccPrices(price, baseOccupancy, extraAdultPrice, maxOcc) };
+        d.setDate(d.getDate()+1);
+      }
+      set(KEYS.rates, all);
+    }
   };
   const notifications = {
     all: ()=> get(KEYS.notifications, []),

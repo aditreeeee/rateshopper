@@ -226,11 +226,35 @@ function renderRatePlans(){
       <td class="small text-muted">${rp.refundable?'Refundable':'Non-Refundable'}</td>
       <td><span class="badge-status ${rp.status==='active'?'badge-active':'badge-inactive'}">${rp.status}</span></td>
       <td class="text-end">
+        ${canEdit ? `<button class="btn btn-sm-icon btn-soft" title="Set Price for Date Range" onclick="openPriceRangeModal('${rp.id}')"><i class="bi bi-calendar-range"></i></button>` : ''}
         ${canEdit ? `<a href="add-rate-plan.html?id=${rp.id}" class="btn btn-sm-icon btn-outline-primary" title="Edit Rate Plan"><i class="bi bi-pencil"></i></a>` : ''}
         ${canDelete ? `<button class="btn btn-sm-icon btn-light-danger" title="Delete Rate Plan" onclick="deletePropertyRatePlan('${rp.id}')"><i class="bi bi-trash3"></i></button>` : ''}
       </td>
     </tr>`;
   }).join('') : `<tr><td colspan="7"><div class="empty-state"><i class="bi bi-tags"></i><h5>No rate plans</h5></div></td></tr>`;
+}
+
+function openPriceRangeModal(ratePlanId){
+  const rp = DB.ratePlans.get(ratePlanId);
+  if(!rp) return;
+  const room = DB.rooms.get(rp.roomId);
+  document.getElementById('prPlanName').textContent = `${rp.name}${room?` — ${room.name}`:''}`;
+  document.getElementById('prStart').value = '';
+  document.getElementById('prEnd').value = '';
+  document.getElementById('prPrice').value = '';
+  document.getElementById('prApply').onclick = ()=>{
+    const start = document.getElementById('prStart').value;
+    const end = document.getElementById('prEnd').value;
+    const price = Number(document.getElementById('prPrice').value);
+    if(!start || !end){ APP.toast('Missing Dates', 'Please pick a start and end date.', 'danger'); return; }
+    if(start > end){ APP.toast('Invalid Range', 'The start date must be before the end date.', 'danger'); return; }
+    if(!price || price<=0){ APP.toast('Invalid Price', 'Please enter a price greater than 0.', 'danger'); return; }
+    const maxOcc = Math.max((room && room.maxOccupancy) || 1, rp.baseOccupancy || 1);
+    DB.rates.setRange(rp.id, start, end, price, rp.baseOccupancy, rp.extraAdultPrice, maxOcc);
+    bootstrap.Modal.getInstance(document.getElementById('priceRangeModal')).hide();
+    APP.toast('Pricing Range Applied', `${rp.name} updated for ${start} – ${end}.`, 'success');
+  };
+  new bootstrap.Modal(document.getElementById('priceRangeModal')).show();
 }
 
 function renderContact(){
