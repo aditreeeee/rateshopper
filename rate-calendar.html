@@ -165,7 +165,28 @@
         <button class="btn-close" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body">
-        <div id="parityGridHost"></div>
+        <!-- Its own date range — independent of whatever range the Rate Calendar behind it is set
+             to, so you can widen or narrow the parity comparison without changing the main grid.
+             Plain preset buttons + native date pickers so it's easy for anyone, no custom
+             calendar widget to figure out. -->
+        <div class="parity-range-bar mb-3">
+          <span class="parity-range-label"><i class="bi bi-calendar-range me-1"></i>Date Range</span>
+          <div class="btn-group btn-group-sm" id="parity_rangeGroup" role="group">
+            <button type="button" class="btn btn-soft" data-days="7">7 Days</button>
+            <button type="button" class="btn btn-soft" data-days="14">14 Days</button>
+            <button type="button" class="btn btn-soft" data-days="30">30 Days</button>
+          </div>
+          <span class="text-muted small d-none d-md-inline">or pick exact dates</span>
+          <input type="date" class="form-control form-control-sm" id="parity_startDate" style="width:auto">
+          <span class="text-muted small">to</span>
+          <input type="date" class="form-control form-control-sm" id="parity_endDate" style="width:auto">
+          <button type="button" class="btn btn-primary btn-sm" id="parity_apply"><i class="bi bi-check2 me-1"></i>Apply</button>
+        </div>
+        <div class="parity-scroll-wrap">
+          <button type="button" class="parity-scroll-btn parity-scroll-left" id="parity_scrollLeft" title="Scroll left" aria-label="Scroll left"><i class="bi bi-chevron-left"></i></button>
+          <div id="parityGridHost"></div>
+          <button type="button" class="parity-scroll-btn parity-scroll-right" id="parity_scrollRight" title="Scroll right" aria-label="Scroll right"><i class="bi bi-chevron-right"></i></button>
+        </div>
       </div>
     </div>
   </div>

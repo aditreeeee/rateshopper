@@ -24,9 +24,12 @@
     <div class="fw-bold mb-2 mt-1">Dashboard Charts</div>
     <div class="chart-card mb-3">
       <div class="d-flex justify-content-between align-items-center mb-2">
-        <div>
-          <div class="fw-bold">My Rate vs. Market Average</div>
-          <div class="text-muted small">Last 30 days vs. next 30 days</div>
+        <div class="rc-section-title mb-0">
+          <span class="rc-section-icon"><i class="bi bi-graph-up-arrow"></i></span>
+          <div>
+            <div class="fw-bold">My Rate vs. Market Average</div>
+            <div class="text-muted small">Last 30 days vs. next 30 days</div>
+          </div>
         </div>
       </div>
       <canvas id="rateTrendChart" height="90"></canvas>
@@ -35,13 +38,13 @@
     <div class="row g-3 mb-3">
       <div class="col-md-6">
         <div class="chart-card h-100">
-          <div class="fw-bold mb-2">Competitor Comparison</div>
+          <div class="rc-section-title mb-2"><span class="rc-section-icon"><i class="bi bi-table"></i></span><div class="fw-bold">Competitor Comparison</div></div>
           <div class="table-responsive"><table class="table-modern w-100" id="competitorComparisonTable"></table></div>
         </div>
       </div>
       <div class="col-md-6">
         <div class="chart-card h-100">
-          <div class="fw-bold mb-2">Rate Distribution</div>
+          <div class="rc-section-title mb-2"><span class="rc-section-icon"><i class="bi bi-bar-chart-steps"></i></span><div class="fw-bold">Rate Distribution</div></div>
           <canvas id="priceDistChart" height="140"></canvas>
         </div>
       </div>
@@ -49,7 +52,7 @@
 
     <div class="chart-card mb-3">
       <div class="d-flex justify-content-between align-items-center mb-2">
-        <div class="fw-bold">Price Trends</div>
+        <div class="rc-section-title mb-0"><span class="rc-section-icon"><i class="bi bi-graph-up"></i></span><div class="fw-bold">Price Trends</div></div>
         <div class="btn-group btn-group-sm" id="trendTabGroup" role="group">
           <button type="button" class="btn btn-outline-primary" data-range="daily">Daily</button>
           <button type="button" class="btn btn-soft" data-range="weekly">Weekly</button>
@@ -59,48 +62,42 @@
       <canvas id="priceTrendChart" height="90"></canvas>
     </div>
 
-    <div class="chart-card mb-3">
-      <div class="fw-bold mb-2">Channel Price Comparison</div>
-      <canvas id="channelCompareChart" height="90"></canvas>
-    </div>
-
     <div class="section-card mb-3">
       <div class="d-flex justify-content-between align-items-center mb-2">
-        <div class="fw-bold">Competitor Update Heatmap — Next 30 Days</div>
-        <div class="text-muted small">Darker = more competitor rate changes</div>
+        <div class="rc-section-title mb-0"><span class="rc-section-icon"><i class="bi bi-calendar3"></i></span><div class="fw-bold">Price Calendar</div></div>
+        <div class="btn-group btn-group-sm" id="priceCalRangeGroup" role="group">
+          <button type="button" class="btn btn-soft" data-days="7">7D</button>
+          <button type="button" class="btn btn-outline-primary" data-days="14">14D</button>
+          <button type="button" class="btn btn-soft" data-days="30">30D</button>
+        </div>
       </div>
-      <div class="heatmap-grid" id="updateHeatmap"></div>
-    </div>
-
-    <div class="section-card">
-      <div class="fw-bold mb-2">14-Day Price Calendar</div>
       <div class="table-responsive">
         <table class="table-modern w-100" id="priceCalendarTable"></table>
       </div>
+    </div>
+
+    <div class="section-card d-flex align-items-center justify-content-between flex-wrap gap-2">
+      <div class="text-muted small"><i class="bi bi-signpost-split me-1"></i>Ready to dig into individual rooms and rate plans?</div>
+      <a href="property-room-comparison.html" class="btn btn-outline-primary btn-sm">Next: Analysis <i class="bi bi-arrow-right ms-1"></i></a>
     </div>
   </div>
 
   <div class="col-xxl-4">
     <div class="section-card mb-3">
-      <div class="fw-bold mb-2">Rate Position</div>
+      <div class="rc-section-title mb-2"><span class="rc-section-icon"><i class="bi bi-speedometer"></i></span><div class="fw-bold">Rate Position</div></div>
       <div id="ratePositionWidget"></div>
     </div>
 
     <div class="section-card mb-3">
       <div class="d-flex justify-content-between align-items-center mb-2">
-        <div class="fw-bold">Competitor Leaderboard</div>
+        <div class="rc-section-title mb-0"><span class="rc-section-icon"><i class="bi bi-trophy"></i></span><div class="fw-bold">Competitor Leaderboard</div></div>
         <a href="property-competitors.html" class="small">View all</a>
       </div>
       <div id="leaderboardWidget"></div>
     </div>
 
-    <div class="section-card mb-3">
-      <div class="fw-bold mb-2">Upcoming Events</div>
-      <div id="eventsWidget"></div>
-    </div>
-
     <div class="section-card">
-      <div class="fw-bold mb-2">Channel Performance</div>
+      <div class="rc-section-title mb-2"><span class="rc-section-icon"><i class="bi bi-diagram-3-fill"></i></span><div class="fw-bold">Channel Performance</div></div>
       <div id="channelPerfWidget"></div>
     </div>
   </div>

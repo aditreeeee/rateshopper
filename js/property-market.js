@@ -28,16 +28,21 @@ document.addEventListener('DOMContentLoaded', ()=>{
       this.classList.add('active');
       document.getElementById('mi_tabOverview').classList.toggle('d-none', this.dataset.tab!=='overview');
       document.getElementById('mi_tabRecommendations').classList.toggle('d-none', this.dataset.tab!=='recommendations');
-      document.getElementById('mi_tabChannels').classList.toggle('d-none', this.dataset.tab!=='channels');
-      // Chart.js can't size a canvas that was hidden (display:none) at creation time — force a
-      // resize once its tab actually becomes visible.
-      if(this.dataset.tab==='channels' && caChart) caChart.resize();
+      document.getElementById('mi_tabAction').classList.toggle('d-none', this.dataset.tab!=='action');
+      if(this.dataset.tab==='action') renderActionCenter(propertyId);
     });
   });
   renderMarketInsights(propertyId);
-  renderRecommendations(propertyId);
-  renderChannelAnalysis(propertyId);
+  renderActionCenter(propertyId);
   document.getElementById('mi_staleBadge').innerHTML = PWIDGETS.staleBadge(PORTALDATA.lastScrapedAt(propertyId));
+
+  // Deep-link support (?tab=overview|recommendations|action) — lets a link from elsewhere in
+  // the app land directly on the right tab instead of always Overview.
+  const deepTab = APP.qs('tab');
+  if(deepTab){
+    const btn = document.querySelector(`#mi_tabs [data-tab="${deepTab}"]`);
+    if(btn) btn.click();
+  }
 
   if(!comps.length){
     document.getElementById('marketKpis').innerHTML = `<div class="col-12">${PWIDGETS.emptyState('bi-globe-americas','No comparison properties assigned yet','Your Company Admin hasn\'t selected any benchmark properties for you yet.')}</div>`;
@@ -83,61 +88,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
       desc:'How many comparison properties your Company Admin has assigned to you for benchmarking.'}),
   ].join('');
 
-  const labels=[], data=[];
-  for(let d=-30; d<=30; d+=2){ const dk=PORTALDATA.dateKeyOffset(d); labels.push(dk.slice(5)); data.push(avgRateOn(dk)); }
-  new Chart(document.getElementById('marketTrendChart'), {
-    type:'line',
-    data:{ labels, datasets:[{label:'Market Average', data, borderColor:'#8c5cf7', backgroundColor:'rgba(140,92,247,.08)', tension:.35, fill:true}] },
-    options:{ responsive:true, animation:chartAnim(false), plugins:{legend:{display:false}}, scales:{y:{ticks:{callback:v=>APP.fmtCurrency(v)}}} }
-  });
-
-  // ---- Competitor Pricing Matrix: My Property (pinned reference row) + every competitor,
-  // day by day for the next 7 days, each cell colored relative to my own rate that day, plus a
-  // 7-day average column so you can see who's cheaper/pricier at a glance without doing the math. ----
-  const matrixDays = Array.from({length:7}).map((_,d)=> PORTALDATA.dateKeyOffset(d));
-  const myMatrixRates = matrixDays.map(dk=> PORTALDATA.myRateOnDate(propertyId, dk));
-  const myMatrixAvg = Math.round(myMatrixRates.reduce((a,b)=>a+b,0)/myMatrixRates.length);
-
-  const myRowHtml = `<tr class="rc-frozen-row">
-    <td class="fw-semibold" style="white-space:nowrap"><i class="bi bi-star-fill me-1" style="color:var(--brand-500)"></i>My Property</td>
-    ${myMatrixRates.map(r=>`<td class="fw-bold">${APP.fmtCurrency(r)}</td>`).join('')}
-    <td class="fw-bold">${APP.fmtCurrency(myMatrixAvg)}</td>
-  </tr>`;
-  const compRowsHtml = comps.map(c=>{
-    const compRates = matrixDays.map(dk=> PORTALDATA.competitorRateOnDate(c,dk));
-    const compAvg = Math.round(compRates.reduce((a,b)=>a+b,0)/compRates.length);
-    return `<tr>
-      <td class="fw-semibold" style="white-space:nowrap">${c.name}</td>
-      ${compRates.map((r,i)=>{
-        const cls = r < myMatrixRates[i] ? 'text-success' : r > myMatrixRates[i] ? 'text-danger' : '';
-        return `<td class="${cls}">${APP.fmtCurrency(r)}</td>`;
-      }).join('')}
-      <td class="fw-semibold ${compAvg<myMatrixAvg?'text-success':compAvg>myMatrixAvg?'text-danger':''}">${APP.fmtCurrency(compAvg)}</td>
-    </tr>`;
-  }).join('');
-
-  document.getElementById('pricingMatrixTable').innerHTML = `
-    <thead><tr><th style="white-space:nowrap">Competitor</th>${matrixDays.map(dk=>`<th style="white-space:nowrap">${new Date(dk+'T00:00:00').toLocaleDateString('en-IN',{weekday:'short',day:'2-digit',month:'short'})}</th>`).join('')}<th style="white-space:nowrap">7-Day Avg</th></tr></thead>
-    <tbody>${myRowHtml}${compRowsHtml}</tbody>`;
-
-  // ---- Competitor Movement: biggest 7-day movers, plus where each now sits vs. my rate today
-  // (not just how much they moved) — the movement alone doesn't say whether that's something to
-  // react to; "vs. My Rate Today" does. ----
-  const myRateToday = PORTALDATA.myRateOnDate(propertyId, today);
-  const movement = [...comps].map(c=>{
-    const t = PORTALDATA.competitorRateOnDate(c,today), y = PORTALDATA.competitorRateOnDate(c, PORTALDATA.dateKeyOffset(-7));
-    const vsMine = ((t-myRateToday)/myRateToday*100);
-    return {c, chg:((t-y)/y*100), today:t, vsMine};
-  }).sort((a,b)=>Math.abs(b.chg)-Math.abs(a.chg)).slice(0,10);
-  document.getElementById('movementTable').innerHTML = `
-    <thead><tr><th>Competitor</th><th>7 Days Ago</th><th>Today</th><th>7-Day Change</th><th>vs. My Rate Today</th></tr></thead>
-    <tbody>${movement.map(m=>`<tr>
-      <td>${m.c.name}</td>
-      <td>${APP.fmtCurrency(PORTALDATA.competitorRateOnDate(m.c, PORTALDATA.dateKeyOffset(-7)))}</td>
-      <td class="fw-semibold">${APP.fmtCurrency(m.today)}</td>
-      <td class="${m.chg>=0?'text-danger':'text-success'} fw-semibold">${PWIDGETS.trendIcon(m.chg>0?'up':m.chg<0?'down':'flat')} ${m.chg>=0?'+':''}${m.chg.toFixed(1)}%</td>
-      <td class="${m.vsMine<=0?'text-success':'text-danger'} fw-semibold">${m.vsMine>=0?'+':''}${m.vsMine.toFixed(1)}%</td>
-    </tr>`).join('')}</tbody>`;
+  renderValueProposition(propertyId, comps, today);
 
   document.getElementById('marketSummary').innerHTML = `
     <div class="kv-row"><span class="k">Total Competitors</span><span class="v">${supply}</span></div>
@@ -154,6 +105,100 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
   function seededPct(seed){ let h=0; for(let i=0;i<seed.length;i++){h=(h*31+seed.charCodeAt(i))|0;} return (Math.abs(h)%1000)/1000; }
 });
+
+// ---- Value Proposition Analysis — two separate, independent readings instead of one forced
+// composite number:
+//   • Value Score — normalized 0-100 quality score from Amenity Score, Meal Plan Quality,
+//     Cancellation Flexibility, and Room Size (each normalized against the highest value seen
+//     in this comparison set, so it's always relative to your actual competitors, not an
+//     arbitrary fixed scale).
+//   • Price Position — your rate vs. the average of your mapped competitors, as a plain %.
+// Kept as two numbers on purpose: "how good is it" and "how expensive is it" answer different
+// questions, and collapsing them into one score hides which one is actually driving the result. ----
+let vpChart = null;
+const VP_WEIGHTS = { amenity:0.3, mealPlan:0.3, cancellation:0.2, roomSize:0.2 };
+function renderValueProposition(propertyId, comps, today){
+  const mealRank = { EP:0, CP:1, MAP:2, AP:3 };
+
+  function rawProfile(pid){
+    const p = DB.properties.get(pid);
+    const amenities = (p && p.amenities) ? p.amenities.length : 0;
+    const channels = DB.channels.byProperty(pid);
+    const master = channels.find(c=>c.type==='master');
+    const rooms = master ? DB.rooms.byChannel(master.id) : [];
+    const plans = rooms.flatMap(r=>DB.ratePlans.byRoom(r.id));
+    const refundablePct = plans.length ? Math.round(plans.filter(pl=>pl.refundable).length/plans.length*100) : 0;
+    const mealPlanAvgRank = plans.length ? plans.reduce((s,pl)=>s+(mealRank[pl.mealPlan]||0),0)/plans.length : 0; // 0..3
+    const roomsWithSize = rooms.filter(r=>r.size);
+    const avgRoomSize = roomsWithSize.length ? Math.round(roomsWithSize.reduce((s,r)=>s+r.size,0)/roomsWithSize.length) : 0;
+    return { amenities, refundablePct, mealPlanAvgRank, avgRoomSize };
+  }
+
+  const rows = [{ name:'My Property', isMe:true, rate:PORTALDATA.myRateOnDate(propertyId, today), ...rawProfile(propertyId) }];
+  comps.forEach(c=>{
+    rows.push({ name:c.name, isMe:false, rate:PORTALDATA.competitorRateOnDate(c, today), ...rawProfile(c.realPropertyId) });
+  });
+
+  // Normalize each raw factor against the max seen across THIS comparison set — so the score
+  // always reflects standing relative to your actual competitors, not a fixed/arbitrary scale.
+  const maxAmenities = Math.max(1, ...rows.map(r=>r.amenities));
+  const maxRoomSize = Math.max(1, ...rows.map(r=>r.avgRoomSize));
+  const haveRoomSize = maxRoomSize > 1;
+
+  rows.forEach(r=>{
+    const amenityScore = (r.amenities/maxAmenities)*100;
+    const mealPlanQuality = (r.mealPlanAvgRank/3)*100;
+    const cancellationFlexibility = r.refundablePct;
+    const roomSizeScore = haveRoomSize ? (r.avgRoomSize/maxRoomSize)*100 : null;
+    // If no property in the set has room-size data, drop that weight and re-normalize the rest
+    // rather than silently scoring everyone 0 on a factor nobody actually has data for.
+    const parts = [
+      { w:VP_WEIGHTS.amenity, v:amenityScore },
+      { w:VP_WEIGHTS.mealPlan, v:mealPlanQuality },
+      { w:VP_WEIGHTS.cancellation, v:cancellationFlexibility },
+      ...(roomSizeScore!=null ? [{ w:VP_WEIGHTS.roomSize, v:roomSizeScore }] : [])
+    ];
+    const totalW = parts.reduce((s,p)=>s+p.w,0);
+    r.valueScore = Math.round(parts.reduce((s,p)=>s+p.w*p.v,0)/totalW);
+    r.amenityScore = Math.round(amenityScore); r.mealPlanQuality = Math.round(mealPlanQuality); r.roomSizeScore = roomSizeScore!=null?Math.round(roomSizeScore):null;
+  });
+
+  const compRates = comps.map(c=>PORTALDATA.competitorRateOnDate(c, today));
+  const compAvg = compRates.length ? Math.round(compRates.reduce((a,b)=>a+b,0)/compRates.length) : null;
+  rows.forEach(r=>{ r.pricePositionPct = compAvg ? Math.round(((r.rate-compAvg)/compAvg)*1000)/10 : null; });
+
+  const ranked = [...rows].sort((a,b)=>b.valueScore-a.valueScore);
+  const myRank = ranked.findIndex(r=>r.isMe) + 1;
+  const mine = rows[0];
+
+  document.getElementById('vp_summary').textContent = mine.pricePositionPct!=null
+    ? `Value Score rank: #${myRank} of ${rows.length}. Price Position: ${mine.pricePositionPct>=0?'+':''}${mine.pricePositionPct}% vs. the ${comps.length}-competitor average — Value Score is quality (amenities, meal plan, flexibility, room size) normalized 0-100; Price Position is purely how your rate compares.`
+    : `Value Score rank: #${myRank} of ${rows.length}. Add comparison properties to see Price Position.`;
+
+  if(vpChart) vpChart.destroy();
+  vpChart = new Chart(document.getElementById('vp_chart'), {
+    type:'bar',
+    data:{ labels: ranked.map(r=>r.name), datasets:[{ label:'Value Score', data: ranked.map(r=>r.valueScore), backgroundColor: ranked.map(r=>r.isMe?'#3861fb':'#c3aee8'), borderRadius:5 }] },
+    options:{ indexAxis:'y', responsive:true, animation:chartAnim(true), plugins:{legend:{display:false},
+      tooltip:{callbacks:{label:ctx=>`Value Score: ${ctx.parsed.x}/100`}}}, scales:{x:{min:0,max:100,ticks:{precision:0}}} }
+  });
+
+  function pricePositionCell(pct){
+    if(pct==null) return '<span class="text-muted">—</span>';
+    const cls = pct>0 ? 'text-danger' : pct<0 ? 'text-success' : 'text-muted';
+    const label = pct>0 ? 'above avg' : pct<0 ? 'below avg' : 'at avg';
+    return `<span class="${cls} fw-semibold">${pct>=0?'+':''}${pct}% ${label}</span>`;
+  }
+
+  document.getElementById('vp_table').innerHTML = `
+    <thead><tr><th>Property</th><th class="text-end">Rate</th><th class="text-center">Value Score</th><th class="text-center">Price Position</th></tr></thead>
+    <tbody>${ranked.map(r=>`<tr class="${r.isMe?'rc-frozen-row':''}">
+      <td class="fw-semibold">${r.isMe?'<i class="bi bi-star-fill me-1" style="color:var(--brand-500)"></i>':''}${r.name}</td>
+      <td class="text-end">${APP.fmtCurrency(r.rate)}</td>
+      <td class="text-center fw-bold">${r.valueScore}/100</td>
+      <td class="text-center">${pricePositionCell(r.pricePositionPct)}</td>
+    </tr>`).join('')}</tbody>`;
+}
 
 // ---- Pricing Recommendations (merged in from the standalone Pricing Recommendations page) ----
 /* ==========================================================================
@@ -278,42 +323,19 @@ function generateMarketInsights(propertyId){
   }
 
   // ---- Rate parity across your own channels — an OTA undercutting your Direct rate ----
-  const channels = DB.channels.byProperty(propertyId);
-  const master = channels.find(c=>c.type==='master');
-  if(master){
-    const otaChannels = channels.filter(c=>c.type!=='master');
-    const masterRooms = DB.rooms.byChannel(master.id);
-    let violation = null;
-    otaChannels.forEach(ch=>{
-      if(violation) return;
-      masterRooms.forEach(room=>{
-        if(violation) return;
-        DB.ratePlans.byRoom(room.id).forEach(plan=>{
-          if(violation) return;
-          const dayData = DB.rates.forPlan(plan.id)[today];
-          const directPrice = dayData ? dayData.price : room.basePrice;
-          const otaRoom = DB.rooms.byChannel(ch.id).find(r=>r.name===room.name);
-          if(!otaRoom) return;
-          const otaPlan = DB.ratePlans.byRoom(otaRoom.id).find(p=>p.mealPlan===plan.mealPlan);
-          if(!otaPlan) return;
-          const otaDay = DB.rates.forPlan(otaPlan.id)[today];
-          const otaPrice = otaDay ? otaDay.price : otaRoom.basePrice;
-          if(otaPrice < directPrice*0.97){
-            violation = { channel:ch, room, directPrice, otaPrice };
-          }
-        });
-      });
+  // Uses the same shared check as the Dashboard's Rate Parity Score KPI and Pricing
+  // Recommendations' "Fix Rate Parity" trigger (PORTALDATA.firstParityViolation) so all three
+  // agree on whether a violation exists.
+  const violation0 = PORTALDATA.firstParityViolation(propertyId, today);
+  if(violation0){
+    const gapPct = ((violation0.directPrice-violation0.otaPrice)/violation0.directPrice*100);
+    insights.push({
+      icon:'bi-exclamation-octagon-fill', color:'#ff4d5e', bg:'#fff0f1',
+      title:'Rate parity issue detected across channels',
+      detail:`${violation0.channel.name} is listing ${violation0.room.name} at ${APP.fmtCurrency(violation0.otaPrice)} — ${gapPct.toFixed(1)}% below your Direct rate of ${APP.fmtCurrency(violation0.directPrice)}.`,
+      supporting: [], action:'Recommended: Review channel parity settings',
+      priority:'High', confidence:'High', impact: gapPct+10 // parity issues surface near the top
     });
-    if(violation){
-      const gapPct = ((violation.directPrice-violation.otaPrice)/violation.directPrice*100);
-      insights.push({
-        icon:'bi-exclamation-octagon-fill', color:'#ff4d5e', bg:'#fff0f1',
-        title:'Rate parity issue detected across channels',
-        detail:`${violation.channel.name} is listing ${violation.room.name} at ${APP.fmtCurrency(violation.otaPrice)} — ${gapPct.toFixed(1)}% below your Direct rate of ${APP.fmtCurrency(violation.directPrice)}.`,
-        supporting: [], action:'Recommended: Review channel parity settings',
-        priority:'High', confidence:'High', impact: gapPct+10 // parity issues surface near the top
-      });
-    }
   }
 
   insights.sort((a,b)=> b.impact-a.impact);
@@ -342,164 +364,267 @@ function renderMarketInsights(propertyId){
     </div>`).join('') : `<div class="col-12">${PWIDGETS.emptyState('bi-stars','No standout insights right now','Your pricing looks well aligned with the market — nothing significant to flag today.')}</div>`;
 }
 
-function renderRecommendations(propertyId){
-  const recs = PORTALDATA.recommendations(propertyId);
-  document.getElementById('recGrid').innerHTML = recs.map(r=>{
-    const actionLabel = r.action==='increase' ? `Increase by ${APP.fmtCurrency(r.amount)}` : r.action==='decrease' ? `Decrease by ${APP.fmtCurrency(r.amount)}` : 'Keep Current Price';
-    const icon = r.action==='increase' ? 'bi-arrow-up' : r.action==='decrease' ? 'bi-arrow-down' : 'bi-dash';
-    return `<div class="col-md-6 col-xl-4">
-      <div class="rec-card">
-        <div class="d-flex justify-content-between align-items-start mb-2">
-          <span class="rec-badge ${r.action}"><i class="bi ${icon}"></i>${actionLabel}</span>
-          <span class="text-muted small">${APP.fmtDateReadable(r.date)}</span>
-        </div>
-        <p class="text-muted small mb-3">${r.reason}</p>
-        <div class="row g-2 mb-3">
-          <div class="col-6"><div class="text-muted" style="font-size:.68rem">Current Rate</div><div class="fw-semibold">${APP.fmtCurrency(r.currentRate)}</div></div>
-          <div class="col-6"><div class="text-muted" style="font-size:.68rem">Expected Rate</div><div class="fw-semibold">${APP.fmtCurrency(r.expectedRate)}</div></div>
-        </div>
-        <div class="d-flex justify-content-between align-items-center mb-1">
-          <span class="text-muted small">Confidence</span><span class="fw-semibold small">${r.confidence}%</span>
-        </div>
-        <div class="confidence-track mb-3"><div class="confidence-fill" style="width:${r.confidence}%"></div></div>
-        <div class="d-flex gap-2 mt-3">
-          <button class="btn btn-primary btn-sm flex-fill" onclick="APP.toast('Recommendation Applied','${actionLabel.replace(/'/g,"")} has been applied to your Rate Calendar (demo only).','success')">Apply</button>
-          <button class="btn btn-light btn-sm flex-fill" onclick="APP.toast('Dismissed','Recommendation dismissed.','info')">Dismiss</button>
-        </div>
-      </div>
-    </div>`;
-  }).join('') || `<div class="col-12">${PWIDGETS.emptyState('bi-lightbulb','No recommendations right now','Check back soon — your pricing looks well optimized.')}</div>`;
-}
+/* ==========================================================================
+   Pricing Recommendations — nine concrete recommended-action types, each with
+   its own real, deterministic trigger condition against live rate/channel/
+   room/market data (never random). A type only produces a card when its
+   condition is actually met on this property today — never fabricated to
+   fill space.
+   ========================================================================== */
+const REC_ACTION_TYPES = {
+  increase:        { label:'Increase Price',                  icon:'bi-arrow-up-circle-fill',   color:'#12b76a', bg:'#e7faf1' },
+  decrease:        { label:'Decrease Price',                  icon:'bi-arrow-down-circle-fill',  color:'#ff4d5e', bg:'#fff0f1' },
+  maintain:        { label:'Maintain Current Price',          icon:'bi-dash-circle-fill',        color:'#3861fb', bg:'#eef4ff' },
+  channelAdjust:   { label:'Adjust Channel-Specific Rates',   icon:'bi-sliders',                 color:'#8c5cf7', bg:'#f3eeff' },
+  parity:          { label:'Fix Rate Parity Issues',          icon:'bi-exclamation-octagon-fill',color:'#ff4d5e', bg:'#fff0f1' },
+  mealPlan:        { label:'Review Meal Plan Pricing',        icon:'bi-cup-hot-fill',            color:'#b9791a', bg:'#fff8e6' },
+  roomPositioning: { label:'Review Room Positioning',         icon:'bi-door-open-fill',          color:'#00c2a8', bg:'#e6fbf8' },
+  promotions:      { label:'Monitor Competitor Promotions',   icon:'bi-megaphone-fill',          color:'#b9791a', bg:'#fff8e6' },
+  opportunity:     { label:'Capitalize on Market Opportunities', icon:'bi-graph-up-arrow',        color:'#12b76a', bg:'#e7faf1' },
+};
 
-// ---- Channel Analysis (merged in from the standalone Channel Analysis page) ----
-let caChart = null;
-function renderChannelAnalysis(propertyId){
-  const todayKey = DB.fmtDate(new Date());
+function generatePricingRecommendations(propertyId){
+  const today = PORTALDATA.dateKeyOffset(0);
+  const myRate = PORTALDATA.myRateOnDate(propertyId, today);
+  const comps = PORTALDATA.comparisonRealProperties();
+  const recs = [];
+  if(!myRate) return recs;
+
+  function push(type, detail, opts){
+    recs.push({ type, detail, ...opts });
+  }
+
+  /* ---- 1/2/3. Increase / Decrease / Maintain — my rate vs. the tracked market average ---- */
+  if(comps.length){
+    const compRates = comps.map(c=>PORTALDATA.competitorRateOnDate(c, today));
+    const marketAvg = Math.round(compRates.reduce((a,b)=>a+b,0)/compRates.length);
+    const gapPct = ((marketAvg-myRate)/myRate*100);
+    if(gapPct > 6){
+      const amount = Math.round((marketAvg-myRate)*0.6/10)*10;
+      push('increase', `Market average (${APP.fmtCurrency(marketAvg)}) is running ${gapPct.toFixed(1)}% above your rate — room to raise without losing competitiveness.`,
+        { currentRate:myRate, expectedRate:myRate+amount, confidence:82, priority: gapPct>=15?'High':'Medium' });
+    } else if(gapPct < -6){
+      const amount = Math.round((myRate-marketAvg)*0.5/10)*10;
+      push('decrease', `You're priced ${Math.abs(gapPct).toFixed(1)}% above the market average (${APP.fmtCurrency(marketAvg)}) — risk of losing share to competitors.`,
+        { currentRate:myRate, expectedRate:myRate-amount, confidence:76, priority: Math.abs(gapPct)>=15?'High':'Medium' });
+    } else {
+      push('maintain', `Your rate is within ${Math.abs(gapPct).toFixed(1)}% of the ${comps.length}-property market average (${APP.fmtCurrency(marketAvg)}) — well aligned.`,
+        { currentRate:myRate, expectedRate:myRate, confidence:90, priority:'Low' });
+    }
+  }
+
+  /* ---- 4. Adjust Channel-Specific Rates — one OTA channel's own price is a statistical
+     outlier vs. the rest of your channel spread (not necessarily undercutting Direct — that's
+     Rate Parity's job below; this is about a channel that's inconsistently priced overall). ---- */
   const channels = DB.channels.byProperty(propertyId);
   const master = channels.find(c=>c.type==='master');
-
+  const otaChannels = channels.filter(c=>c.type!=='master');
   function channelAvgRateOnDate(channelId, dateKey){
     const rooms = DB.rooms.byChannel(channelId);
-    let sum = 0, count = 0;
-    rooms.forEach(room=>{
-      DB.ratePlans.byRoom(room.id).forEach(rp=>{
-        const day = DB.rates.forPlan(rp.id)[dateKey];
-        sum += day ? day.price : room.basePrice;
-        count++;
-      });
-    });
+    let sum=0, count=0;
+    rooms.forEach(room=>{ DB.ratePlans.byRoom(room.id).forEach(rp=>{
+      const day = DB.rates.forPlan(rp.id)[dateKey];
+      sum += day ? day.price : room.basePrice; count++;
+    }); });
     return count ? Math.round(sum/count) : null;
   }
-
-  const WINDOW_DAYS = 30;
-  const directCurrent = master ? channelAvgRateOnDate(master.id, todayKey) : null;
-
-  const channelMetrics = channels.map(ch=>{
-    const series = [];
-    for(let d=0; d<WINDOW_DAYS; d++){
-      const dk = DB.fmtDate(new Date(Date.now()+d*86400000));
-      const rate = channelAvgRateOnDate(ch.id, dk);
-      if(rate!=null) series.push(rate);
+  if(otaChannels.length>=2){
+    const channelRates = otaChannels.map(ch=>({ ch, rate:channelAvgRateOnDate(ch.id, today) })).filter(c=>c.rate!=null);
+    if(channelRates.length>=2){
+      const mean = channelRates.reduce((s,c)=>s+c.rate,0)/channelRates.length;
+      const stdDev = Math.sqrt(channelRates.reduce((s,c)=>s+Math.pow(c.rate-mean,2),0)/channelRates.length);
+      const outlier = channelRates.find(c=> stdDev>0 && Math.abs(c.rate-mean)>1.4*stdDev);
+      if(outlier){
+        const diffPct = ((outlier.rate-mean)/mean*100);
+        push('channelAdjust', `${outlier.ch.name} is priced ${Math.abs(diffPct).toFixed(1)}% ${diffPct>0?'above':'below'} your average OTA rate (${APP.fmtCurrency(Math.round(mean))}) — worth reviewing that channel's specific pricing.`,
+          { currentRate:outlier.rate, expectedRate:Math.round(mean), confidence:70, priority: Math.abs(diffPct)>=25?'High':'Medium' });
+      }
     }
-    const current = channelAvgRateOnDate(ch.id, todayKey);
-    const lowest = series.length ? Math.min(...series) : null;
-    const highest = series.length ? Math.max(...series) : null;
-    const average = series.length ? Math.round(series.reduce((a,b)=>a+b,0)/series.length) : null;
-    const diff = (current!=null && directCurrent!=null) ? current-directCurrent : null;
-    return { channel: ch, current, lowest, highest, average, diff };
-  });
-
-  document.getElementById('channelCards').innerHTML = channelMetrics.map(m=>{
-    const meta = DB.CHANNEL_TYPES[m.channel.type] || DB.CHANNEL_TYPES.custom;
-    return `<div class="col-md-6 col-xl-4">
-      <div class="channel-perf-card">
-        <div class="d-flex align-items-center gap-2 mb-2">
-          <i class="bi ${meta.icon}" style="color:${meta.color}"></i>
-          <span class="fw-bold" style="font-size:.9rem">${m.channel.name}</span>
-          <span class="text-muted" style="font-size:.68rem">#${m.channel.channelCode}</span>
-          ${m.channel.id===(master&&master.id) ? '<span class="badge bg-primary-subtle text-primary ms-auto" style="font-size:.6rem">Direct</span>' : ''}
-        </div>
-        <div class="kv-row"><span class="k">Current Rate</span><span class="v fw-semibold">${m.current!=null?APP.fmtCurrency(m.current):'—'}</span></div>
-        <div class="kv-row"><span class="k">Lowest Rate</span><span class="v">${m.lowest!=null?APP.fmtCurrency(m.lowest):'—'}</span></div>
-        <div class="kv-row"><span class="k">Highest Rate</span><span class="v">${m.highest!=null?APP.fmtCurrency(m.highest):'—'}</span></div>
-        <div class="kv-row"><span class="k">Average Rate</span><span class="v">${m.average!=null?APP.fmtCurrency(m.average):'—'}</span></div>
-        <div class="kv-row"><span class="k">Rate Difference</span><span class="v ${m.diff==null?'':m.diff>0?'text-danger':m.diff<0?'text-success':''}">${m.diff==null?'—':`${m.diff>=0?'+':''}${APP.fmtCurrency(m.diff)}`}</span></div>
-        <div class="kpi-desc">Current/Lowest/Highest/Average are this channel's rate today vs. over the next 30 days. Difference compares it to your Direct rate today.</div>
-      </div>
-    </div>`;
-  }).join('');
-
-  if(caChart) caChart.destroy();
-  caChart = new Chart(document.getElementById('channelRateChart'), {
-    type:'bar',
-    data:{
-      labels: channelMetrics.map(m=>m.channel.name),
-      datasets:[{label:'Current Rate', data: channelMetrics.map(m=>m.current||0), backgroundColor: channelMetrics.map(m=>(DB.CHANNEL_TYPES[m.channel.type]||DB.CHANNEL_TYPES.custom).color), borderRadius:6}]
-    },
-    options:{ responsive:true, plugins:{legend:{display:false}}, scales:{y:{ticks:{callback:v=>APP.fmtCurrency(v)}}} }
-  });
-
-  const otaChannelsAll = channels.filter(c=>c.id !== (master && master.id));
-  const myRoomsAll = master ? DB.rooms.byChannel(master.id) : [];
-
-  document.getElementById('ca_room').innerHTML = `<option value="">All Rooms</option>` + myRoomsAll.map(r=>`<option value="${r.id}">${r.name}</option>`).join('');
-  document.getElementById('ca_channel').innerHTML = `<option value="">All Channels (OTA Avg.)</option>` + otaChannelsAll.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
-
-  function renderParityTable(){
-    const roomFilter = document.getElementById('ca_room').value;
-    const channelFilter = document.getElementById('ca_channel').value;
-    const otaChannels = channelFilter ? otaChannelsAll.filter(c=>c.id===channelFilter) : otaChannelsAll;
-    const rows = [];
-
-    if(master){
-      myRoomsAll.filter(room=> !roomFilter || room.id===roomFilter).forEach(room=>{
-        DB.ratePlans.byRoom(room.id).forEach(rp=>{
-          const directData = DB.rates.forPlan(rp.id)[todayKey];
-          const directRate = directData ? directData.price : room.basePrice;
-
-          const channelRates = [{ label: master.name, rate: directRate }];
-          otaChannels.forEach(chan=>{
-            const matchRoom = DB.rooms.byChannel(chan.id).find(r=> r.name===room.name);
-            if(!matchRoom) return;
-            const plans = DB.ratePlans.byRoom(matchRoom.id);
-            const matchPlan = plans.find(p=> p.mealPlan===rp.mealPlan) || plans[0];
-            if(!matchPlan) return;
-            const dayData = DB.rates.forPlan(matchPlan.id)[todayKey];
-            channelRates.push({ label: chan.name, rate: dayData ? dayData.price : matchRoom.basePrice });
-          });
-
-          const otaRates = channelRates.filter(c=>c.label!==master.name);
-          const otaAvg = otaRates.length ? Math.round(otaRates.reduce((s,c)=>s+c.rate,0)/otaRates.length) : null;
-          const diff = otaAvg!=null ? otaAvg-directRate : null;
-          const cheapest = channelRates.reduce((min,c)=> c.rate<min.rate?c:min, channelRates[0]);
-          const priciest = channelRates.reduce((max,c)=> c.rate>max.rate?c:max, channelRates[0]);
-
-          let status, statusClass;
-          if(!otaRates.length){ status='No OTA Data'; statusClass='badge-inactive'; }
-          else if(cheapest.label===master.name){ status='At Parity'; statusClass='badge-active'; }
-          else { status='Undercut'; statusClass='badge-inactive'; }
-
-          rows.push({ room, rp, directRate, otaAvg, diff, cheapest, priciest, status, statusClass });
-        });
-      });
-    }
-
-    const otaRateLabel = channelFilter ? (otaChannelsAll.find(c=>c.id===channelFilter)||{}).name+' Rate' : 'OTA Rate (Avg.)';
-    document.getElementById('parityTable').innerHTML = `
-      <thead><tr><th>Room</th><th>Rate Plan</th><th>Direct Rate</th><th>${otaRateLabel}</th><th>Difference</th><th>Cheapest Channel</th><th>Most Expensive Channel</th><th>Parity Status</th></tr></thead>
-      <tbody>${rows.map(r=>`<tr>
-        <td class="fw-semibold">${r.room.name}</td>
-        <td>${r.rp.name}</td>
-        <td class="fw-semibold">${APP.fmtCurrency(r.directRate)}</td>
-        <td>${r.otaAvg!=null?APP.fmtCurrency(r.otaAvg):'—'}</td>
-        <td class="${r.diff==null?'':r.diff<0?'text-danger':'text-success'}">${r.diff==null?'—':`${r.diff>=0?'+':''}${APP.fmtCurrency(r.diff)}`}</td>
-        <td>${r.cheapest.label}</td>
-        <td>${r.priciest.label}</td>
-        <td><span class="badge-status ${r.statusClass}">${r.status}</span></td>
-      </tr>`).join('') || `<tr><td colspan="8" class="text-center text-muted py-4">No rooms found for these filters.</td></tr>`}</tbody>`;
   }
 
-  document.getElementById('ca_room').addEventListener('change', renderParityTable);
-  document.getElementById('ca_channel').addEventListener('change', renderParityTable);
-  renderParityTable();
+  /* ---- 5. Fix Rate Parity Issues — an OTA undercutting your Direct rate (shared check used by
+     the Dashboard KPI and Market Insight Cards' parity alert: PORTALDATA.firstParityViolation). ---- */
+  const violation1 = PORTALDATA.firstParityViolation(propertyId, today);
+  if(violation1){
+    const gapPct = ((violation1.directPrice-violation1.otaPrice)/violation1.directPrice*100);
+    push('parity', `${violation1.channel.name} is listing ${violation1.room.name} at ${APP.fmtCurrency(violation1.otaPrice)} — ${gapPct.toFixed(1)}% below your Direct rate of ${APP.fmtCurrency(violation1.directPrice)}.`,
+      { currentRate:violation1.otaPrice, expectedRate:violation1.directPrice, confidence:88, priority:'High',
+        applyPlan: violation1.plan, applyRoom: violation1.room });
+  }
+
+  /* ---- 6. Review Meal Plan Pricing — EP/CP/MAP/AP should get progressively more expensive as
+     more is included; flag if the actual data doesn't follow that order. ---- */
+  const mealOrder = ['EP','CP','MAP','AP'];
+  const mealRates = mealOrder.map(p=>({ plan:p, rate:PORTALDATA.mealPlanRateOnDate(propertyId, p, today) })).filter(m=>m.rate!=null);
+  for(let i=1;i<mealRates.length;i++){
+    if(mealRates[i].rate < mealRates[i-1].rate*0.98){
+      push('mealPlan', `${DB.MEAL_LABELS[mealRates[i-1].plan]} (${APP.fmtCurrency(mealRates[i-1].rate)}) is priced higher than ${DB.MEAL_LABELS[mealRates[i].plan]} (${APP.fmtCurrency(mealRates[i].rate)}), despite including less — worth re-checking the pricing ladder.`,
+        { currentRate:mealRates[i].rate, expectedRate:mealRates[i-1].rate, confidence:74, priority:'Medium' });
+      break; // one clear example is enough — no need to list every step
+    }
+  }
+
+  /* ---- 7. Review Room Positioning — within your own rooms, a higher-capacity/base-price room
+     shouldn't be cheaper than a lower-capacity one; that's a self-inconsistent pricing ladder. ---- */
+  if(master){
+    const masterRooms = DB.rooms.byChannel(master.id);
+    const sorted = [...masterRooms].sort((a,b)=>(a.capacity||0)-(b.capacity||0));
+    for(let i=1;i<sorted.length;i++){
+      if((sorted[i].capacity||0) > (sorted[i-1].capacity||0) && sorted[i].basePrice < sorted[i-1].basePrice*0.95){
+        push('roomPositioning', `${sorted[i].name} (${sorted[i].capacity} guests, ${APP.fmtCurrency(sorted[i].basePrice)}) is priced below ${sorted[i-1].name} (${sorted[i-1].capacity} guests, ${APP.fmtCurrency(sorted[i-1].basePrice)}) despite sleeping more guests.`,
+          { currentRate:sorted[i].basePrice, expectedRate:sorted[i-1].basePrice, confidence:72, priority:'Medium' });
+        break;
+      }
+    }
+  }
+
+  /* ---- 8. Monitor Competitor Promotions — a competitor cut their rate sharply in the last
+     7 days (possible promo push worth watching, distinct from a Direct-channel parity issue). ---- */
+  if(comps.length){
+    const mover = comps.map(c=>{
+      const t = PORTALDATA.competitorRateOnDate(c, today);
+      const y = PORTALDATA.competitorRateOnDate(c, PORTALDATA.dateKeyOffset(-7));
+      return { c, pct: y ? ((t-y)/y*100) : 0 };
+    }).sort((a,b)=>a.pct-b.pct)[0];
+    if(mover && mover.pct <= -8){
+      push('promotions', `${mover.c.name} cut their rate ${Math.abs(mover.pct).toFixed(1)}% over the last 7 days — likely running a promotion. Keep an eye on their booking pace.`,
+        { confidence:68, priority: mover.pct<=-15?'High':'Medium' });
+    }
+  }
+
+  /* ---- 9. Capitalize on Market Opportunities — a weekend/holiday or local event is coming up
+     within the week, and you're not already priced at a premium — a chance to raise ahead of
+     anticipated demand. ---- */
+  for(let d=1; d<=6; d++){
+    const dk = PORTALDATA.dateKeyOffset(d);
+    const isSpecial = PORTALDATA.isWeekend(dk) || PORTALDATA.isHoliday(dk);
+    const evt = PORTALDATA.localEventOn(dk);
+    if((isSpecial || evt) && comps.length){
+      const compRatesThen = comps.map(c=>PORTALDATA.competitorRateOnDate(c, dk));
+      const marketAvgThen = Math.round(compRatesThen.reduce((a,b)=>a+b,0)/compRatesThen.length);
+      const myRateThen = PORTALDATA.myRateOnDate(propertyId, dk);
+      if(myRateThen <= marketAvgThen*1.02){
+        const reason = evt ? `Local event detected: ${evt}` : PORTALDATA.isHoliday(dk) ? 'Upcoming holiday' : 'Upcoming weekend';
+        push('opportunity', `${reason} on ${APP.fmtDateReadable(dk)} — this market typically commands higher rates and you're not yet priced ahead of it.`,
+          { currentRate:myRateThen, expectedRate:Math.round(myRateThen*1.08/10)*10, confidence:69, priority:'Medium' });
+      }
+      break; // nearest opportunity only
+    }
+  }
+
+  const priorityRank = { High:0, Medium:1, Low:2 };
+  recs.sort((a,b)=> priorityRank[a.priority]-priorityRank[b.priority]);
+  return recs;
+}
+
+/* ==========================================================================
+   Action Center — closes the loop that Insight Generation leaves open: turns each
+   recommendation into something the owner can actually apply. Reuses the same
+   generatePricingRecommendations() data (no separate computation), the same
+   .insight-card/.insight-priority-badge/.insight-confidence-badge visual language, and writes
+   through DB.rates.setRange — the same mutation path property-details.js's "Set Price for Date
+   Range" action already uses — so a rate change made here shows up everywhere My Rate is read
+   from (Dashboard, Rate Shopper, Room Rate Comparison, Rate Matrix, property-details.html).
+   ========================================================================== */
+let acQueue = [];
+function renderActionCenter(propertyId){
+  const today = PORTALDATA.dateKeyOffset(0);
+  acQueue = generatePricingRecommendations(propertyId).filter(r=>r.type!=='maintain' && r.currentRate!=null && r.expectedRate!=null && r.currentRate!==r.expectedRate);
+
+  document.getElementById('ac_countBadge').textContent = acQueue.length ? `${acQueue.length} pending` : '';
+
+  document.getElementById('actionQueueGrid').innerHTML = acQueue.length ? acQueue.map((r,i)=>{
+    const meta = REC_ACTION_TYPES[r.type];
+    const delta = r.expectedRate - r.currentRate;
+    return `<div class="col-md-6 col-xl-4">
+      <div class="insight-card priority-${r.priority}">
+        <div class="d-flex align-items-start gap-2 mb-2">
+          <div class="insight-icon" style="background:${meta.bg};color:${meta.color}"><i class="bi ${meta.icon}"></i></div>
+          <div class="flex-grow-1">
+            <div class="fw-bold" style="font-size:.86rem;line-height:1.25">${meta.label}</div>
+            <div class="d-flex gap-1 mt-1">
+              <span class="insight-priority-badge ${r.priority}">${r.priority} Priority</span>
+              <span class="insight-confidence-badge">Confidence: ${r.confidence}%</span>
+            </div>
+          </div>
+        </div>
+        <p class="text-muted small mb-2">${r.detail}</p>
+        <div class="row g-2 mb-2">
+          <div class="col-6"><div class="text-muted" style="font-size:.68rem">Current Rate</div><div class="fw-semibold">${APP.fmtCurrency(r.currentRate)}</div></div>
+          <div class="col-6"><div class="text-muted" style="font-size:.68rem">New Rate</div><div class="fw-semibold ${delta>0?'text-danger':'text-success'}">${APP.fmtCurrency(r.expectedRate)}</div></div>
+        </div>
+        <button class="btn btn-primary btn-sm w-100" onclick="openApplyModal(${i})"><i class="bi bi-lightning-charge-fill me-1"></i>Apply Rate Change</button>
+      </div>
+    </div>`;
+  }).join('') : `<div class="col-12">${PWIDGETS.emptyState('bi-check2-circle','Nothing to act on right now','Every open recommendation has already been applied or your pricing is well aligned — check back after the market moves.')}</div>`;
+
+  renderRecentlyApplied(propertyId);
+}
+
+function renderRecentlyApplied(propertyId){
+  const applied = PORTALDATA.notifications(propertyId).filter(n=>n.type==='rateApplied').slice(0,6);
+  document.getElementById('ac_recentList').innerHTML = applied.length ? applied.map(n=>`
+    <div class="d-flex align-items-start gap-2 mb-2 pb-2" style="border-bottom:1px solid var(--border-2)">
+      <i class="bi bi-check-circle-fill mt-1" style="color:#12b76a;font-size:.85rem"></i>
+      <div class="flex-grow-1">
+        <div style="font-size:.8rem" class="fw-semibold">${n.title}</div>
+        <div class="text-muted" style="font-size:.72rem">${n.message}</div>
+      </div>
+      <div class="text-muted" style="font-size:.68rem;white-space:nowrap">${new Date(n.createdAt).toLocaleString()}</div>
+    </div>`).join('') : PWIDGETS.emptyState('bi-clock-history','No changes applied yet','Applied rate changes will show up here.');
+}
+
+function openApplyModal(index){
+  const rec = acQueue[index];
+  if(!rec) return;
+  const meta = REC_ACTION_TYPES[rec.type];
+  document.getElementById('acModalDetail').textContent = rec.detail;
+  document.getElementById('acModalCurrent').textContent = APP.fmtCurrency(rec.currentRate);
+  document.getElementById('acModalNew').textContent = APP.fmtCurrency(rec.expectedRate);
+  document.getElementById('acModalScope').textContent = rec.applyPlan
+    ? `Applies to ${rec.applyRoom.name} on ${APP.fmtDateReadable(rec.date || PORTALDATA.dateKeyOffset(0))}.`
+    : `Applies proportionally across every Direct (Master) room/rate plan on ${APP.fmtDateReadable(rec.date || PORTALDATA.dateKeyOffset(0))}.`;
+  document.getElementById('acModalApplyBtn').onclick = ()=>{
+    applyRecommendation(rec, meta);
+    bootstrap.Modal.getInstance(document.getElementById('acApplyModal')).hide();
+  };
+  new bootstrap.Modal(document.getElementById('acApplyModal')).show();
+}
+
+function applyRecommendation(rec, meta){
+  const me = RBAC.currentUser();
+  const propertyId = PORTAL.activePropertyId(me);
+  const date = rec.date || PORTALDATA.dateKeyOffset(0);
+  const ratio = rec.currentRate>0 ? rec.expectedRate/rec.currentRate : 1;
+
+  let targets = [];
+  if(rec.applyPlan){
+    targets = [{ plan:rec.applyPlan, room:rec.applyRoom }];
+  } else {
+    const channels = DB.channels.byProperty(propertyId);
+    const master = channels.find(c=>c.type==='master');
+    if(master){
+      DB.rooms.byChannel(master.id).forEach(room=>{
+        DB.ratePlans.byRoom(room.id).forEach(plan=> targets.push({ plan, room }));
+      });
+    }
+  }
+
+  targets.forEach(({plan,room})=>{
+    const day = DB.rates.forPlan(plan.id)[date];
+    const price = day ? day.price : room.basePrice;
+    const newPrice = Math.max(500, Math.round(price*ratio/10)*10);
+    const maxOcc = Math.max(room.maxOccupancy||1, plan.baseOccupancy||1);
+    DB.rates.setRange(plan.id, date, date, newPrice, plan.baseOccupancy, plan.extraAdultPrice, maxOcc);
+  });
+
+  PORTALDATA.addNotification(propertyId, {
+    type:'rateApplied', icon:'bi-lightning-charge-fill', priority:'low',
+    title:`${meta.label} applied`,
+    message:`${APP.fmtCurrency(rec.currentRate)} → ${APP.fmtCurrency(rec.expectedRate)} for ${APP.fmtDateReadable(date)}.`
+  });
+
+  APP.toast('Rate Change Applied', `${meta.label} — new rate takes effect for ${APP.fmtDateReadable(date)}.`, 'success');
+  PORTAL.refreshBell(me);
+  renderActionCenter(propertyId);
 }

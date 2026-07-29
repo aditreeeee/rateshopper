@@ -27,7 +27,11 @@ document.addEventListener('DOMContentLoaded', ()=>{
   const highest = compRatesToday.length ? Math.max(...compRatesToday) : myRate;
   const priceIndex = Math.round((myRate/marketAvg)*100);
   const ratePosition = myRate<lowest ? 'Below Market' : myRate>highest ? 'Above Market' : 'Within Market';
-  const parityScore = Math.max(40, 100 - DB.rand(0,25));
+  // Rate Parity Score — % of your own Direct-vs-OTA room/rate-plan pairs (today) where the OTA
+  // isn't undercutting your Direct rate. Shared with Market Intelligence's parity alert and
+  // pricing recommendation (PORTALDATA.parityScore/firstParityViolation) so the two pages never
+  // disagree on whether a parity issue exists.
+  const parityScore = PORTALDATA.parityScore(propertyId, today);
   const yesterdayRate = PORTALDATA.myRateOnDate(propertyId, PORTALDATA.dateKeyOffset(-1));
   const rateChangePct = ((myRate-yesterdayRate)/yesterdayRate*100).toFixed(1);
 
@@ -167,52 +171,36 @@ document.addEventListener('DOMContentLoaded', ()=>{
     });
   });
 
-  // Channel Price Comparison — real channels for this property (Master + OTAs)
-  const dashChannels = DB.channels.byProperty(propertyId);
-  function channelAvgRateOnDate(channelId, dateKey){
-    const rooms = DB.rooms.byChannel(channelId);
-    let sum=0, count=0;
-    rooms.forEach(room=>{ DB.ratePlans.byRoom(room.id).forEach(rp=>{
-      const day = DB.rates.forPlan(rp.id)[dateKey];
-      sum += day ? day.price : room.basePrice; count++;
-    }); });
-    return count ? Math.round(sum/count) : null;
+  // ---- Price Calendar: Date | My Rate | Lowest Competitor | Highest Competitor | Difference —
+  // 7/14/30 day range, toggled by the pill group in the section header. ----
+  function renderPriceCalendar(days){
+    const rows = Array.from({length:days}).map((_,d)=>{
+      const dk = PORTALDATA.dateKeyOffset(d);
+      const mine = PORTALDATA.myRateOnDate(propertyId, dk);
+      const {min, max} = minMaxCompRateOn(dk);
+      const diff = mine-min;
+      return `<tr>
+        <td>${new Date(dk+'T00:00:00').toLocaleDateString('en-IN',{weekday:'short',day:'2-digit',month:'short'})} ${PORTALDATA.isWeekend(dk)?'<span class="badge bg-light text-dark border ms-1" style="font-size:.62rem">Weekend</span>':''} ${PORTALDATA.isHoliday(dk)?'<span class="badge bg-warning-subtle text-warning-emphasis ms-1" style="font-size:.62rem">Holiday</span>':''}</td>
+        <td class="fw-semibold">${APP.fmtCurrency(mine)}</td>
+        <td class="text-success">${APP.fmtCurrency(min)}</td>
+        <td class="text-danger">${APP.fmtCurrency(max)}</td>
+        <td class="${diff>=0?'text-danger':'text-success'}">${diff>=0?'+':''}${APP.fmtCurrency(diff)}</td>
+      </tr>`;
+    }).join('');
+    document.getElementById('priceCalendarTable').innerHTML = `
+      <thead><tr><th>Date</th><th>My Rate</th><th>Lowest Competitor</th><th>Highest Competitor</th><th>Difference</th></tr></thead>
+      <tbody>${rows}</tbody>`;
   }
-  new Chart(document.getElementById('channelCompareChart'), {
-    type:'bar',
-    data:{
-      labels: dashChannels.map(ch=>ch.name),
-      datasets:[{ data: dashChannels.map(ch=>channelAvgRateOnDate(ch.id,today)||0), backgroundColor: dashChannels.map(ch=>(DB.CHANNEL_TYPES[ch.type]||DB.CHANNEL_TYPES.custom).color), borderRadius:6 }]
-    },
-    options:{ responsive:true, animation:chartAnim(true), plugins:{legend:{display:false}}, scales:{y:{ticks:{callback:v=>APP.fmtCurrency(v)}}} }
+  renderPriceCalendar(14);
+  document.querySelectorAll('#priceCalRangeGroup [data-days]').forEach(btn=>{
+    btn.addEventListener('click', function(){
+      document.querySelectorAll('#priceCalRangeGroup [data-days]').forEach(b=>{
+        b.classList.toggle('btn-outline-primary', b===this);
+        b.classList.toggle('btn-soft', b!==this);
+      });
+      renderPriceCalendar(Number(this.dataset.days));
+    });
   });
-
-  // ---- Competitor Update Heatmap (30 days) — intensity = % of tracked competitors whose rate changed vs the prior day ----
-  document.getElementById('updateHeatmap').innerHTML = Array.from({length:30}).map((_,d)=>{
-    const dk = PORTALDATA.dateKeyOffset(d);
-    const prevDk = PORTALDATA.dateKeyOffset(d-1);
-    const changed = comps.filter(c=> PORTALDATA.competitorRateOnDate(c,dk) !== PORTALDATA.competitorRateOnDate(c,prevDk)).length;
-    const intensity = comps.length ? Math.round((changed/comps.length)*100) : 0;
-    return `<div class="heatmap-cell" style="background:${PWIDGETS.heatCellColor(intensity)}" title="${dk}: ${changed}/${comps.length} competitors changed rate">${new Date(dk+'T00:00:00').getDate()}</div>`;
-  }).join('');
-
-  // ---- 14-Day Price Calendar: Date | My Rate | Lowest Competitor | Highest Competitor | Difference ----
-  const rows14 = Array.from({length:14}).map((_,d)=>{
-    const dk = PORTALDATA.dateKeyOffset(d);
-    const mine = PORTALDATA.myRateOnDate(propertyId, dk);
-    const {min, max} = minMaxCompRateOn(dk);
-    const diff = mine-min;
-    return `<tr>
-      <td>${new Date(dk+'T00:00:00').toLocaleDateString('en-IN',{weekday:'short',day:'2-digit',month:'short'})} ${PORTALDATA.isWeekend(dk)?'<span class="badge bg-light text-dark border ms-1" style="font-size:.62rem">Weekend</span>':''} ${PORTALDATA.isHoliday(dk)?'<span class="badge bg-warning-subtle text-warning-emphasis ms-1" style="font-size:.62rem">Holiday</span>':''}</td>
-      <td class="fw-semibold">${APP.fmtCurrency(mine)}</td>
-      <td class="text-success">${APP.fmtCurrency(min)}</td>
-      <td class="text-danger">${APP.fmtCurrency(max)}</td>
-      <td class="${diff>=0?'text-danger':'text-success'}">${diff>=0?'+':''}${APP.fmtCurrency(diff)}</td>
-    </tr>`;
-  }).join('');
-  document.getElementById('priceCalendarTable').innerHTML = `
-    <thead><tr><th>Date</th><th>My Rate</th><th>Lowest Competitor</th><th>Highest Competitor</th><th>Difference</th></tr></thead>
-    <tbody>${rows14}</tbody>`;
 
   // Rate position gauge
   const pos = Math.max(0, Math.min(100, priceIndex));
@@ -235,15 +223,6 @@ document.addEventListener('DOMContentLoaded', ()=>{
       </div>
       <div class="fw-bold" style="font-size:.82rem">${APP.fmtCurrency(c.rate)}</div>
     </div>`).join('');
-
-  // Upcoming events widget (next 30 days)
-  const events = [];
-  for(let d=1; d<30; d++){ const dk=PORTALDATA.dateKeyOffset(d); const ev=PORTALDATA.localEventOn(dk); if(ev) events.push({dk,ev}); }
-  document.getElementById('eventsWidget').innerHTML = events.length ? events.slice(0,4).map(e=>`
-    <div class="d-flex align-items-center gap-2 mb-2">
-      <div class="stat-icon" style="width:34px;height:34px;background:#fff8e6;color:#b9791a"><i class="bi bi-calendar-event"></i></div>
-      <div><div class="fw-semibold" style="font-size:.8rem">${e.ev}</div><div class="text-muted" style="font-size:.7rem">${APP.fmtDateReadable(e.dk)}</div></div>
-    </div>`).join('') : PWIDGETS.emptyState('bi-calendar-x','No events found','No local events detected in the next 30 days.');
 
   // Channel performance widget (top channels by ADR)
   document.getElementById('channelPerfWidget').innerHTML = PORTALDATA.CHANNELS.slice(0,5).map(ch=>{

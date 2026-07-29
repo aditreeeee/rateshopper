@@ -46,18 +46,32 @@ const APP = (() => {
       if(item.companyOnly) return RBAC.isCompanyLevel();
       return true;
     });
-    // Drop a section header if nothing under it survived the role filter
-    let items = visibleNav.filter((item,i)=>{
-      if(!item.section) return true;
-      const next = visibleNav[i+1];
-      return next && !next.section;
-    }).map(item=>{
-      if(item.section) return `<div class="nav-section">${item.section}</div>`;
-      const matches = item.match || [item.href];
-      const active = matches.includes(currentPage());
-      const badge = item.badge ? `<span class="badge bg-warning-subtle text-warning-emphasis ms-auto" style="font-size:.6rem">${item.badge}</span>` : '';
-      const count = item.showCount && unread>0 ? `<span class="badge rounded-pill bg-danger ms-auto">${unread}</span>` : '';
-      return `<a href="${item.href}" class="nav-link ${active?'active':''}"><i class="bi ${item.icon}"></i><span>${item.label}</span>${badge}${count}</a>`;
+    // Group into collapsible sections (dropping any section with nothing under it after the
+    // role filter). A section auto-expands whenever it contains the current page, regardless of
+    // any previously saved collapsed state — collapsing is a declutter convenience, it should
+    // never be able to hide where you actually are.
+    const groups = [];
+    visibleNav.forEach(item=>{
+      if(item.section){ groups.push({ label:item.section, items:[] }); }
+      else if(groups.length){ groups[groups.length-1].items.push(item); }
+    });
+    let items = groups.filter(g=>g.items.length).map(g=>{
+      const hasActive = g.items.some(item=> (item.match||[item.href]).includes(currentPage()));
+      const storedCollapsed = localStorage.getItem('hop_navsec_'+g.label) === '1';
+      const collapsed = !hasActive && storedCollapsed;
+      const linksHtml = g.items.map(item=>{
+        const matches = item.match || [item.href];
+        const active = matches.includes(currentPage());
+        const badge = item.badge ? `<span class="badge bg-warning-subtle text-warning-emphasis ms-auto" style="font-size:.6rem">${item.badge}</span>` : '';
+        const count = item.showCount && unread>0 ? `<span class="badge rounded-pill bg-danger ms-auto">${unread}</span>` : '';
+        return `<a href="${item.href}" class="nav-link ${active?'active':''}"><i class="bi ${item.icon}"></i><span>${item.label}</span>${badge}${count}</a>`;
+      }).join('');
+      return `<div class="nav-section-group ${collapsed?'collapsed':''}">
+        <button type="button" class="nav-section" onclick="APP.toggleNavSection(this,'${g.label}')" aria-expanded="${!collapsed}">
+          <span>${g.label}</span><i class="bi bi-chevron-down nav-section-chevron"></i>
+        </button>
+        <div class="nav-section-links"><div class="nav-section-inner">${linksHtml}</div></div>
+      </div>`;
     }).join('');
 
     return `
@@ -137,6 +151,12 @@ const APP = (() => {
   }
 
   function toggleSidebarMobile(){ document.getElementById('app-shell').classList.toggle('sidebar-open'); }
+  function toggleNavSection(btn, label){
+    const group = btn.closest('.nav-section-group');
+    const collapsed = group.classList.toggle('collapsed');
+    btn.setAttribute('aria-expanded', String(!collapsed));
+    localStorage.setItem('hop_navsec_'+label, collapsed ? '1' : '0');
+  }
   function toggleTheme(){ setTheme(getTheme()==='light'?'dark':'light'); }
 
   function logout(){
@@ -201,7 +221,7 @@ const APP = (() => {
   }
   function qs(name){ return new URLSearchParams(location.search).get(name); }
 
-  return { mount, setBreadcrumb, toggleSidebarMobile, toggleTheme, logout, toast, confirmModal, fmtCurrency, fmtDateReadable, skeleton, qs, requireAuth, initTheme, getTheme, setTheme };
+  return { mount, setBreadcrumb, toggleSidebarMobile, toggleNavSection, toggleTheme, logout, toast, confirmModal, fmtCurrency, fmtDateReadable, skeleton, qs, requireAuth, initTheme, getTheme, setTheme };
 })();
 
 // apply theme ASAP even before DOM mount to avoid flash

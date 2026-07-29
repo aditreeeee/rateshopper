@@ -24,7 +24,7 @@ let rcSort = { key:'compRate', dir:'asc' };
 // Shared filter state — read by every render function below.
 let mealPlanFilter = '';   // '' | EP | CP | MAP | AP
 let rcDays = 14;           // 7 | 14 | 30 | 90 | 365
-let rcChartStyle = 'line'; // 'line' | 'bar' — applies to every chart on the page
+let rcChartStyle = 'bar';  // 'line' | 'bar' — applies to the Trend Analysis and Meal Plan Comparison charts; bar is the default view here
 
 // Shared Chart.js animation preset — same helper as the Dashboard/Market Intelligence pages;
 // bars cascade in one-by-one, lines draw in with a smooth ease.
@@ -41,7 +41,7 @@ function chartAnim(isBar){
 if(window.Chart) Chart.defaults.font.family = getComputedStyle(document.body).fontFamily;
 
 document.addEventListener('DOMContentLoaded', ()=>{
-  const me = PORTAL.mount({ title:'Room Rate Comparison', subtitle:'Compare your rooms against mapped competitor rooms, plan by plan, channel by channel.' });
+  const me = PORTAL.mount({ title:'Comparison', subtitle:'Compare your rooms, rate plans, and channels against mapped competitors, all in one place.' });
   if(!me) return;
   const propertyId = PORTAL.activePropertyId(me);
 
@@ -69,6 +69,11 @@ document.addEventListener('DOMContentLoaded', ()=>{
     if(!plans.length) return null;
     if(!mealPlan) return plans[0];
     return plans.find(p=>p.mealPlan===mealPlan) || null;
+  }
+  // Direct stays the exact stored price (no invented markup/jitter); every OTA channel gets its
+  // real markdown/markup + jitter via PORTALDATA.channelRate, same as everywhere else on the page.
+  function rateOnChannel(raw, channelKey){
+    return channelKey==='direct' ? raw : PORTALDATA.channelRate(raw, channelKey, PORTALDATA.dateKeyOffset(0));
   }
 
   // ---- "My Rate" for a room, averaged over the selected date range, honoring the Meal Plan
@@ -107,6 +112,10 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
   // ---- Build the flat comparison-row dataset for the currently selected filters ----
   function buildRows(channelFilter){
+    // "All Channels" (no filter) shows every channel's price side by side, one row per channel,
+    // instead of silently collapsing to the Direct rate — otherwise "All Channels" behaved
+    // exactly like picking Direct, which isn't what that option implies.
+    const channelsToShow = channelFilter ? [channelFilter] : PORTALDATA.CHANNELS.map(c=>c.key);
     const rows = [];
     myRooms.forEach(room=>{
       let plans = DB.ratePlans.byRoom(room.id);
@@ -115,7 +124,6 @@ document.addEventListener('DOMContentLoaded', ()=>{
         const myBaseFor = dk=>{ const d=DB.rates.forPlan(rp.id)[dk]; return d ? d.price : room.basePrice; };
         const myRaw = avgOf(rangeDates(rcDays).map(myBaseFor));
         if(myRaw==null) return;
-        const myRate = channelFilter ? PORTALDATA.channelRate(myRaw, channelFilter, PORTALDATA.dateKeyOffset(0)) : myRaw;
 
         compsAll.forEach(comp=>{
           const compRoom = mappedCompRoom(comp, room);
@@ -123,23 +131,25 @@ document.addEventListener('DOMContentLoaded', ()=>{
           const compPlans = DB.ratePlans.byRoom(compRoom.id);
           const compPlan = compPlans.find(p=>p.mealPlan===rp.mealPlan) || compPlans[0];
           if(!compPlan) return;
-          const channelKey = channelFilter || 'direct';
           const baseFor = dk=>{ const d=DB.rates.forPlan(compPlan.id)[dk]; return d ? d.price : compRoom.basePrice; };
           const raw = avgOf(rangeDates(rcDays).map(baseFor));
           if(raw==null) return;
-          const compRate = channelFilter ? PORTALDATA.channelRate(raw, channelFilter, PORTALDATA.dateKeyOffset(0)) : raw;
           const compRoomName = compRoom.name;
           const ratePlanName = compPlan.name;
           const lastUpdated = compPlan.createdAt || PORTALDATA.dateKeyOffset(0);
 
-          const diff = compRate - myRate;
-          const diffPct = myRate ? (diff/myRate*100) : 0;
-          const position = Math.abs(diffPct) < 1 ? 'same' : diff > 0 ? 'higher' : 'lower';
+          channelsToShow.forEach(channelKey=>{
+            const myRate = rateOnChannel(myRaw, channelKey);
+            const compRate = rateOnChannel(raw, channelKey);
+            const diff = compRate - myRate;
+            const diffPct = myRate ? (diff/myRate*100) : 0;
+            const position = Math.abs(diffPct) < 1 ? 'same' : diff > 0 ? 'higher' : 'lower';
 
-          rows.push({
-            compId: comp.id, compName: comp.name, compRoomName, channelKey, ratePlanName,
-            myRoomId: room.id, myRoomName: room.name, myRatePlanName: rp.name, myRateMealPlan: rp.mealPlan,
-            myRate, compRate, diff, diffPct, position, lastUpdated, isReal: true
+            rows.push({
+              compId: comp.id, compName: comp.name, compRoomName, channelKey, ratePlanName,
+              myRoomId: room.id, myRoomName: room.name, myRatePlanName: rp.name, myRateMealPlan: rp.mealPlan,
+              myRate, compRate, diff, diffPct, position, lastUpdated, isReal: true
+            });
           });
         });
       });
@@ -317,8 +327,6 @@ document.addEventListener('DOMContentLoaded', ()=>{
     if(!rooms.length){ wrap.innerHTML = PWIDGETS.emptyState('bi-door-closed','No rooms','Nothing to compare for the current filters.'); return; }
     if(!document.getElementById('rc_distChart')){ wrap.innerHTML = `<div id="rc_distChartInner"><canvas id="rc_distChart"></canvas></div>`; }
 
-    const isBar = rcChartStyle === 'bar';
-
     if(rooms.length === 1){
       const room = rooms[0];
       const myRate = myRoomRate(room, channelFilter);
@@ -350,7 +358,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     setDistChartHeight(labels.length, 52);
     if(rcDistChart) rcDistChart.destroy();
     rcDistChart = new Chart(document.getElementById('rc_distChart'), {
-      type: isBar ? 'bar' : 'bar', // horizontal comparison always reads best as bars regardless of the page-level line/bar toggle
+      type: 'bar', // horizontal comparison always reads best as bars
       data:{ labels, datasets:[
         { label:'My Rate', data:myData, backgroundColor:'#3861fb', borderRadius:6 },
         { label:'Market Avg', data:marketData, backgroundColor:'#c3aee8', borderRadius:6 }
@@ -392,49 +400,6 @@ document.addEventListener('DOMContentLoaded', ()=>{
       }).join('') || `<tr><td colspan="5" class="text-center text-muted py-3">No data</td></tr>`}</tbody>`;
   }
 
-  function renderHistory(channelFilter){
-    const rooms = focusRooms();
-    if(!rooms.length){ document.getElementById('rc_historyTable').innerHTML = ''; return; }
-
-    const days = rangeDates(rcDays).length > 30 ? rangeDates(30) : rangeDates(rcDays); // keep the day-by-day table readable even on a 1Y range
-    const rows = days.map(dk=>{
-      const myVals = rooms.map(r=>{
-        const rp = pickPlan(DB.ratePlans.byRoom(r.id), mealPlanFilter);
-        if(!rp) return null;
-        const day = DB.rates.forPlan(rp.id)[dk];
-        const raw = day ? day.price : r.basePrice;
-        return channelFilter ? PORTALDATA.channelRate(raw, channelFilter, dk) : raw;
-      }).filter(v=>v!=null);
-      const myRate = avgOf(myVals);
-      const rates = [];
-      rooms.forEach(r=> compsAll.forEach(c=>{
-        const compRoom = mappedCompRoom(c, r);
-        if(!compRoom) return;
-        const compPlan = pickPlan(DB.ratePlans.byRoom(compRoom.id), mealPlanFilter);
-        if(!compPlan) return;
-        const day = DB.rates.forPlan(compPlan.id)[dk];
-        const raw = day ? day.price : compRoom.basePrice;
-        rates.push(channelFilter ? PORTALDATA.channelRate(raw, channelFilter, dk) : raw);
-      }));
-      const marketAvg = rates.length ? avgOf(rates) : myRate;
-      const lowest = rates.length ? Math.min(...rates) : myRate;
-      const highest = rates.length ? Math.max(...rates) : myRate;
-      const diff = (myRate!=null && lowest!=null) ? myRate - lowest : null;
-      return { dk, myRate, marketAvg, lowest, highest, diff };
-    });
-
-    document.getElementById('rc_historyTable').innerHTML = `
-      <thead><tr><th>Date</th><th>My Rate</th><th>Market Average</th><th>Lowest Competitor</th><th>Highest Competitor</th><th>Difference</th></tr></thead>
-      <tbody>${rows.map(r=>`<tr>
-        <td>${new Date(r.dk+'T00:00:00').toLocaleDateString('en-IN',{weekday:'short',day:'2-digit',month:'short',year:'2-digit'})}</td>
-        <td class="fw-semibold">${r.myRate!=null?APP.fmtCurrency(r.myRate):'—'}</td>
-        <td>${r.marketAvg!=null?APP.fmtCurrency(r.marketAvg):'—'}</td>
-        <td class="text-success">${r.lowest!=null?APP.fmtCurrency(r.lowest):'—'}</td>
-        <td class="text-danger">${r.highest!=null?APP.fmtCurrency(r.highest):'—'}</td>
-        <td class="${r.diff==null?'':r.diff>=0?'text-danger':'text-success'}">${r.diff==null?'—':`${r.diff>=0?'+':''}${APP.fmtCurrency(r.diff)}`}</td>
-      </tr>`).join('')}</tbody>`;
-  }
-
   function exportCsv(){
     const filtered = sortRows(applyFilters(rcAllRows));
     const headers = ['Competitor Property','Competitor Room','Channel','Rate Plan','My Rate','Competitor Rate','Difference (₹)','Difference (%)','Price Position','Last Updated'];
@@ -459,7 +424,6 @@ document.addEventListener('DOMContentLoaded', ()=>{
     renderKpis(filtered, channelFilter);
     renderDistribution(channelFilter);
     renderRanking(channelFilter);
-    renderHistory(channelFilter);
   }
 
   ['rc_room','rc_channel'].forEach(id=>{
@@ -669,13 +633,30 @@ document.addEventListener('DOMContentLoaded', ()=>{
       document.querySelectorAll('#rc_chartStyleGroup button').forEach(b=>{ b.classList.remove('btn-outline-primary'); b.classList.add('btn-soft'); });
       this.classList.remove('btn-soft'); this.classList.add('btn-outline-primary');
       renderRpta();
-      renderDistribution(document.getElementById('rc_channel').value);
       renderMealPlanComparison(document.getElementById('rc_channel').value);
     });
   });
   // The top Channel/Room selectors also drive the Trend Analysis and Meal Plan Comparison charts.
   document.getElementById('rc_channel').addEventListener('input', ()=>{ renderRpta(); renderMealPlanComparison(document.getElementById('rc_channel').value); });
   document.getElementById('rc_room').addEventListener('input', ()=>{ renderRpta(); });
+
+  /* ======================================================================
+     Tab switching — Room Rate Comparison / Rate Plan Trend Analysis / Channel Comparison.
+     Chart.js can't size a canvas that was hidden (display:none) at creation time, so each
+     tab's charts are re-rendered (destroy + recreate) the first time its tab becomes visible
+     rather than only resized.
+     ====================================================================== */
+  document.querySelectorAll('#cmp_tabs .nav-link').forEach(btn=>{
+    btn.addEventListener('click', function(){
+      document.querySelectorAll('#cmp_tabs .nav-link').forEach(b=>b.classList.remove('active'));
+      this.classList.add('active');
+      document.getElementById('cmp_tabRooms').classList.toggle('d-none', this.dataset.tab!=='rooms');
+      document.getElementById('cmp_tabTrend').classList.toggle('d-none', this.dataset.tab!=='trend');
+      document.getElementById('cmp_tabChannels').classList.toggle('d-none', this.dataset.tab!=='channels');
+      if(this.dataset.tab==='trend'){ renderRpta(); renderMealPlanComparison(document.getElementById('rc_channel').value); }
+      if(this.dataset.tab==='channels'){ renderChannelAnalysis(propertyId); }
+    });
+  });
 
   if(!myRooms.length){
     document.getElementById('rcKpis').innerHTML = `<div class="col-12">${PWIDGETS.emptyState('bi-door-closed','No rooms found','Add rooms to your property\'s Master Channel to use Room Rate Comparison.')}</div>`;
@@ -685,4 +666,143 @@ document.addEventListener('DOMContentLoaded', ()=>{
   renderAll();
   renderRpta();
   renderMealPlanComparison('');
+  renderChannelAnalysis(propertyId);
 });
+
+/* ==========================================================================
+   Channel Performance — moved here from Market Intelligence, which duplicated this exact
+   per-channel/room-parity breakdown right alongside its own Channel Analysis. Room Rate
+   Comparison is the Analysis-stage home for per-room/per-channel breakdowns, so this belongs
+   here rather than in Market Intelligence (which is now Decision & Action only).
+   ========================================================================== */
+let caChart = null;
+function renderChannelAnalysis(propertyId){
+  const todayKey = DB.fmtDate(new Date());
+  const channels = DB.channels.byProperty(propertyId);
+  const master = channels.find(c=>c.type==='master');
+
+  function channelAvgRateOnDate(channelId, dateKey){
+    const rooms = DB.rooms.byChannel(channelId);
+    let sum = 0, count = 0;
+    rooms.forEach(room=>{
+      DB.ratePlans.byRoom(room.id).forEach(rp=>{
+        const day = DB.rates.forPlan(rp.id)[dateKey];
+        sum += day ? day.price : room.basePrice;
+        count++;
+      });
+    });
+    return count ? Math.round(sum/count) : null;
+  }
+
+  const WINDOW_DAYS = 30;
+  const directCurrent = master ? channelAvgRateOnDate(master.id, todayKey) : null;
+
+  const channelMetrics = channels.map(ch=>{
+    const series = [];
+    for(let d=0; d<WINDOW_DAYS; d++){
+      const dk = DB.fmtDate(new Date(Date.now()+d*86400000));
+      const rate = channelAvgRateOnDate(ch.id, dk);
+      if(rate!=null) series.push(rate);
+    }
+    const current = channelAvgRateOnDate(ch.id, todayKey);
+    const lowest = series.length ? Math.min(...series) : null;
+    const highest = series.length ? Math.max(...series) : null;
+    const average = series.length ? Math.round(series.reduce((a,b)=>a+b,0)/series.length) : null;
+    const diff = (current!=null && directCurrent!=null) ? current-directCurrent : null;
+    return { channel: ch, current, lowest, highest, average, diff };
+  });
+
+  document.getElementById('channelCards').innerHTML = channelMetrics.map(m=>{
+    const meta = DB.CHANNEL_TYPES[m.channel.type] || DB.CHANNEL_TYPES.custom;
+    return `<div class="col-md-6 col-xl-4">
+      <div class="channel-perf-card">
+        <div class="d-flex align-items-center gap-2 mb-2">
+          <i class="bi ${meta.icon}" style="color:${meta.color}"></i>
+          <span class="fw-bold" style="font-size:.9rem">${m.channel.name}</span>
+          <span class="text-muted" style="font-size:.68rem">#${m.channel.channelCode}</span>
+          ${m.channel.id===(master&&master.id) ? '<span class="badge bg-primary-subtle text-primary ms-auto" style="font-size:.6rem">Direct</span>' : ''}
+        </div>
+        <div class="kv-row"><span class="k">Current Rate</span><span class="v fw-semibold">${m.current!=null?APP.fmtCurrency(m.current):'—'}</span></div>
+        <div class="kv-row"><span class="k">Lowest Rate</span><span class="v">${m.lowest!=null?APP.fmtCurrency(m.lowest):'—'}</span></div>
+        <div class="kv-row"><span class="k">Highest Rate</span><span class="v">${m.highest!=null?APP.fmtCurrency(m.highest):'—'}</span></div>
+        <div class="kv-row"><span class="k">Average Rate</span><span class="v">${m.average!=null?APP.fmtCurrency(m.average):'—'}</span></div>
+        <div class="kv-row"><span class="k">Rate Difference</span><span class="v ${m.diff==null?'':m.diff>0?'text-danger':m.diff<0?'text-success':''}">${m.diff==null?'—':`${m.diff>=0?'+':''}${APP.fmtCurrency(m.diff)}`}</span></div>
+        <div class="kpi-desc">Current/Lowest/Highest/Average are this channel's rate today vs. over the next 30 days. Difference compares it to your Direct rate today.</div>
+      </div>
+    </div>`;
+  }).join('');
+
+  if(caChart) caChart.destroy();
+  caChart = new Chart(document.getElementById('channelRateChart'), {
+    type:'bar',
+    data:{
+      labels: channelMetrics.map(m=>m.channel.name),
+      datasets:[{label:'Current Rate', data: channelMetrics.map(m=>m.current||0), backgroundColor: channelMetrics.map(m=>(DB.CHANNEL_TYPES[m.channel.type]||DB.CHANNEL_TYPES.custom).color), borderRadius:6}]
+    },
+    options:{ responsive:true, plugins:{legend:{display:false}}, scales:{y:{ticks:{callback:v=>APP.fmtCurrency(v)}}} }
+  });
+
+  const otaChannelsAll = channels.filter(c=>c.id !== (master && master.id));
+  const myRoomsAll = master ? DB.rooms.byChannel(master.id) : [];
+
+  document.getElementById('ca_room').innerHTML = `<option value="">All Rooms</option>` + myRoomsAll.map(r=>`<option value="${r.id}">${r.name}</option>`).join('');
+  document.getElementById('ca_channel').innerHTML = `<option value="">All Channels (OTA Avg.)</option>` + otaChannelsAll.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
+
+  function renderParityTable(){
+    const roomFilter = document.getElementById('ca_room').value;
+    const channelFilter = document.getElementById('ca_channel').value;
+    const otaChannels = channelFilter ? otaChannelsAll.filter(c=>c.id===channelFilter) : otaChannelsAll;
+    const rows = [];
+
+    if(master){
+      myRoomsAll.filter(room=> !roomFilter || room.id===roomFilter).forEach(room=>{
+        DB.ratePlans.byRoom(room.id).forEach(rp=>{
+          const directData = DB.rates.forPlan(rp.id)[todayKey];
+          const directRate = directData ? directData.price : room.basePrice;
+
+          const channelRates = [{ label: master.name, rate: directRate }];
+          otaChannels.forEach(chan=>{
+            const matchRoom = DB.rooms.byChannel(chan.id).find(r=> r.name===room.name);
+            if(!matchRoom) return;
+            const plans = DB.ratePlans.byRoom(matchRoom.id);
+            const matchPlan = plans.find(p=> p.mealPlan===rp.mealPlan) || plans[0];
+            if(!matchPlan) return;
+            const dayData = DB.rates.forPlan(matchPlan.id)[todayKey];
+            channelRates.push({ label: chan.name, rate: dayData ? dayData.price : matchRoom.basePrice });
+          });
+
+          const otaRates = channelRates.filter(c=>c.label!==master.name);
+          const otaAvg = otaRates.length ? Math.round(otaRates.reduce((s,c)=>s+c.rate,0)/otaRates.length) : null;
+          const diff = otaAvg!=null ? otaAvg-directRate : null;
+          const cheapest = channelRates.reduce((min,c)=> c.rate<min.rate?c:min, channelRates[0]);
+          const priciest = channelRates.reduce((max,c)=> c.rate>max.rate?c:max, channelRates[0]);
+
+          let status, statusClass;
+          if(!otaRates.length){ status='No OTA Data'; statusClass='badge-inactive'; }
+          else if(cheapest.label===master.name){ status='At Parity'; statusClass='badge-active'; }
+          else { status='Undercut'; statusClass='badge-inactive'; }
+
+          rows.push({ room, rp, directRate, otaAvg, diff, cheapest, priciest, status, statusClass });
+        });
+      });
+    }
+
+    const otaRateLabel = channelFilter ? (otaChannelsAll.find(c=>c.id===channelFilter)||{}).name+' Rate' : 'OTA Rate (Avg.)';
+    document.getElementById('parityTable').innerHTML = `
+      <thead><tr><th>Room</th><th>Rate Plan</th><th>Direct Rate</th><th>${otaRateLabel}</th><th>Difference</th><th>Cheapest Channel</th><th>Most Expensive Channel</th><th>Parity Status</th></tr></thead>
+      <tbody>${rows.map(r=>`<tr>
+        <td class="fw-semibold">${r.room.name}</td>
+        <td>${r.rp.name}</td>
+        <td class="fw-semibold">${APP.fmtCurrency(r.directRate)}</td>
+        <td>${r.otaAvg!=null?APP.fmtCurrency(r.otaAvg):'—'}</td>
+        <td class="${r.diff==null?'':r.diff<0?'text-danger':'text-success'}">${r.diff==null?'—':`${r.diff>=0?'+':''}${APP.fmtCurrency(r.diff)}`}</td>
+        <td>${r.cheapest.label}</td>
+        <td>${r.priciest.label}</td>
+        <td><span class="badge-status ${r.statusClass}">${r.status}</span></td>
+      </tr>`).join('') || `<tr><td colspan="8" class="text-center text-muted py-4">No rooms found for these filters.</td></tr>`}</tbody>`;
+  }
+
+  document.getElementById('ca_room').addEventListener('change', renderParityTable);
+  document.getElementById('ca_channel').addEventListener('change', renderParityTable);
+  renderParityTable();
+}

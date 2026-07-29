@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Room Rate Comparison | Rate Shopper IQ</title>
+<title>Comparison | Rate Shopper IQ</title>
 <link rel="icon" href="data:,">
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
 <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
@@ -14,11 +14,11 @@
 <body>
 <div id="app-shell">
 
-<div class="rc-crumb mb-2"><a href="property-dashboard.html">Dashboard</a> <i class="bi bi-chevron-right"></i> <span>Room Rate Comparison</span></div>
+<div class="rc-crumb mb-2"><a href="property-dashboard.html">Dashboard</a> <i class="bi bi-chevron-right"></i> <span>Comparison</span></div>
 
-<!-- One filter bar for the entire page — every card below (KPIs, Rate Plan Trend Analysis,
-     Room Comparison table, Meal Plan Comparison, Distribution, Ranking, History) reads from
-     these same four controls, so nothing on the page can disagree with anything else. -->
+<!-- One filter bar shared by the Room Rate Comparison and Rate Plan Trend Analysis tabs — both
+     read from these same controls, so nothing between them can disagree. Channel Comparison has
+     its own room/channel selectors since it's a different kind of breakdown. -->
 <div class="filters-bar">
   <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
     <div class="d-flex flex-wrap align-items-center gap-2">
@@ -40,55 +40,23 @@
       </div>
     </div>
     <div class="d-flex align-items-center gap-2">
-      <span class="text-muted small d-none d-lg-inline">Chart style</span>
+      <span class="text-muted small d-none d-lg-inline">Chart view</span>
       <div class="btn-group btn-group-sm" id="rc_chartStyleGroup" role="group">
-        <button type="button" class="btn btn-outline-primary" data-style="line" title="Line chart"><i class="bi bi-graph-up"></i></button>
-        <button type="button" class="btn btn-soft" data-style="bar" title="Bar chart"><i class="bi bi-bar-chart-fill"></i></button>
+        <button type="button" class="btn btn-soft" data-style="line" title="Line chart"><i class="bi bi-graph-up me-1"></i>Line</button>
+        <button type="button" class="btn btn-outline-primary" data-style="bar" title="Bar chart"><i class="bi bi-bar-chart-fill me-1"></i>Bar</button>
       </div>
     </div>
   </div>
 </div>
 
+<ul class="nav nav-tabs mb-3" id="cmp_tabs">
+  <li class="nav-item"><button class="nav-link active" type="button" data-tab="rooms">Room Rate Comparison</button></li>
+  <li class="nav-item"><button class="nav-link" type="button" data-tab="trend">Rate Plan Trend Analysis</button></li>
+  <li class="nav-item"><button class="nav-link" type="button" data-tab="channels">Channel Comparison</button></li>
+</ul>
+
+<div id="cmp_tabRooms">
 <div class="row g-3 mb-1" id="rcKpis"></div>
-
-<!-- Rate Plan Trend Analysis — 12-month + this-month trend for the meal plan/channel/room
-     selected up top. -->
-<div class="chart-card mb-3" id="rptaCard">
-  <div class="rc-section-title mb-3">
-    <span class="rc-section-icon"><i class="bi bi-graph-up-arrow"></i></span>
-    <div>
-      <div class="fw-bold">Rate Plan Trend Analysis</div>
-      <div class="text-muted small">My rate vs. the market, trailing 12 months and this month day-by-day.</div>
-    </div>
-  </div>
-
-  <div class="row g-2 mb-4" id="rpta_kpis"></div>
-
-  <div class="row g-4">
-    <div class="col-lg-6">
-      <div class="fw-semibold small mb-2">12-Month Trend</div>
-      <canvas id="rpta_yearChart" height="110"></canvas>
-    </div>
-    <div class="col-lg-6">
-      <div class="fw-semibold small mb-2">This Month — Day by Day</div>
-      <canvas id="rpta_monthChart" height="110"></canvas>
-    </div>
-  </div>
-</div>
-
-<!-- Meal Plan Rate Comparison — how EP/CP/MAP/AP prices stack up across My Property and every
-     tracked competitor, side by side, so you can see plan-by-plan positioning at a glance
-     instead of switching the meal plan filter one at a time. -->
-<div class="chart-card mb-3">
-  <div class="rc-section-title mb-3">
-    <span class="rc-section-icon"><i class="bi bi-bar-chart-line"></i></span>
-    <div>
-      <div class="fw-bold">Meal Plan Rate Comparison — All Properties</div>
-      <div class="text-muted small">Average rate per meal plan, My Property vs. every tracked competitor, over the selected date range.</div>
-    </div>
-  </div>
-  <canvas id="rc_mealPlanChart" height="90"></canvas>
-</div>
 
 <div class="chart-card mb-3">
   <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
@@ -143,16 +111,94 @@
     </div>
   </div>
 </div>
+</div>
 
-<div class="section-card">
+<div id="cmp_tabTrend" class="d-none">
+<!-- Rate Plan Trend Analysis — 12-month + this-month trend for the meal plan/channel/room
+     selected up top. -->
+<div class="chart-card mb-3" id="rptaCard">
+  <div class="rc-section-title mb-3">
+    <span class="rc-section-icon"><i class="bi bi-graph-up-arrow"></i></span>
+    <div>
+      <div class="fw-bold">Rate Plan Trend Analysis</div>
+      <div class="text-muted small">My rate vs. the market, trailing 12 months and this month day-by-day.</div>
+    </div>
+  </div>
+
+  <div class="row g-2 mb-4" id="rpta_kpis"></div>
+
+  <div class="row g-4">
+    <div class="col-lg-6">
+      <div class="fw-semibold small mb-2">12-Month Trend</div>
+      <canvas id="rpta_yearChart" height="110"></canvas>
+    </div>
+    <div class="col-lg-6">
+      <div class="fw-semibold small mb-2">This Month — Day by Day</div>
+      <canvas id="rpta_monthChart" height="110"></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- Meal Plan Rate Comparison — how EP/CP/MAP/AP prices stack up across My Property and every
+     tracked competitor, side by side, so you can see plan-by-plan positioning at a glance
+     instead of switching the meal plan filter one at a time. -->
+<div class="chart-card mb-3">
+  <div class="rc-section-title mb-3">
+    <span class="rc-section-icon"><i class="bi bi-bar-chart-line"></i></span>
+    <div>
+      <div class="fw-bold">Meal Plan Rate Comparison — All Properties</div>
+      <div class="text-muted small">Average rate per meal plan, My Property vs. every tracked competitor, over the selected date range.</div>
+    </div>
+  </div>
+  <canvas id="rc_mealPlanChart" height="90"></canvas>
+</div>
+</div>
+
+<div id="cmp_tabChannels" class="d-none">
+<div class="rc-section-title mb-2 mt-1">
+  <span class="rc-section-icon"><i class="bi bi-diagram-3-fill"></i></span>
+  <div>
+    <div class="fw-bold">Channel Performance</div>
+    <div class="text-muted small">Current, lowest, highest, and average rate per channel over the next 30 days, vs. your Direct rate today.</div>
+  </div>
+</div>
+<div class="row g-3 mb-3" id="channelCards"></div>
+
+<div class="chart-card mb-3">
   <div class="rc-section-title mb-2">
-    <span class="rc-section-icon"><i class="bi bi-calendar3"></i></span>
-    <div class="fw-bold">Rate History</div>
+    <span class="rc-section-icon"><i class="bi bi-bar-chart-fill"></i></span>
+    <div class="fw-bold">Current Rate by Channel</div>
   </div>
-  <div class="text-muted small mb-2">Daily rate comparison for the selected room(s) over the chosen date range.</div>
-  <div class="rate-shopper-table-wrap">
-    <table class="table-modern w-100" id="rc_historyTable"></table>
+  <canvas id="channelRateChart" height="90"></canvas>
+</div>
+
+<div class="section-card p-0 mb-3">
+  <div class="p-3 pb-0">
+    <div class="rc-section-title mb-2">
+      <span class="rc-section-icon"><i class="bi bi-list-check"></i></span>
+      <div>
+        <div class="fw-bold">Room / Rate Plan Parity</div>
+        <div class="text-muted small">Direct (Master Channel) vs. every OTA (or just the one you pick below), for today, across every room in the property.</div>
+      </div>
+    </div>
+    <div class="row g-2 mb-3">
+      <div class="col-6 col-md-3">
+        <select class="form-select form-select-sm" id="ca_room"><option value="">All Rooms</option></select>
+      </div>
+      <div class="col-6 col-md-3">
+        <select class="form-select form-select-sm" id="ca_channel"><option value="">All Channels (OTA Avg.)</option></select>
+      </div>
+    </div>
   </div>
+  <div class="table-responsive">
+    <table class="table-modern w-100" id="parityTable"></table>
+  </div>
+</div>
+</div>
+
+<div class="section-card d-flex align-items-center justify-content-between flex-wrap gap-2">
+  <div class="text-muted small"><i class="bi bi-signpost-split me-1"></i>Ready to see AI-driven pricing decisions and act on them?</div>
+  <a href="property-market.html?tab=recommendations" class="btn btn-outline-primary btn-sm">Next: Decision & Action <i class="bi bi-arrow-right ms-1"></i></a>
 </div>
 
 </div>

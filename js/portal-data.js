@@ -280,6 +280,13 @@ const PORTALDATA = (() => {
     DB.set(KEYS.notifications+propertyId, list);
   }
   function unreadNotificationCount(propertyId){ return notifications(propertyId).filter(n=>!n.read).length; }
+  // Used by Market Intelligence's Action Center to log an applied rate change into the same
+  // alert feed the bell dropdown already reads — no separate audit/history store needed.
+  function addNotification(propertyId, notif){
+    const list = notifications(propertyId);
+    list.unshift({ id: DB.uid('pntf'), read:false, createdAt: new Date().toISOString(), ...notif });
+    DB.set(KEYS.notifications+propertyId, list);
+  }
 
   // ---- settings ------------------------------------------------------------
   // Portal-only preferences (notifications, layout). Regional units (currency/timezone/date
@@ -330,6 +337,63 @@ const PORTALDATA = (() => {
     return new Date(Date.now() - minutesAgo*60000);
   }
 
+  // Rate Parity Score — % of your own Direct-vs-OTA room/rate-plan pairs (given date) where the
+  // OTA isn't undercutting your Direct rate. Single source of truth shared by the Dashboard KPI,
+  // Market Insight Cards' parity alert, and Pricing Recommendations' "Fix Rate Parity" trigger —
+  // previously each of those reimplemented this check independently and could disagree.
+  function firstParityViolation(propertyId, dateKey){
+    const channels = DB.channels.byProperty(propertyId);
+    const master = channels.find(c=>c.type==='master');
+    if(!master) return null;
+    const otaChannels = channels.filter(c=>c.type!=='master');
+    const masterRooms = DB.rooms.byChannel(master.id);
+    let violation = null;
+    masterRooms.forEach(room=>{
+      if(violation) return;
+      DB.ratePlans.byRoom(room.id).forEach(plan=>{
+        if(violation) return;
+        otaChannels.forEach(ch=>{
+          if(violation) return;
+          const dayData = DB.rates.forPlan(plan.id)[dateKey];
+          const directPrice = dayData ? dayData.price : room.basePrice;
+          const otaRoom = DB.rooms.byChannel(ch.id).find(r=>r.name===room.name);
+          if(!otaRoom) return;
+          const otaPlan = DB.ratePlans.byRoom(otaRoom.id).find(p=>p.mealPlan===plan.mealPlan);
+          if(!otaPlan) return;
+          const otaDay = DB.rates.forPlan(otaPlan.id)[dateKey];
+          const otaPrice = otaDay ? otaDay.price : otaRoom.basePrice;
+          if(otaPrice < directPrice*0.97) violation = { channel:ch, room, plan, directPrice, otaPrice };
+        });
+      });
+    });
+    return violation;
+  }
+  function parityScore(propertyId, dateKey){
+    const channels = DB.channels.byProperty(propertyId);
+    const master = channels.find(c=>c.type==='master');
+    if(!master) return 100;
+    const otaChannels = channels.filter(c=>c.type!=='master');
+    const masterRooms = DB.rooms.byChannel(master.id);
+    let total = 0, violations = 0;
+    masterRooms.forEach(room=>{
+      DB.ratePlans.byRoom(room.id).forEach(plan=>{
+        const dayData = DB.rates.forPlan(plan.id)[dateKey];
+        const directPrice = dayData ? dayData.price : room.basePrice;
+        otaChannels.forEach(ch=>{
+          const otaRoom = DB.rooms.byChannel(ch.id).find(r=>r.name===room.name);
+          if(!otaRoom) return;
+          const otaPlan = DB.ratePlans.byRoom(otaRoom.id).find(p=>p.mealPlan===plan.mealPlan);
+          if(!otaPlan) return;
+          total++;
+          const otaDay = DB.rates.forPlan(otaPlan.id)[dateKey];
+          const otaPrice = otaDay ? otaDay.price : otaRoom.basePrice;
+          if(otaPrice < directPrice*0.97) violations++;
+        });
+      });
+    });
+    return total ? Math.round(100 - (violations/total*100)) : 100;
+  }
+
   function mkRec(action, amount, reason, confidence, propertyId, dateKey){
     const current = myRateOnDate(propertyId, dateKey);
     const expected = action==='increase' ? current+amount : action==='decrease' ? current-amount : current;
@@ -347,7 +411,7 @@ const PORTALDATA = (() => {
     competitorRateOnDate, competitorTrend,
     myBaseRate, myRateOnDate, channelRate, channelVariance, mealPlanBaseRate, mealPlanRateOnDate,
     localEventOn,
-    notifications, markNotificationRead, markAllNotificationsRead, unreadNotificationCount,
-    settings, saveSettings, recommendations, lastScrapedAt
+    notifications, addNotification, markNotificationRead, markAllNotificationsRead, unreadNotificationCount,
+    settings, saveSettings, recommendations, lastScrapedAt, parityScore, firstParityViolation
   };
 })();

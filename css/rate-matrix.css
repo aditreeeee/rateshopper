@@ -72,6 +72,12 @@
 .mx-range-segmented > .mx-seg-btn:first-child{ border-radius:999px 0 0 999px; }
 .mx-range-segmented > div:last-child .mx-seg-btn, .mx-seg-btn:last-child{ border-radius:0 999px 999px 0; border-right:none; }
 .mx-seg-btn:hover{ background:var(--bg-surface-2); color:var(--text-1); }
+
+/* Prev/Next range navigation — flanks the active date-range label so stepping through time
+   doesn't require reopening the Custom picker each time. */
+.mx-range-nav{ display:flex; align-items:center; gap:8px; }
+.mx-range-nav #mx_dateRangeLabel{ min-width:150px; text-align:center; font-weight:600; }
+.mx-range-nav .btn-sm-icon:hover{ background:var(--brand-50); color:var(--brand-600); transform:translateY(-1px); }
 .mx-seg-btn:active{ transform:scale(.96); }
 .mx-seg-btn.active{ background:var(--brand-500); color:#fff; box-shadow:inset 0 0 0 1px var(--brand-500); }
 .mx-seg-btn.active:hover{ background:var(--brand-600); color:#fff; }
@@ -124,4 +130,53 @@
    page uses — that would create a circular growth/shrink loop against the iframe's own height.
    A fixed max-height here keeps exactly one scroller (this one) instead of a second, outer one
    on the iframe itself. */
-.cal-embed .grid-table-wrap{ max-height:460px; }
+.cal-embed .grid-table-wrap{ max-height:820px; }
+
+/* ---------- Scroll pad — a small directional-pad overlay pinned to the corner of the grid
+   card. The grid scrolls both ways behind sticky headers/columns, which can be awkward with a
+   trackpad/mouse wheel alone, so these give an explicit, always-reachable way to move in any
+   direction without hunting for the scrollbar edge. ---------- */
+.mx-scroll-pad{
+  position:absolute; top:14px; right:14px; z-index:6;
+  display:flex; flex-direction:column; align-items:center; gap:3px;
+  background:var(--glass-bg-strong); border:1px solid var(--glass-border); border-radius:14px;
+  padding:6px; box-shadow:var(--shadow-md);
+  backdrop-filter:blur(var(--glass-blur)); -webkit-backdrop-filter:blur(var(--glass-blur));
+}
+.mx-scroll-mid{ display:flex; align-items:center; gap:22px; }
+.mx-scroll-btn{
+  width:28px; height:28px; border-radius:8px; border:1px solid var(--border-1); background:var(--bg-surface);
+  color:var(--text-2); display:flex; align-items:center; justify-content:center; font-size:.8rem; cursor:pointer;
+  transition:transform var(--dur-fast) ease, background var(--dur-fast) ease, color var(--dur-fast) ease;
+}
+.mx-scroll-btn:hover{ background:var(--brand-500); color:#fff; transform:scale(1.08); }
+.mx-scroll-btn:active{ transform:scale(.94); }
+
+/* ---------- Rate Parity modal's own date-range bar — a self-contained, plain-language control
+   (preset pills + native date inputs) so picking a custom range for the parity comparison never
+   requires understanding a custom calendar widget. ---------- */
+.parity-range-bar{
+  display:flex; align-items:center; flex-wrap:wrap; gap:10px;
+  background:var(--bg-surface-2); border:1px solid var(--border-1); border-radius:14px; padding:10px 14px;
+}
+.parity-range-label{ font-size:.82rem; font-weight:700; color:var(--text-1); white-space:nowrap; }
+.parity-range-bar .btn-group .btn{ font-weight:600; }
+.parity-range-bar input[type="date"]{ min-width:150px; }
+
+/* ---------- Rate Parity grid — internal scroll arrows alongside the native scrollbar. The
+   grid can have many date columns; clicking an arrow is a much easier target than grabbing a
+   thin scrollbar, especially for anyone less comfortable with click-and-drag scrolling. ---------- */
+.parity-scroll-wrap{ position:relative; }
+.parity-scroll-btn{
+  position:absolute; top:50%; transform:translateY(-50%); z-index:5;
+  width:36px; height:36px; border-radius:50%; border:1px solid var(--border-1);
+  background:var(--bg-surface); color:var(--brand-600); box-shadow:var(--shadow-md);
+  display:flex; align-items:center; justify-content:center; font-size:1.05rem;
+  cursor:pointer; transition:background .15s ease, transform .15s ease, opacity .15s ease;
+}
+.parity-scroll-btn:hover{ background:var(--brand-50); }
+.parity-scroll-btn:active{ transform:translateY(-50%) scale(.92); }
+.parity-scroll-btn:disabled{ opacity:.3; cursor:default; }
+.parity-scroll-btn:disabled:hover{ background:var(--bg-surface); }
+.parity-scroll-left{ left:-14px; }
+.parity-scroll-right{ right:-14px; }

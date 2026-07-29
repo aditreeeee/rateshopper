@@ -74,18 +74,24 @@ document.addEventListener('DOMContentLoaded', ()=>{
     document.getElementById('rs_tickerCaption').innerHTML =
       `<i class="bi bi-clock-history me-1"></i>Rates shown for <strong>${APP.fmtDateReadable(dateKey)}</strong> · Direct (Master) channel · vs. the day before`;
 
-    document.getElementById('tickerRow').innerHTML = list.map(s=>{
+    document.getElementById('tickerRow').innerHTML = list.map((s,i)=>{
       const price = rateFor(s, dateKey);
       const prevPrice = rateFor(s, prev);
       const chg = price - prevPrice;
       const chgPct = prevPrice ? (chg/prevPrice*100) : 0;
       const dir = chg>0 ? 'up' : chg<0 ? 'down' : 'flat';
-      const arrow = dir==='up' ? 'bi-caret-up-fill' : dir==='down' ? 'bi-caret-down-fill' : 'bi-dash';
+      const arrow = dir==='up' ? 'bi-arrow-up-short' : dir==='down' ? 'bi-arrow-down-short' : 'bi-dash-lg';
+      const dirBg = dir==='up' ? '#fff0f1' : dir==='down' ? '#e7faf1' : 'var(--bg-surface-2)';
+      const dirColor = dir==='up' ? '#ff4d5e' : dir==='down' ? '#12b76a' : 'var(--text-3)';
+      const color = seriesColor(s);
       return `<div class="col-6 col-md-4 col-xl-2">
-        <div class="ticker-card ${s.isMe?'is-me':''}">
-          <div class="ticker-name">${s.isMe?'<i class="bi bi-star-fill me-1" style="color:var(--brand-500)"></i>':''}${s.label}</div>
+        <div class="ticker-card ${s.isMe?'is-me':''}" style="${s.isMe?'':`border-left-color:${color}`};animation-delay:${i*40}ms">
+          <div class="d-flex align-items-start justify-content-between gap-2">
+            <div class="ticker-name">${s.isMe?'<i class="bi bi-star-fill me-1" style="color:var(--brand-500)"></i>':`<span class="ticker-dot" style="background:${color}"></span>`}${s.label}</div>
+            <span class="ticker-trend-badge" style="background:${dirBg};color:${dirColor}"><i class="bi ${arrow}"></i></span>
+          </div>
           <div class="ticker-price">${APP.fmtCurrency(price)}</div>
-          <div class="ticker-change ticker-${dir}"><i class="bi ${arrow}"></i>${chg>=0?'+':''}${APP.fmtCurrency(chg)} (${chgPct>=0?'+':''}${chgPct.toFixed(1)}%)</div>
+          <div class="ticker-change ticker-${dir}">${chg>=0?'+':''}${APP.fmtCurrency(chg)} (${chgPct>=0?'+':''}${chgPct.toFixed(1)}%)</div>
         </div>
       </div>`;
     }).join('');

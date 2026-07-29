@@ -24,9 +24,12 @@
 <div id="rs_dataSections">
 <div class="ticker-chart-card mb-3">
   <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
-    <div>
-      <div class="fw-bold">Rate Comparison</div>
-      <div class="text-muted small">My Property vs. every benchmark property, on the Direct (Master) channel — tracked like a market index</div>
+    <div class="rc-section-title">
+      <span class="rc-section-icon"><i class="bi bi-graph-up-arrow"></i></span>
+      <div>
+        <div class="fw-bold">Rate Comparison</div>
+        <div class="text-muted small">My Property vs. every benchmark property, on the Direct (Master) channel — tracked like a market index</div>
+      </div>
     </div>
     <div class="d-flex align-items-center gap-2 flex-wrap">
       <div class="btn-group btn-group-sm" id="rs_rangeGroup" role="group">
@@ -40,12 +43,15 @@
   <canvas id="rs_chart" height="90"></canvas>
 </div>
 
-<div class="mb-2">
-  <div class="fw-bold">Rate Matrix</div>
-  <div class="text-muted small">Your rate vs. every mapped competitor room, side by side across a date range.</div>
+<div class="rc-section-title mb-2">
+  <span class="rc-section-icon"><i class="bi bi-grid-3x3-gap-fill"></i></span>
+  <div>
+    <div class="fw-bold">Rate Matrix</div>
+    <div class="text-muted small">Your rate vs. every mapped competitor room, side by side across a date range.</div>
+  </div>
 </div>
-<div class="section-card p-0">
-  <iframe id="rs_matrixFrame" src="" scrolling="no" style="width:100%;height:860px;border:none;display:block;overflow:hidden"></iframe>
+<div class="section-card p-0 rs-matrix-frame-card">
+  <iframe id="rs_matrixFrame" src="" scrolling="no" style="width:100%;height:1230px;border:none;display:block;overflow:hidden"></iframe>
 </div>
 </div>
 

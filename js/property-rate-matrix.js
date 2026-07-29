@@ -8,7 +8,7 @@
    no occupancy/ADR/RevPAR/booking data — rate comparison only.
    ========================================================================== */
 let mxRangeStart = null, mxRangeEnd = null; // the matrix's active date range — drives the grid, CSV export, and Rate Parity alike
-let mxPreset = '7';
+let mxPreset = '14'; // longer default window than before, so a first-time visitor sees two weeks of rate movement instead of just one
 let mxSelectedCompetitors = null; // Set of competitor ids, null = not yet initialized (defaults to all)
 let mxHiddenGroups = new Set();   // competitor ids hidden via the Properties selector
 let mxCollapsedGroups = new Set(); // competitor ids collapsed (rows hidden, divider still shown)
@@ -37,9 +37,9 @@ function mxPresetRange(key){
 }
 
 document.addEventListener('DOMContentLoaded', ()=>{
-  // Embedded mode: mounted inline inside another page (Rate Shopper's "vs. every competitor
-  // room" section) rather than as its own standalone sidebar page — skip the page chrome
-  // (sidebar/topbar/header) entirely, same pattern as js/rate-calendar.js's iframe embed.
+  // Embedded mode: mounted inline inside Rate Shopper's "Rate Matrix" section rather than as
+  // its own standalone sidebar page — skip the page chrome (sidebar/topbar/header) entirely,
+  // same pattern as js/rate-calendar.js's iframe embed.
   const embed = APP.qs('embed') === '1';
   let me;
   if(embed){
@@ -48,6 +48,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     APP.initTheme();
     document.body.classList.add('cal-embed');
     document.getElementById('app-shell').classList.add('p-0');
+    document.getElementById('mx_nextLink').classList.add('d-none');
   } else {
     me = PORTAL.mount({ title:'Rate Matrix', subtitle:'Your rate vs. every mapped competitor room, side by side across a date range.' });
   }
@@ -283,18 +284,25 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
   /* ==========================================================================
      Rate Parity — for one room/rate plan/occupancy, shows every channel that lists
-     a matching room (rows) against every date in the matrix's currently selected
-     date range (columns), so switching the Date Range Picker up top changes what
-     Rate Parity shows too, instead of always defaulting to "today through end of
-     this month" regardless of what the matrix itself is displaying.
+     a matching room (rows) against a date range (columns). Defaults to whatever
+     range the Rate Matrix itself is showing, but has its own independent range
+     picker (preset pills + plain date inputs) so it can be widened or narrowed
+     without touching the main grid — no custom calendar widget to figure out.
      ========================================================================== */
-  function openRateParity(roomId, planId, occ, currentChannel, forPropertyId){
-    const room = DB.rooms.get(roomId);
-    const originPlan = DB.ratePlans.get(planId);
-    if(!room || !originPlan) return;
+  let parityCtx = null; // { room, originPlan, occ, currentChannel, forPropertyId }
+  let parityRangeStart = null, parityRangeEnd = null;
 
+  function parityDatesInRange(){
+    const dates = [];
+    let d = new Date(parityRangeStart);
+    while(d <= parityRangeEnd){ dates.push(new Date(d)); d = mxAddDays(d,1); }
+    return dates;
+  }
+
+  function renderParityGrid(){
+    const { room, originPlan, occ, currentChannel, forPropertyId } = parityCtx;
     const channels = DB.channels.byProperty(forPropertyId || propertyId);
-    const dates = currentDates();
+    const dates = parityDatesInRange();
 
     const rows = channels.map(chan=>{
       const matchRooms = DB.rooms.byChannel(chan.id).filter(r=> r.name===room.name);
@@ -348,6 +356,72 @@ document.addEventListener('DOMContentLoaded', ()=>{
       <tbody>${bodyRows}</tbody>
     </table></div>`;
 
+    wireParityScrollButtons();
+  }
+
+  // Arrow buttons alongside the native scrollbar — an easier click target than dragging a thin
+  // scrollbar, especially with many date columns. Re-wired on every render since the scroll
+  // container is rebuilt each time; buttons disable themselves at either end.
+  function wireParityScrollButtons(){
+    const wrap = document.querySelector('#parityGridHost .grid-table-wrap');
+    const leftBtn = document.getElementById('parity_scrollLeft');
+    const rightBtn = document.getElementById('parity_scrollRight');
+    if(!wrap) return;
+    const STEP = 220;
+    function updateArrows(){
+      leftBtn.disabled = wrap.scrollLeft <= 0;
+      rightBtn.disabled = wrap.scrollLeft >= wrap.scrollWidth - wrap.clientWidth - 1;
+    }
+    leftBtn.onclick = ()=> wrap.scrollBy({ left:-STEP, behavior:'smooth' });
+    rightBtn.onclick = ()=> wrap.scrollBy({ left:STEP, behavior:'smooth' });
+    wrap.addEventListener('scroll', updateArrows);
+    updateArrows();
+  }
+
+  function setParityActivePreset(days){
+    document.querySelectorAll('#parity_rangeGroup [data-days]').forEach(b=>{
+      const active = Number(b.dataset.days)===days;
+      b.classList.toggle('btn-outline-primary', active); b.classList.toggle('btn-soft', !active);
+    });
+  }
+  function applyParityRange(start, end, presetDays){
+    parityRangeStart = mxStartOfDay(start); parityRangeEnd = mxStartOfDay(end);
+    document.getElementById('parity_startDate').value = DB.fmtDate(parityRangeStart);
+    document.getElementById('parity_endDate').value = DB.fmtDate(parityRangeEnd);
+    setParityActivePreset(presetDays || null);
+    renderParityGrid();
+  }
+  document.querySelectorAll('#parity_rangeGroup [data-days]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const days = Number(btn.dataset.days);
+      applyParityRange(mxStartOfDay(new Date()), mxAddDays(mxStartOfDay(new Date()), days-1), days);
+    });
+  });
+  document.getElementById('parity_apply').addEventListener('click', ()=>{
+    const startVal = document.getElementById('parity_startDate').value;
+    const endVal = document.getElementById('parity_endDate').value;
+    if(!startVal || !endVal){ APP.toast('Missing Dates', 'Please pick both a start and end date.', 'danger'); return; }
+    const start = new Date(startVal+'T00:00:00'), end = new Date(endVal+'T00:00:00');
+    if(start > end){ APP.toast('Invalid Range', 'The start date must be before the end date.', 'danger'); return; }
+    applyParityRange(start, end, null);
+  });
+
+  function openRateParity(roomId, planId, occ, currentChannel, forPropertyId){
+    const room = DB.rooms.get(roomId);
+    const originPlan = DB.ratePlans.get(planId);
+    if(!room || !originPlan) return;
+    parityCtx = { room, originPlan, occ, currentChannel, forPropertyId };
+
+    // Seed from the Rate Matrix's own currently-active range — the parity picker starts wherever
+    // the matrix is looking, but can be changed independently from here without affecting it.
+    const seedDates = currentDates();
+    parityRangeStart = mxStartOfDay(seedDates[0]);
+    parityRangeEnd = mxStartOfDay(seedDates[seedDates.length-1]);
+    document.getElementById('parity_startDate').value = DB.fmtDate(parityRangeStart);
+    document.getElementById('parity_endDate').value = DB.fmtDate(parityRangeEnd);
+    setParityActivePreset(null);
+
+    renderParityGrid();
     new bootstrap.Modal(document.getElementById('parityModal')).show();
   }
 
@@ -420,6 +494,16 @@ document.addEventListener('DOMContentLoaded', ()=>{
     document.getElementById('mx_dateRangeLabel').textContent = mxSameDay(mxRangeStart,mxRangeEnd)
       ? mxFmtShort(mxRangeStart) : `${mxFmtShort(mxRangeStart)} – ${mxFmtShort(mxRangeEnd)}`;
     renderGrid();
+  }
+
+  // ---- Prev/Next range navigation — keyboard- and mouse-accessible way to step through time
+  // without reopening the Custom picker every time; keeps the currently active window's length
+  // (7/14/30/90 days or a custom span) and just slides it backward/forward by that same span. ----
+  function mxShiftRange(direction){
+    const spanDays = Math.round((mxRangeEnd - mxRangeStart) / 86400000) + 1;
+    const newStart = mxAddDays(mxRangeStart, direction*spanDays);
+    const newEnd = mxAddDays(mxRangeEnd, direction*spanDays);
+    applyRange(newStart, newEnd, mxPreset==='custom' ? 'custom' : mxPreset);
   }
 
   function mxDaysInMonthGrid(monthDate){
@@ -504,6 +588,21 @@ document.addEventListener('DOMContentLoaded', ()=>{
     applyRange(mxPickStart, mxPickEnd, 'custom');
     closeCustomDropdown();
   });
+
+  document.getElementById('mx_rangePrev').addEventListener('click', ()=> mxShiftRange(-1));
+  document.getElementById('mx_rangeNext').addEventListener('click', ()=> mxShiftRange(1));
+
+  // Directional scroll pad — looks up the grid's scroll container fresh on every click since
+  // renderGrid() rebuilds #mx_gridHost's innerHTML (and therefore the .grid-table-wrap element
+  // itself) on every filter/range change, so a reference captured once would go stale.
+  function mxScrollBy(dx, dy){
+    const wrap = document.querySelector('#mx_gridHost .grid-table-wrap');
+    if(wrap) wrap.scrollBy({ left:dx, top:dy, behavior:'smooth' });
+  }
+  document.getElementById('mx_scrollUp').addEventListener('click', ()=> mxScrollBy(0, -180));
+  document.getElementById('mx_scrollDown').addEventListener('click', ()=> mxScrollBy(0, 180));
+  document.getElementById('mx_scrollLeft').addEventListener('click', ()=> mxScrollBy(-240, 0));
+  document.getElementById('mx_scrollRight').addEventListener('click', ()=> mxScrollBy(240, 0));
 
   // ---- Wiring ----
 

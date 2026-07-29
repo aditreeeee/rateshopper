@@ -400,8 +400,8 @@ const DB = (() => {
 
     // Settings
     set(KEYS.settings, {
-      companyName:'Hotel Owner Panel Pvt Ltd', companyEmail:'owner@example.com', companyPhone:'+91 9876543210',
-      companyAddress:'201, Business Bay Tower, Andheri East, Mumbai, India',
+      companyName:'eGlobe Solutions', companyEmail:'owner@example.com', companyPhone:'+91 9876543210',
+      companyAddress:'315, Ansal Classic Tower, J Nlock, Rajouri Garden, New Delhi',
       currency:'INR', currencySymbol:'₹', taxRate:12, serviceCharge:5,
       timezone:'Asia/Kolkata (GMT+5:30)', dateFormat:'DD/MM/YYYY',
       notifyBooking:true, notifyCancellation:true, notifyRateChange:false,

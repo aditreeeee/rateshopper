@@ -5,12 +5,16 @@
 
 .portal-logo-badge{ background:linear-gradient(135deg,#3861fb,#8c5cf7) !important; }
 
-/* ---------- KPI grid ---------- */
+/* ---------- KPI grid (glass — overrides the Company Dashboard .kpi-card block flex layout in
+   css/style.css since the Property Portal's KPI card is a stacked, not a row, layout) ---------- */
 .kpi-card{
-  background:var(--bg-surface); border:1px solid var(--border-1); border-radius:16px;
+  background:var(--glass-bg); border:1px solid var(--glass-border); border-radius:16px;
   padding:16px 18px; box-shadow:var(--shadow-sm); height:100%;
   display:flex; flex-direction:column; gap:6px; position:relative; overflow:hidden;
+  backdrop-filter:blur(var(--glass-blur)); -webkit-backdrop-filter:blur(var(--glass-blur));
 }
+.kpi-card:hover{ transform:translateY(-4px); box-shadow:var(--shadow-lg); border-color:var(--brand-200); }
+[data-theme="dark"] .kpi-card:hover{ border-color:rgba(92,134,255,.35); }
 .kpi-card .kpi-icon{
   width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;
   font-size:1rem; margin-bottom:2px;
@@ -75,8 +79,9 @@
 
 /* ---------- Recommendation cards ---------- */
 .rec-card{
-  background:var(--bg-surface); border:1px solid var(--border-1); border-radius:16px; padding:16px;
+  background:var(--glass-bg); border:1px solid var(--glass-border); border-radius:16px; padding:16px;
   box-shadow:var(--shadow-sm); height:100%;
+  backdrop-filter:blur(var(--glass-blur)); -webkit-backdrop-filter:blur(var(--glass-blur));
 }
 .rec-badge{ display:inline-flex; align-items:center; gap:6px; padding:5px 12px; border-radius:20px; font-size:.72rem; font-weight:700; }
 .rec-badge.increase{ background:#e7faf1; color:var(--success); }
@@ -88,17 +93,24 @@
 .confidence-track{ height:6px;border-radius:4px;background:var(--bg-surface-2);overflow:hidden; }
 .confidence-fill{ height:100%;border-radius:4px;background:linear-gradient(90deg,var(--brand-500),var(--accent)); }
 
+/* ---------- Compact table variant (Market Intelligence > Value Proposition Analysis) — smaller
+   font/padding so a chart + full comparison table can share one card without feeling cramped. ---------- */
+.table-compact thead th{ padding:8px 10px; font-size:.66rem; }
+.table-compact tbody td{ padding:8px 10px; font-size:.78rem; }
+
 /* ---------- Market Insight cards (Market Intelligence > Pricing Recommendations) ---------- */
 .insight-card{
-  background:var(--bg-surface); border:1px solid var(--border-1); border-radius:16px; padding:16px;
+  background:var(--glass-bg); border:1px solid var(--glass-border); border-radius:16px; padding:16px;
   box-shadow:var(--shadow-sm); height:100%; border-left:4px solid var(--border-1);
+  backdrop-filter:blur(var(--glass-blur)); -webkit-backdrop-filter:blur(var(--glass-blur));
 }
+.insight-card:hover{ transform:translateY(-4px); box-shadow:var(--shadow-lg); }
 .insight-card.priority-High{ border-left-color:var(--danger); }
 .insight-card.priority-Medium{ border-left-color:var(--warn, #b9791a); }
 .insight-card.priority-Low{ border-left-color:var(--brand-400); }
 .insight-icon{
-  width:36px; height:36px; border-radius:10px; display:flex; align-items:center; justify-content:center;
-  font-size:1.05rem; flex-shrink:0;
+  width:36px; height:36px; border-radius:12px; display:flex; align-items:center; justify-content:center;
+  font-size:1.05rem; flex-shrink:0; box-shadow:0 3px 8px rgba(20,24,60,.1);
 }
 .insight-priority-badge{ display:inline-flex; align-items:center; gap:4px; padding:3px 9px; border-radius:20px; font-size:.65rem; font-weight:700; }
 .insight-priority-badge.High{ background:#fff0f1; color:var(--danger); }
@@ -118,16 +130,19 @@
 
 /* ---------- Channel cards ---------- */
 .channel-perf-card{
-  background:var(--bg-surface); border:1px solid var(--border-1); border-radius:16px; padding:16px;
+  background:var(--glass-bg); border:1px solid var(--glass-border); border-radius:16px; padding:16px;
   box-shadow:var(--shadow-sm); height:100%;
+  backdrop-filter:blur(var(--glass-blur)); -webkit-backdrop-filter:blur(var(--glass-blur));
 }
+.channel-perf-card:hover{ transform:translateY(-4px); box-shadow:var(--shadow-lg); }
 
 /* ---------- Competitor grid cards ---------- */
 .competitor-card{
-  background:var(--bg-surface); border:1px solid var(--border-1); border-radius:16px; overflow:hidden;
-  box-shadow:var(--shadow-sm); height:100%; display:flex; flex-direction:column; transition:.15s;
+  background:var(--glass-bg); border:1px solid var(--glass-border); border-radius:16px; overflow:hidden;
+  box-shadow:var(--shadow-sm); height:100%; display:flex; flex-direction:column;
+  backdrop-filter:blur(var(--glass-blur)); -webkit-backdrop-filter:blur(var(--glass-blur));
 }
-.competitor-card:hover{ transform:translateY(-2px); box-shadow:var(--shadow-md); }
+.competitor-card:hover{ transform:translateY(-4px); box-shadow:var(--shadow-lg); }
 .competitor-card .comp-img{ height:130px; background-size:cover; background-position:center; position:relative; }
 .competitor-card .comp-pin{
   position:absolute; top:8px; right:8px; width:30px; height:30px; border-radius:9px;
@@ -168,7 +183,10 @@
 .trend-up{ color:var(--danger); }   /* rate went up = usually flagged, matches rest of app's convention */
 .trend-down{ color:var(--success); }
 .trend-flat{ color:var(--text-3); }
-.chart-card{ background:var(--bg-surface); border:1px solid var(--border-1); border-radius:16px; padding:16px; box-shadow:var(--shadow-sm); }
+.chart-card{
+  background:var(--glass-bg); border:1px solid var(--glass-border); border-radius:16px; padding:16px;
+  box-shadow:var(--shadow-sm); backdrop-filter:blur(var(--glass-blur)); -webkit-backdrop-filter:blur(var(--glass-blur));
+}
 .chart-card canvas{ max-height:280px; }
 
 /* ---------- Chart entrance animation (Dashboard, Market Intelligence, Room Rate Comparison,
@@ -179,24 +197,44 @@
 
 /* ---------- Rate Shopper: stock-ticker style ---------- */
 .ticker-card{
-  background:var(--bg-surface); border:1px solid var(--border-1); border-radius:14px; padding:12px 14px;
-  box-shadow:var(--shadow-sm); height:100%; cursor:pointer; transition:.15s; border-left:3px solid transparent;
+  background:var(--glass-bg); border:1px solid var(--glass-border); border-radius:14px; padding:12px 14px;
+  box-shadow:var(--shadow-sm); height:100%; cursor:pointer; border-left:3px solid transparent;
+  backdrop-filter:blur(var(--glass-blur)); -webkit-backdrop-filter:blur(var(--glass-blur));
 }
-.ticker-card:hover{ transform:translateY(-2px); box-shadow:var(--shadow-md); }
-.ticker-card.is-me{ border-left-color:var(--brand-500); background:linear-gradient(180deg, var(--brand-50), var(--bg-surface) 60%); }
-[data-theme="dark"] .ticker-card.is-me{ background:linear-gradient(180deg, rgba(56,97,251,.12), var(--bg-surface) 60%); }
+.ticker-card:hover{ transform:translateY(-5px) scale(1.01); box-shadow:var(--shadow-lg); }
+.ticker-card.is-me{ border-left-color:var(--brand-500); background:linear-gradient(180deg, var(--brand-50), var(--glass-bg) 60%); }
+[data-theme="dark"] .ticker-card.is-me{ background:linear-gradient(180deg, rgba(56,97,251,.18), var(--glass-bg) 60%); }
 .ticker-card .ticker-name{ font-size:.72rem; color:var(--text-3); font-weight:600; text-transform:uppercase; letter-spacing:.02em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.ticker-card .ticker-price{ font-size:1.1rem; font-weight:800; color:var(--text-1); font-variant-numeric:tabular-nums; }
+.ticker-dot{ display:inline-block; width:7px; height:7px; border-radius:50%; margin-right:5px; flex:0 0 auto; }
+.ticker-card .ticker-price{ font-size:1.1rem; font-weight:800; color:var(--text-1); font-variant-numeric:tabular-nums; margin-top:6px; }
 .ticker-card .ticker-change{ font-size:.74rem; font-weight:700; display:flex; align-items:center; gap:3px; }
+.ticker-trend-badge{
+  width:22px; height:22px; border-radius:50%; flex:0 0 auto; display:flex; align-items:center; justify-content:center;
+  font-size:.75rem; transition:transform var(--dur-fast) ease;
+}
+.ticker-card:hover .ticker-trend-badge{ transform:scale(1.12); }
+/* Staggered fade-up entrance so the ticker row feels alive on load rather than all cards
+   popping in simultaneously. */
+@keyframes ticker-in{ from{ opacity:0; transform:translateY(10px); } to{ opacity:1; transform:none; } }
+.ticker-card{ animation:ticker-in .4s var(--ease-premium) both; }
 .ticker-up{ color:#12b76a; }   /* market convention: green = price up */
 .ticker-down{ color:#ff4d5e; } /* market convention: red = price down */
 .ticker-flat{ color:var(--text-3); }
 
-.ticker-chart-card{ background:var(--bg-surface); border:1px solid var(--border-1); border-radius:16px; padding:18px; box-shadow:var(--shadow-sm); }
+.ticker-chart-card{
+  background:var(--glass-bg); border:1px solid var(--glass-border); border-radius:16px; padding:18px;
+  box-shadow:var(--shadow-sm); backdrop-filter:blur(var(--glass-blur)); -webkit-backdrop-filter:blur(var(--glass-blur));
+}
+
+/* Rate Shopper's embedded Rate Matrix iframe sits directly inside a p-0 section-card — clip its
+   corners to the card's own radius instead of showing a sharp rectangle inset in a rounded card. */
+.rs-matrix-frame-card{ overflow:hidden; }
 .legend-toggle{
   display:inline-flex; align-items:center; gap:5px; padding:4px 10px; border-radius:20px; font-size:.7rem; font-weight:600;
-  border:1px solid var(--border-1); background:var(--bg-surface-2); color:var(--text-2); cursor:pointer; user-select:none; transition:.15s;
+  border:1px solid var(--border-1); background:var(--bg-surface-2); color:var(--text-2); cursor:pointer; user-select:none;
+  transition:transform var(--dur-fast) ease, box-shadow var(--dur-fast) ease, opacity var(--dur-fast) ease, background var(--dur-fast) ease;
 }
+.legend-toggle:hover{ transform:translateY(-1px); box-shadow:var(--shadow-sm); background:var(--bg-surface); }
 .legend-toggle .dot{ width:8px; height:8px; border-radius:50%; }
 .legend-toggle.off{ opacity:.4; }
 
@@ -219,10 +257,10 @@
    break a long page (e.g. Room Rate Comparison) into clearly scannable zones. ---------- */
 .rc-section-title{ display:flex; align-items:center; gap:10px; }
 .rc-section-icon{
-  width:28px; height:28px; border-radius:9px; flex:0 0 auto;
+  width:30px; height:30px; border-radius:50%; flex:0 0 auto;
   display:flex; align-items:center; justify-content:center; font-size:.82rem; color:#fff;
   background:linear-gradient(135deg, var(--brand-500), var(--accent));
-  box-shadow:0 4px 10px rgba(56,97,251,.28);
+  box-shadow:0 4px 12px rgba(56,97,251,.32), 0 0 0 4px color-mix(in srgb, var(--brand-500) 12%, transparent);
 }
 
 /* ---------- Sortable table headers ---------- */

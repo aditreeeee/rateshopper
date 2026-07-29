@@ -18,7 +18,7 @@
   <ul class="nav nav-tabs mb-0" id="mi_tabs">
     <li class="nav-item"><button class="nav-link active" type="button" data-tab="overview">Market Overview</button></li>
     <li class="nav-item"><button class="nav-link" type="button" data-tab="recommendations">Pricing Recommendations</button></li>
-    <li class="nav-item"><button class="nav-link" type="button" data-tab="channels">Channel Analysis</button></li>
+    <li class="nav-item"><button class="nav-link" type="button" data-tab="action">Action Center</button></li>
   </ul>
   <div id="mi_staleBadge"></div>
 </div>
@@ -28,28 +28,33 @@
 
 <div class="row g-3 mt-1">
   <div class="col-xxl-8">
-    <div class="chart-card mb-3">
-      <div class="fw-bold mb-2">Market Trend — 60 Days</div>
-      <canvas id="marketTrendChart" height="90"></canvas>
-    </div>
-    <div class="section-card mb-3">
-      <div class="fw-bold mb-2">Competitor Pricing Matrix — Next 7 Days</div>
-      <div class="text-muted small mb-2">Your rate vs. every tracked competitor, day by day — green means a competitor is cheaper than you that day, red means they're pricier.</div>
-      <div class="table-responsive"><table class="table-modern" id="pricingMatrixTable" style="min-width:820px"></table></div>
-    </div>
-    <div class="section-card">
-      <div class="fw-bold mb-2">Competitor Movement — Biggest Movers (7 Days)</div>
-      <div class="text-muted small mb-2">Competitors whose rate shifted the most over the last week, and where they now sit against your rate today.</div>
-      <div class="table-responsive"><table class="table-modern w-100" id="movementTable"></table></div>
+    <div class="chart-card">
+      <div class="rc-section-title mb-2">
+        <span class="rc-section-icon"><i class="bi bi-gem"></i></span>
+        <div>
+          <div class="fw-bold">Value Proposition Analysis</div>
+          <div class="text-muted small" id="vp_summary">What each property delivers for its price — stars, amenities, meal plan breadth, and flexibility, weighed against rate.</div>
+        </div>
+      </div>
+      <canvas id="vp_chart" height="55"></canvas>
+      <div class="table-responsive mt-2">
+        <table class="table-modern table-compact w-100" id="vp_table"></table>
+      </div>
     </div>
   </div>
   <div class="col-xxl-4">
     <div class="section-card mb-3">
-      <div class="fw-bold mb-2">Market Summary</div>
+      <div class="rc-section-title mb-2">
+        <span class="rc-section-icon"><i class="bi bi-clipboard-data"></i></span>
+        <div class="fw-bold">Market Summary</div>
+      </div>
       <div id="marketSummary"></div>
     </div>
     <div class="section-card">
-      <div class="fw-bold mb-2">New Listings</div>
+      <div class="rc-section-title mb-2">
+        <span class="rc-section-icon"><i class="bi bi-building-add"></i></span>
+        <div class="fw-bold">New Listings</div>
+      </div>
       <div id="newListings"></div>
     </div>
   </div>
@@ -57,45 +62,77 @@
 </div>
 
 <div id="mi_tabRecommendations" class="d-none">
-  <div class="d-flex align-items-center gap-2 mb-2">
-    <div class="fw-bold">Market Insight Cards</div>
-    <span class="badge bg-primary-subtle text-primary" style="font-size:.65rem"><i class="bi bi-stars me-1"></i>AI-Powered</span>
-  </div>
-  <div class="text-muted small mb-3">Why competitors are priced the way they are, and what's actually driving the gap — generated from your live market data.</div>
-  <div class="row g-3 mb-4" id="insightGrid"></div>
-
-  <div class="fw-bold mb-1">Pricing Recommendations</div>
-  <div class="text-muted small mb-3">AI-style pricing guidance based on market movement and rate positioning.</div>
-  <div class="row g-3" id="recGrid"></div>
-</div>
-
-<div id="mi_tabChannels" class="d-none">
-  <div class="row g-3 mb-3" id="channelCards"></div>
-
-  <div class="chart-card mb-3">
-    <div class="fw-bold mb-2">Current Rate by Channel</div>
-    <canvas id="channelRateChart" height="90"></canvas>
-  </div>
-
-  <div class="section-card p-0">
-    <div class="p-3 pb-0">
-      <div class="fw-bold">Channels Display — Room / Rate Plan Parity</div>
-      <div class="text-muted small mb-2">Direct (Master Channel) vs. every OTA (or just the one you pick below), for today, across every room in the property.</div>
-      <div class="row g-2 mb-3">
-        <div class="col-6 col-md-3">
-          <select class="form-select form-select-sm" id="ca_room"><option value="">All Rooms</option></select>
-        </div>
-        <div class="col-6 col-md-3">
-          <select class="form-select form-select-sm" id="ca_channel"><option value="">All Channels (OTA Avg.)</option></select>
+  <div class="section-card">
+    <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+      <div class="rc-section-title">
+        <span class="rc-section-icon"><i class="bi bi-stars"></i></span>
+        <div>
+          <div class="fw-bold">Insight Generation</div>
+          <div class="text-muted small">Why competitors are priced the way they are, and what's actually driving the gap — generated from your live market data.</div>
         </div>
       </div>
+      <span class="badge bg-primary-subtle text-primary" style="font-size:.65rem"><i class="bi bi-stars me-1"></i>AI-Powered</span>
     </div>
-    <div class="table-responsive">
-      <table class="table-modern w-100" id="parityTable"></table>
-    </div>
+    <div class="row g-3" id="insightGrid"></div>
   </div>
 </div>
 
+<div id="mi_tabAction" class="d-none">
+  <div class="section-card mb-3">
+    <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+      <div class="rc-section-title">
+        <span class="rc-section-icon"><i class="bi bi-lightning-charge-fill"></i></span>
+        <div>
+          <div class="fw-bold">Action Queue</div>
+          <div class="text-muted small">What to act on first — apply a recommendation directly to your rates, no need to leave this page.</div>
+        </div>
+      </div>
+      <span class="badge bg-primary-subtle text-primary" style="font-size:.65rem" id="ac_countBadge"></span>
+    </div>
+    <div class="row g-3" id="actionQueueGrid"></div>
+  </div>
+
+  <div class="section-card">
+    <div class="rc-section-title mb-2">
+      <span class="rc-section-icon"><i class="bi bi-clock-history"></i></span>
+      <div>
+        <div class="fw-bold">Recently Applied</div>
+        <div class="text-muted small">A running log of rate changes applied from this Action Center.</div>
+      </div>
+    </div>
+    <div id="ac_recentList"></div>
+  </div>
+</div>
+
+</div>
+
+<div class="modal fade" id="acApplyModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="bi bi-lightning-charge-fill me-2 text-primary"></i>Apply Rate Change</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p class="text-muted small mb-3" id="acModalDetail"></p>
+        <div class="row g-2 mb-2">
+          <div class="col-6">
+            <div class="text-muted" style="font-size:.7rem">Current Rate</div>
+            <div class="fw-bold" id="acModalCurrent"></div>
+          </div>
+          <div class="col-6">
+            <div class="text-muted" style="font-size:.7rem">New Rate</div>
+            <div class="fw-bold text-primary" id="acModalNew"></div>
+          </div>
+        </div>
+        <div class="text-muted" style="font-size:.72rem" id="acModalScope"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-primary" id="acModalApplyBtn">Apply Change</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>

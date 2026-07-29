@@ -547,13 +547,22 @@ function clearBulkRates(){
    Rate Parity shows too, instead of always defaulting to "today through end of
    this month" regardless of what the calendar itself is displaying.
    ========================================================================== */
-function openRateParity(roomId, planId, occ){
-  const room = DB.rooms.get(roomId);
-  const originPlan = DB.ratePlans.get(planId);
-  if(!room || !originPlan) return;
+// Rate Parity's own date range — independent of the Rate Calendar's main range, seeded from it
+// when the modal opens. Preset pills + plain date inputs, no custom calendar widget.
+let parityCtx = null; // { room, originPlan, occ }
+let parityRangeStart = null, parityRangeEnd = null;
 
+function parityDatesInRange(){
+  const dates = [];
+  let d = new Date(parityRangeStart);
+  while(d <= parityRangeEnd){ dates.push(new Date(d)); d = calAddDays(d,1); }
+  return dates;
+}
+
+function renderParityGrid(){
+  const { room, originPlan, occ } = parityCtx;
   const channels = DB.channels.byProperty(currentPropertyId);
-  const dates = currentDates();
+  const dates = parityDatesInRange();
 
   // One row per channel: match a room with the same name, preferring a rate plan with the
   // same meal plan as the one being compared from; falls back to that room's first plan.
@@ -609,5 +618,73 @@ function openRateParity(roomId, planId, occ){
     <tbody>${bodyRows}</tbody>
   </table></div>`;
 
+  wireParityScrollButtons();
+}
+
+// Arrow buttons alongside the native scrollbar — an easier click target than dragging a thin
+// scrollbar, especially with many date columns. Re-wired on every render since the scroll
+// container is rebuilt each time; buttons disable themselves at either end.
+function wireParityScrollButtons(){
+  const wrap = document.querySelector('#parityGridHost .grid-table-wrap');
+  const leftBtn = document.getElementById('parity_scrollLeft');
+  const rightBtn = document.getElementById('parity_scrollRight');
+  if(!wrap) return;
+  const STEP = 220;
+  function updateArrows(){
+    leftBtn.disabled = wrap.scrollLeft <= 0;
+    rightBtn.disabled = wrap.scrollLeft >= wrap.scrollWidth - wrap.clientWidth - 1;
+  }
+  leftBtn.onclick = ()=> wrap.scrollBy({ left:-STEP, behavior:'smooth' });
+  rightBtn.onclick = ()=> wrap.scrollBy({ left:STEP, behavior:'smooth' });
+  wrap.addEventListener('scroll', updateArrows);
+  updateArrows();
+}
+
+function setParityActivePreset(days){
+  document.querySelectorAll('#parity_rangeGroup [data-days]').forEach(b=>{
+    const active = Number(b.dataset.days)===days;
+    b.classList.toggle('btn-outline-primary', active); b.classList.toggle('btn-soft', !active);
+  });
+}
+function applyParityRange(start, end, presetDays){
+  parityRangeStart = calStartOfDay(start); parityRangeEnd = calStartOfDay(end);
+  document.getElementById('parity_startDate').value = keyOf(parityRangeStart);
+  document.getElementById('parity_endDate').value = keyOf(parityRangeEnd);
+  setParityActivePreset(presetDays || null);
+  renderParityGrid();
+}
+document.addEventListener('DOMContentLoaded', ()=>{
+  document.querySelectorAll('#parity_rangeGroup [data-days]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const days = Number(btn.dataset.days);
+      applyParityRange(calStartOfDay(new Date()), calAddDays(calStartOfDay(new Date()), days-1), days);
+    });
+  });
+  document.getElementById('parity_apply').addEventListener('click', ()=>{
+    const startVal = document.getElementById('parity_startDate').value;
+    const endVal = document.getElementById('parity_endDate').value;
+    if(!startVal || !endVal){ APP.toast('Missing Dates', 'Please pick both a start and end date.', 'danger'); return; }
+    const start = new Date(startVal+'T00:00:00'), end = new Date(endVal+'T00:00:00');
+    if(start > end){ APP.toast('Invalid Range', 'The start date must be before the end date.', 'danger'); return; }
+    applyParityRange(start, end, null);
+  });
+});
+
+function openRateParity(roomId, planId, occ){
+  const room = DB.rooms.get(roomId);
+  const originPlan = DB.ratePlans.get(planId);
+  if(!room || !originPlan) return;
+  parityCtx = { room, originPlan, occ };
+
+  // Seed from the Rate Calendar's own currently-active range — the parity picker starts wherever
+  // the calendar is looking, but can be changed independently from here without affecting it.
+  const seedDates = currentDates();
+  parityRangeStart = calStartOfDay(seedDates[0]);
+  parityRangeEnd = calStartOfDay(seedDates[seedDates.length-1]);
+  document.getElementById('parity_startDate').value = keyOf(parityRangeStart);
+  document.getElementById('parity_endDate').value = keyOf(parityRangeEnd);
+  setParityActivePreset(null);
+
+  renderParityGrid();
   new bootstrap.Modal(document.getElementById('parityModal')).show();
 }

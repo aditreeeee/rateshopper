@@ -7,14 +7,14 @@
 const PORTAL = (() => {
 
   const NAV = [
-    {section:'Revenue Management'},
+    {section:'Rate Intelligence'},
     {href:'property-dashboard.html', icon:'bi-speedometer2', label:'Dashboard'},
     {href:'property-rate-shopper.html', icon:'bi-search', label:'Rate Shopper'},
-    {href:'property-room-comparison.html', icon:'bi-columns-gap', label:'Room Rate Comparison'},
-    {href:'property-competitors.html', icon:'bi-building', label:'Competitors'},
+    {href:'property-room-comparison.html', icon:'bi-columns-gap', label:'Comparison'},
     {href:'property-market.html', icon:'bi-globe-americas', label:'Market Intelligence'},
     {section:'Property'},
     {href:'property-details.html', icon:'bi-building-gear', label:'My Property', dynamicId:true},
+    {href:'property-competitors.html', icon:'bi-building', label:'Competitors'},
     {section:'Insights'},
     {href:'property-reports.html', icon:'bi-file-earmark-bar-graph', label:'Reports'},
     {section:'Account'},
@@ -48,18 +48,36 @@ const PORTAL = (() => {
     return me;
   }
 
+  // Groups the flat NAV array into collapsible sections. A section auto-expands whenever it
+  // contains the current page, regardless of any previously saved collapsed state — collapsing
+  // is a declutter convenience, it should never be able to hide where you actually are.
+  function navGroups(){
+    const groups = [];
+    NAV.forEach(item=>{
+      if(item.section){ groups.push({ label:item.section, items:[] }); }
+      else if(groups.length){ groups[groups.length-1].items.push(item); }
+    });
+    return groups.filter(g=>g.items.length);
+  }
+
   function sidebarHtml(me){
     const activeId = activePropertyId(me);
     const property = DB.properties.get(activeId);
-    let items = NAV.filter((item,i)=>{
-      if(!item.section) return true;
-      const next = NAV[i+1];
-      return next && !next.section;
-    }).map(item=>{
-      if(item.section) return `<div class="nav-section">${item.section}</div>`;
-      const active = item.href === currentPage();
-      const href = item.dynamicId ? `${item.href}?id=${activeId}` : item.href;
-      return `<a href="${href}" class="nav-link ${active?'active':''}"><i class="bi ${item.icon}"></i><span>${item.label}</span></a>`;
+    const items = navGroups().map(g=>{
+      const hasActive = g.items.some(item=> item.href === currentPage());
+      const storedCollapsed = localStorage.getItem('rsiq_navsec_'+g.label) === '1';
+      const collapsed = !hasActive && storedCollapsed;
+      const linksHtml = g.items.map(item=>{
+        const active = item.href === currentPage();
+        const href = item.dynamicId ? `${item.href}?id=${activeId}` : item.href;
+        return `<a href="${href}" class="nav-link ${active?'active':''}"><i class="bi ${item.icon}"></i><span>${item.label}</span></a>`;
+      }).join('');
+      return `<div class="nav-section-group ${collapsed?'collapsed':''}">
+        <button type="button" class="nav-section" onclick="PORTAL.toggleNavSection(this,'${g.label}')" aria-expanded="${!collapsed}">
+          <span>${g.label}</span><i class="bi bi-chevron-down nav-section-chevron"></i>
+        </button>
+        <div class="nav-section-links"><div class="nav-section-inner">${linksHtml}</div></div>
+      </div>`;
     }).join('');
 
     return `
@@ -135,6 +153,13 @@ const PORTAL = (() => {
     `;
   }
 
+  function toggleNavSection(btn, label){
+    const group = btn.closest('.nav-section-group');
+    const collapsed = group.classList.toggle('collapsed');
+    btn.setAttribute('aria-expanded', String(!collapsed));
+    localStorage.setItem('rsiq_navsec_'+label, collapsed ? '1' : '0');
+  }
+
   function markAlertRead(id){
     const me = RBAC.currentUser();
     if(!me) return;
@@ -188,5 +213,5 @@ const PORTAL = (() => {
     return null;
   }
 
-  return { mount, mountForRole, guard, activePropertyId, markAlertRead, markAllAlertsRead };
+  return { mount, mountForRole, guard, activePropertyId, markAlertRead, markAllAlertsRead, refreshBell, toggleNavSection };
 })();
