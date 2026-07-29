@@ -52,11 +52,14 @@ document.addEventListener('DOMContentLoaded', ()=>{
   populateChannelFilters();
   renderOverview();
   renderChannels();
+  setRoomsView(roomsView);
   renderRooms();
   renderRatePlans();
   renderContact();
 
   document.getElementById('roomsChannelFilter').addEventListener('change', renderRooms);
+  document.getElementById('rm_viewGrid').addEventListener('click', ()=> setRoomsView('grid'));
+  document.getElementById('rm_viewList').addEventListener('click', ()=> setRoomsView('list'));
   document.getElementById('rpChannelFilter').addEventListener('change', renderRatePlans);
 
   // Rate Calendar tab: the live grid is embedded directly (no click-through), scoped to this property.
@@ -179,6 +182,20 @@ function renderChannels(){
   }).join('') : `<div class="col-12"><div class="empty-state"><i class="bi bi-diagram-3"></i><h5>No channels yet</h5><p>Add an OTA or customised channel to start listing rooms and rate plans on it.</p></div></div>`;
 }
 
+// Grid/List view toggle — persisted per-browser so it sticks across visits, same pattern as
+// the Competitors page's own Grid/List toggle.
+let roomsView = localStorage.getItem('hop_rooms_view') === 'list' ? 'list' : 'grid';
+function setRoomsView(view){
+  roomsView = view;
+  localStorage.setItem('hop_rooms_view', view);
+  document.getElementById('rm_viewGrid').classList.toggle('btn-primary', view==='grid');
+  document.getElementById('rm_viewGrid').classList.toggle('btn-soft', view!=='grid');
+  document.getElementById('rm_viewList').classList.toggle('btn-primary', view==='list');
+  document.getElementById('rm_viewList').classList.toggle('btn-soft', view!=='list');
+  document.getElementById('roomsGrid').classList.toggle('d-none', view!=='grid');
+  document.getElementById('roomsListWrap').classList.toggle('d-none', view!=='list');
+}
+
 function renderRooms(){
   const p = currentProperty;
   const channelId = document.getElementById('roomsChannelFilter').value;
@@ -187,6 +204,7 @@ function renderRooms(){
   const canEdit = RBAC.can(RBAC.MODULES.ROOMS, 'edit');
   const canDelete = RBAC.can(RBAC.MODULES.ROOMS, 'delete');
   document.getElementById('roomsCount').textContent = `${rooms.length} room type(s)`;
+
   document.getElementById('roomsGrid').innerHTML = rooms.length ? rooms.map(r=>`
     <div class="col-md-6 col-xl-4">
       <div class="room-card h-100">
@@ -206,6 +224,20 @@ function renderRooms(){
         </div>
       </div>
     </div>`).join('') : `<div class="col-12"><div class="empty-state"><i class="bi bi-door-closed"></i><h5>No rooms yet</h5><p>Add a room type to this channel.</p></div></div>`;
+
+  document.getElementById('roomsListBody').innerHTML = rooms.length ? rooms.map(r=>`
+    <tr>
+      <td class="fw-semibold">${r.name}</td>
+      <td>${channelBadge(r.channelId)}</td>
+      <td>${r.bedType}</td>
+      <td class="text-center">${r.capacity} guests</td>
+      <td>${(r.mealPlans||[]).map(mp=>`<span class="badge bg-light text-dark border me-1" style="font-size:.68rem" title="${DB.MEAL_LABELS[mp]}">${mp}</span>`).join('') || '—'}</td>
+      <td class="text-end fw-semibold">${APP.fmtCurrency(r.basePrice)}</td>
+      <td class="text-end">
+        ${canEdit ? `<a href="add-room.html?id=${r.id}" class="btn btn-sm-icon btn-soft" title="Edit"><i class="bi bi-pencil"></i></a>` : ''}
+        ${canDelete ? `<button class="btn btn-sm-icon btn-light-danger" title="Delete" onclick="deletePropertyRoom('${r.id}')"><i class="bi bi-trash3"></i></button>` : ''}
+      </td>
+    </tr>`).join('') : `<tr><td colspan="7"><div class="empty-state"><i class="bi bi-door-closed"></i><h5>No rooms yet</h5><p>Add a room type to this channel.</p></div></td></tr>`;
 }
 
 function renderRatePlans(){

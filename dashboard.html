@@ -29,60 +29,6 @@
 
 <!-- KPI Cards -->
 <div class="row g-3" id="kpiCards"></div>
-
-<!-- Alerts — the most actionable content on the page, so it sits right under the KPIs,
-     above the fold, instead of being buried mid-scroll. -->
-<div class="section-card mt-3" id="alertsCard">
-  <div class="d-flex justify-content-between align-items-center mb-1 flex-wrap gap-2">
-    <div class="d-flex align-items-center gap-2">
-      <span class="section-icon"><i class="bi bi-shield-exclamation"></i></span>
-      <div class="section-title mb-0">Needs Your Attention</div>
-      <span class="badge bg-danger-subtle text-danger rounded-pill" id="alertsTotalBadge" style="font-size:.68rem"></span>
-    </div>
-  </div>
-  <div class="section-sub mb-2 ms-1 ps-4">Click an item to jump straight to the fix</div>
-  <div class="row g-2" id="alertsPanel"></div>
-</div>
-
-<!-- Portfolio Overview -->
-<div class="section-card mt-3">
-  <div class="d-flex justify-content-between align-items-start mb-3 flex-wrap gap-2">
-    <div class="d-flex align-items-start gap-2">
-      <span class="section-icon"><i class="bi bi-pie-chart"></i></span>
-      <div>
-        <div class="section-title">Portfolio Overview</div>
-        <div class="section-sub">Geographic spread, property type, brand, and status mix across the whole portfolio</div>
-      </div>
-    </div>
-  </div>
-  <div class="row g-4 align-items-start">
-    <div class="col-lg-5 portfolio-col">
-      <div class="d-flex justify-content-between align-items-center mb-2">
-        <div class="fw-semibold" style="font-size:.86rem"><i class="bi bi-geo-alt me-1"></i>Geographic Distribution</div>
-        <button class="btn btn-link btn-sm p-0 d-none" id="geoResetBtn">Reset filter</button>
-      </div>
-      <div id="geoDistribution"></div>
-    </div>
-    <div class="col-lg-4 portfolio-col">
-      <div class="row g-3">
-        <div class="col-6">
-          <div class="fw-semibold mb-2 text-center" style="font-size:.8rem">Property Type</div>
-          <canvas id="typeChart" height="100"></canvas>
-        </div>
-        <div class="col-6">
-          <div class="fw-semibold mb-2 text-center" style="font-size:.8rem">Active vs Archived</div>
-          <canvas id="statusChart" height="100"></canvas>
-        </div>
-      </div>
-      <div id="typeStatusLegend" class="d-flex flex-wrap gap-3 justify-content-center mt-3"></div>
-    </div>
-    <div class="col-lg-3">
-      <div class="fw-semibold mb-2" style="font-size:.86rem"><i class="bi bi-award me-1"></i>Brand Breakdown</div>
-      <div id="brandBreakdown"></div>
-    </div>
-  </div>
-</div>
-
 <!-- Property Health -->
 <div class="section-card mt-3">
   <div class="d-flex justify-content-between align-items-start mb-3 flex-wrap gap-2">
@@ -139,34 +85,6 @@
     <div class="section-title mb-0">Recent Activity</div>
   </div>
   <div class="nice-scroll" style="max-height:320px" id="activityTimeline"></div>
-</div>
-
-<!-- User Overview -->
-<div class="section-card mt-3">
-  <div class="d-flex justify-content-between align-items-start mb-3 flex-wrap gap-2">
-    <div class="d-flex align-items-start gap-2">
-      <span class="section-icon"><i class="bi bi-people"></i></span>
-      <div>
-        <div class="section-title">User Overview</div>
-        <div class="section-sub">Role mix, portfolio load per Property Owner, and recent sign-ins</div>
-      </div>
-    </div>
-  </div>
-  <div class="row g-4 align-items-start">
-    <div class="col-lg-3 portfolio-col">
-      <div class="fw-semibold mb-2 text-center" style="font-size:.8rem">Role Distribution</div>
-      <canvas id="roleChart" height="110"></canvas>
-      <div id="roleLegend" class="d-flex flex-wrap gap-3 justify-content-center mt-3"></div>
-    </div>
-    <div class="col-lg-5 portfolio-col">
-      <div class="fw-semibold mb-2" style="font-size:.8rem">Properties per Property Owner</div>
-      <canvas id="ownerChart" height="110"></canvas>
-    </div>
-    <div class="col-lg-4">
-      <div class="fw-semibold mb-2" style="font-size:.8rem"><i class="bi bi-box-arrow-in-right me-1"></i>Recent Logins</div>
-      <div id="recentLogins"></div>
-    </div>
-  </div>
 </div>
 
 </div>

@@ -22,7 +22,6 @@ document.addEventListener('DOMContentLoaded', ()=>{
     actions: canCreateProperty ? `<a href="add-property.html" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i>Add Property</a>` : ''
   });
 
-  const CHART_COLORS = ['#3861fb','#00c2a8','#ffb020','#ff4d5e','#12b76a','#8cadff','#b9791a','#5c86ff'];
   const COLOR_HEX = { success:'#12b76a', brand:'#3861fb', warn:'#b9791a', danger:'#ff4d5e' };
 
   function escapeHtml(s){
@@ -75,23 +74,11 @@ document.addEventListener('DOMContentLoaded', ()=>{
   });
 
   /* =========================== KPI Cards =========================== */
-  const activeProperties = properties.filter(p=>p.status==='active');
-  const pendingSetup = healthRows.filter(r=>r.progress<100);
-  const assignedProperties = properties.filter(p=>ownerByPropertyId[p.id]);
-  const thirtyDaysAgo = Date.now() - 30*86400000;
-  const recentlyAdded = properties.filter(p=> new Date(p.createdAt).getTime() >= thirtyDaysAgo);
-
-  // `accent` puts a colored left edge on a KPI card when its number represents a problem —
-  // so the eye lands on "this needs action" cards first, instead of every KPI reading as equally neutral.
   const kpis = [
     {icon:'bi-building', color:'#3861fb', bg:'#eef4ff', label:'Total Properties', value:properties.length},
-    {icon:'bi-building-check', color:'#12b76a', bg:'#e7faf1', label:'Active Properties', value:activeProperties.length, sub:`of ${properties.length} total`},
     {icon:'bi-people', color:'#00c2a8', bg:'#e6faf7', label:'Total Users', value:users.length},
     {icon:'bi-person-badge', color:'#8cadff', bg:'#eef4ff', label:'Property Owners', value:owners.length},
     {icon:'bi-shield-lock', color:'#1e37b0', bg:'#eef4ff', label:'Company Admins', value:admins.length},
-    {icon:'bi-tools', color:'#b9791a', bg:'#fff8e6', label:'Pending Setup', value:pendingSetup.length, sub:'properties incomplete', accent: pendingSetup.length>0 ? 'warn' : null},
-    {icon:'bi-diagram-3', color:'#ffb020', bg:'#fff8e6', label:'Property Assignments', value:`${assignedProperties.length}/${properties.length}`, sub:'assigned to an owner', accent: assignedProperties.length<properties.length ? 'danger' : null},
-    {icon:'bi-clock-history', color:'#ff4d5e', bg:'#fff0f1', label:'Recently Added', value:recentlyAdded.length, sub:'in the last 30 days'},
   ];
   document.getElementById('kpiCards').innerHTML = kpis.map(k=>`
     <div class="col-6 col-md-4 col-xl-3">
@@ -104,71 +91,6 @@ document.addEventListener('DOMContentLoaded', ()=>{
         </div>
       </div>
     </div>`).join('');
-
-  /* ======================= Portfolio Overview ======================= */
-  // Geographic Distribution — grouped by country, click-to-filter into Property Health below.
-  function renderGeoDistribution(){
-    const groups = {};
-    properties.forEach(p=>{ const key = p.country || 'Unknown'; groups[key] = (groups[key]||0)+1; });
-    const entries = Object.entries(groups).sort((a,b)=>b[1]-a[1]);
-    const max = entries.length ? entries[0][1] : 1;
-    document.getElementById('geoDistribution').innerHTML = entries.map(([country,count])=>`
-      <div class="mini-bar-row clickable" data-country="${escapeHtml(country)}">
-        <div class="mbr-top"><span class="mbr-label"><i class="bi bi-geo-alt-fill" style="color:var(--brand-500)"></i>${escapeHtml(country)}</span><span class="mbr-count">${count} propert${count===1?'y':'ies'}</span></div>
-        <div class="progress progress-thin"><div class="progress-bar" style="width:${count/max*100}%;background:var(--brand-500)"></div></div>
-      </div>`).join('') || `<div class="text-muted small">No properties yet.</div>`;
-
-    document.querySelectorAll('#geoDistribution .mini-bar-row').forEach(row=>{
-      row.addEventListener('click', ()=>{
-        document.getElementById('ph_search').value = row.dataset.country;
-        document.getElementById('geoResetBtn').classList.remove('d-none');
-        renderPropertyHealth();
-        document.getElementById('propertyHealthBody').closest('.section-card').scrollIntoView({behavior:'smooth', block:'nearest'});
-      });
-    });
-  }
-  document.getElementById('geoResetBtn').addEventListener('click', ()=>{
-    document.getElementById('ph_search').value = '';
-    document.getElementById('geoResetBtn').classList.add('d-none');
-    renderPropertyHealth();
-  });
-  renderGeoDistribution();
-
-  // Property Type doughnut
-  const typeGroups = {};
-  properties.forEach(p=>{ const t = p.type||'Other'; typeGroups[t]=(typeGroups[t]||0)+1; });
-  const typeLabels = Object.keys(typeGroups);
-  new Chart(document.getElementById('typeChart'), {
-    type:'doughnut',
-    data:{ labels:typeLabels, datasets:[{ data:typeLabels.map(t=>typeGroups[t]), backgroundColor:typeLabels.map((_,i)=>CHART_COLORS[i%CHART_COLORS.length]), borderWidth:0 }]},
-    options:{ cutout:'68%', plugins:{ legend:{display:false} } }
-  });
-
-  // Active vs Archived doughnut
-  const inactiveCount = properties.length - activeProperties.length;
-  new Chart(document.getElementById('statusChart'), {
-    type:'doughnut',
-    data:{ labels:['Active','Archived'], datasets:[{ data:[activeProperties.length, inactiveCount], backgroundColor:[COLOR_HEX.success, COLOR_HEX.danger], borderWidth:0 }]},
-    options:{ cutout:'68%', plugins:{ legend:{display:false} } }
-  });
-
-  document.getElementById('typeStatusLegend').innerHTML = `
-    ${typeLabels.map((t,i)=>`<span class="d-inline-flex align-items-center gap-1" style="font-size:.72rem;color:var(--text-2)"><span style="width:8px;height:8px;border-radius:50%;display:inline-block;background:${CHART_COLORS[i%CHART_COLORS.length]}"></span>${escapeHtml(t)} (${typeGroups[t]})</span>`).join('')}
-    <span style="width:100%;height:0"></span>
-    <span class="d-inline-flex align-items-center gap-1" style="font-size:.72rem;color:var(--text-2)"><span style="width:8px;height:8px;border-radius:50%;display:inline-block;background:${COLOR_HEX.success}"></span>Active (${activeProperties.length})</span>
-    <span class="d-inline-flex align-items-center gap-1" style="font-size:.72rem;color:var(--text-2)"><span style="width:8px;height:8px;border-radius:50%;display:inline-block;background:${COLOR_HEX.danger}"></span>Archived (${inactiveCount})</span>
-  `;
-
-  // Brand Breakdown
-  const brandGroups = {};
-  properties.forEach(p=>{ const b = p.brand||'Independent'; brandGroups[b]=(brandGroups[b]||0)+1; });
-  const brandEntries = Object.entries(brandGroups).sort((a,b)=>b[1]-a[1]);
-  const brandMax = brandEntries.length ? brandEntries[0][1] : 1;
-  document.getElementById('brandBreakdown').innerHTML = brandEntries.map(([brand,count],i)=>`
-    <div class="mini-bar-row">
-      <div class="mbr-top"><span class="mbr-label">${escapeHtml(brand)}</span><span class="mbr-count">${count}</span></div>
-      <div class="progress progress-thin"><div class="progress-bar" style="width:${count/brandMax*100}%;background:${CHART_COLORS[i%CHART_COLORS.length]}"></div></div>
-    </div>`).join('') || `<div class="text-muted small">No brand data yet.</div>`;
 
   /* ========================= Property Health ========================= */
   function renderPropertyHealth(){
@@ -266,110 +188,6 @@ document.addEventListener('DOMContentLoaded', ()=>{
         <div class="text-muted" style="font-size:.74rem">${timeAgo(e.time)}</div>
       </div>
     </div>`).join('') || `<div class="empty-state py-3"><i class="bi bi-clock-history"></i><p class="mb-0 small">No recent activity</p></div>`;
-
-  /* ============================== Alerts ============================== */
-  // Every alert carries a `fix` — clicking it jumps straight to where the problem gets solved
-  // (deep-filter the table below, or navigate to the right admin screen) instead of just naming
-  // the problem and leaving the admin to go find the fix themselves.
-  const alerts = [];
-  const noOwner = properties.filter(p=>!ownerByPropertyId[p.id]);
-  if(noOwner.length) alerts.push({ icon:'bi-person-x', color:'danger', title:'Properties without an Owner', desc:`${noOwner.length} propert${noOwner.length===1?'y has':'ies have'} no Property Owner assigned.`, count:noOwner.length,
-    fix:()=>{ setPropertyHealthFilter({ owner:'unassigned' }); } });
-
-  const noCompetitors = owners.filter(u=>u.parentPropertyId && (u.assignedProperties||[]).length===0);
-  if(noCompetitors.length) alerts.push({ icon:'bi-signpost', color:'warn', title:'Missing Competitor Assignments', desc:`${noCompetitors.length} Property Owner${noCompetitors.length===1?'':'s'} have no competitor properties assigned.`, count:noCompetitors.length,
-    fix:()=>{ location.href = 'users.html'; } });
-
-  const incomplete = healthRows.filter(r=>r.status!=='healthy');
-  if(incomplete.length) alerts.push({ icon:'bi-exclamation-triangle', color:'warn', title:'Incomplete Setup', desc:`${incomplete.length} propert${incomplete.length===1?'y is':'ies are'} missing an owner, rooms, rate plans, channels, or competitors.`, count:incomplete.length,
-    fix:()=>{ setPropertyHealthFilter({ status:'attention' }); } });
-
-  const nameGroups = {};
-  properties.forEach(p=>{ const k = p.name.trim().toLowerCase(); (nameGroups[k] = nameGroups[k]||[]).push(p); });
-  const dupeGroups = Object.values(nameGroups).filter(g=>g.length>1);
-  if(dupeGroups.length){
-    const dupeCount = dupeGroups.reduce((s,g)=>s+g.length,0);
-    alerts.push({ icon:'bi-files', color:'danger', title:'Duplicate Properties Detected', desc:`${dupeGroups.length} property name${dupeGroups.length===1?'':'s'} appear more than once in the portfolio (${dupeCount} records).`, count:dupeCount,
-      fix:()=>{ setPropertyHealthFilter({ search:dupeGroups[0][0].name }); } });
-  }
-
-  const inactiveUsers = users.filter(u=>u.status==='inactive');
-  if(inactiveUsers.length) alerts.push({ icon:'bi-person-dash', color:'danger', title:'Inactive Users', desc:`${inactiveUsers.length} user account${inactiveUsers.length===1?'':'s'} ${inactiveUsers.length===1?'is':'are'} marked inactive.`, count:inactiveUsers.length,
-    fix:()=>{ location.href = 'users.html'; } });
-
-  function setPropertyHealthFilter({ search, status, owner }){
-    document.getElementById('ph_search').value = search || '';
-    document.getElementById('ph_status').value = status || '';
-    document.getElementById('ph_owner').value = owner || '';
-    renderPropertyHealth();
-    document.getElementById('propertyHealthBody').closest('.section-card').scrollIntoView({behavior:'smooth', block:'start'});
-  }
-
-  const totalAlerts = alerts.reduce((s,a)=>s+a.count,0);
-  const badgeEl = document.getElementById('alertsTotalBadge');
-  if(totalAlerts){ badgeEl.textContent = `${totalAlerts} issue${totalAlerts===1?'':'s'}`; } else { badgeEl.classList.add('d-none'); }
-
-  const alertsPanel = document.getElementById('alertsPanel');
-  if(!alerts.length){
-    document.getElementById('alertsCard').classList.add('d-none');
-  } else {
-    alertsPanel.innerHTML = alerts.map((a,i)=>`
-      <div class="col-md-6 col-xl-4">
-        <div class="alert-tile alert-tile-${a.color}" data-alert="${i}" tabindex="0" role="button">
-          <div class="alert-ico" style="background:${COLOR_HEX[a.color]}1a;color:${COLOR_HEX[a.color]}"><i class="bi ${a.icon}"></i></div>
-          <div class="flex-grow-1">
-            <div class="d-flex align-items-center gap-2">
-              <div class="fw-semibold" style="font-size:.84rem">${a.title}</div>
-              <span class="alert-count" style="background:${COLOR_HEX[a.color]}1a;color:${COLOR_HEX[a.color]}">${a.count}</span>
-            </div>
-            <div class="text-muted" style="font-size:.75rem;margin-top:2px">${a.desc}</div>
-            <div class="alert-fix-link" style="color:${COLOR_HEX[a.color]}">Fix now <i class="bi bi-arrow-right"></i></div>
-          </div>
-        </div>
-      </div>`).join('');
-    alertsPanel.querySelectorAll('[data-alert]').forEach(tile=>{
-      const alert = alerts[Number(tile.dataset.alert)];
-      tile.addEventListener('click', alert.fix);
-      tile.addEventListener('keydown', e=>{ if(e.key==='Enter' || e.key===' '){ e.preventDefault(); alert.fix(); } });
-    });
-  }
-
-  /* ============================ User Overview ============================ */
-  new Chart(document.getElementById('roleChart'), {
-    type:'doughnut',
-    data:{ labels:['Company Admin','Property Owner'], datasets:[{ data:[admins.length, owners.length], backgroundColor:[COLOR_HEX.brand, CHART_COLORS[1]], borderWidth:0 }]},
-    options:{ cutout:'68%', plugins:{ legend:{display:false} } }
-  });
-  document.getElementById('roleLegend').innerHTML = `
-    <span class="d-inline-flex align-items-center gap-1" style="font-size:.72rem;color:var(--text-2)"><span style="width:8px;height:8px;border-radius:50%;display:inline-block;background:${COLOR_HEX.brand}"></span>Company Admin (${admins.length})</span>
-    <span class="d-inline-flex align-items-center gap-1" style="font-size:.72rem;color:var(--text-2)"><span style="width:8px;height:8px;border-radius:50%;display:inline-block;background:${CHART_COLORS[1]}"></span>Property Owner (${owners.length})</span>
-  `;
-
-  // Properties per Property Owner — an owner's "portfolio" = their Primary Property plus any
-  // additional properties they created themselves (same scope RBAC.assignedPropertyIds() uses).
-  const ownerPortfolio = owners.map(u=>{
-    const ids = new Set([u.parentPropertyId, ...properties.filter(p=>p.ownerId===u.id).map(p=>p.id)].filter(Boolean));
-    return { name:u.name, count:ids.size };
-  }).filter(o=>o.count>0).sort((a,b)=>b.count-a.count).slice(0,8);
-  new Chart(document.getElementById('ownerChart'), {
-    type:'bar',
-    data:{ labels:ownerPortfolio.map(o=>o.name), datasets:[{ data:ownerPortfolio.map(o=>o.count), backgroundColor:COLOR_HEX.brand, borderRadius:6, maxBarThickness:22 }]},
-    options:{ indexAxis:'y', plugins:{legend:{display:false}}, scales:{ x:{ ticks:{precision:0}, grid:{color:'rgba(120,130,180,.1)'} }, y:{ grid:{display:false} } } }
-  });
-
-  // Recent Logins — reuses the existing "New Sign-In" notification feed (already-seeded demo data).
-  const recentLogins = DB.notifications.all()
-    .filter(n=>n.icon==='bi-box-arrow-in-right')
-    .sort((a,b)=> new Date(b.time)-new Date(a.time))
-    .slice(0,6);
-  document.getElementById('recentLogins').innerHTML = recentLogins.length ? recentLogins.map(n=>`
-    <div class="activity-item">
-      <div class="activity-ico" style="background:${COLOR_HEX.success}1a;color:${COLOR_HEX.success}"><i class="bi bi-box-arrow-in-right"></i></div>
-      <div class="flex-grow-1">
-        <div class="fw-semibold" style="font-size:.82rem">${n.msg}</div>
-        <div class="text-muted" style="font-size:.72rem">${timeAgo(n.time)}</div>
-      </div>
-    </div>`).join('') : `<div class="empty-state py-3"><i class="bi bi-box-arrow-in-right"></i><p class="mb-0 small">No recent sign-ins</p></div>`;
 
   /* ============================ Quick Actions ============================ */
   if(!RBAC.can(RBAC.MODULES.USERS, 'create')){

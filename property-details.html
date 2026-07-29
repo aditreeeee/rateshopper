@@ -63,9 +63,26 @@
       <div class="text-muted small" id="roomsCount"></div>
       <select class="form-select form-select-sm" id="roomsChannelFilter" style="width:auto;min-width:180px"></select>
     </div>
-    <a href="#" id="addRoomBtn" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg me-1"></i>Add Room</a>
+    <div class="d-flex align-items-center gap-2">
+      <div class="btn-group btn-group-sm">
+        <button type="button" class="btn btn-soft" id="rm_viewGrid" title="Grid view"><i class="bi bi-grid-3x3-gap"></i></button>
+        <button type="button" class="btn btn-soft" id="rm_viewList" title="List view"><i class="bi bi-list-ul"></i></button>
+      </div>
+      <a href="#" id="addRoomBtn" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg me-1"></i>Add Room</a>
+    </div>
   </div>
   <div class="row g-3" id="roomsGrid"></div>
+  <div class="card-surface p-0 overflow-hidden d-none" id="roomsListWrap">
+    <div class="table-responsive">
+      <table class="table-modern w-100">
+        <thead><tr>
+          <th>Room</th><th>Channel</th><th>Bed Type</th><th class="text-center">Capacity</th>
+          <th>Meal Plans</th><th class="text-end">Base Price</th><th class="text-end">Actions</th>
+        </tr></thead>
+        <tbody id="roomsListBody"></tbody>
+      </table>
+    </div>
+  </div>
 </div>
 
 <div id="tab-rateplans" class="d-none">
