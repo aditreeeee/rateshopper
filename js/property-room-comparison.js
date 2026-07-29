@@ -1,18 +1,30 @@
 /* ==========================================================================
    Room Rate Comparison — per-room, per-rate-plan price comparison against
    mapped competitor rooms. Price comparison only: no occupancy/ADR/RevPAR/
-   bookings/demand. Row generation is kept as a flat array + client-side
-   pagination/sort/filter so the table stays responsive even if the
-   underlying property/competitor set grows into the thousands of rooms.
-   When "All Rooms" is selected, the room-scoped sections (distribution,
-   ranking, trend, history) compare across every one of the owner's rooms
-   instead of defaulting to a single one.
+   bookings/demand.
+
+   Every card on this page (KPIs, Rate Plan Trend Analysis, Meal Plan
+   Comparison, the Room Comparison table, Distribution, Ranking, History)
+   reads from ONE shared filter state — Room, Channel, Meal Plan, Date Range —
+   set in the single top filter bar. There used to be three separate channel
+   selectors and a locally-scoped meal plan control on the Trend Analysis card
+   that could disagree with the rest of the page; that's gone now, so nothing
+   here can show conflicting numbers for the same underlying data.
+
+   All rate figures are averaged over the selected date range (7D/14D/30D/
+   90D/1Y) ending today — there's no more separate "current vs. average"
+   toggle or single-date picker; the range control covers both.
    ========================================================================== */
-let rcDistChart = null;
+let rcDistChart = null, rcMealPlanChart = null;
 let rcAllRows = [];
 let rcPage = 0;
 const RC_PAGE_SIZE = 50;
 let rcSort = { key:'compRate', dir:'asc' };
+
+// Shared filter state — read by every render function below.
+let mealPlanFilter = '';   // '' | EP | CP | MAP | AP
+let rcDays = 14;           // 7 | 14 | 30 | 90 | 365
+let rcChartStyle = 'line'; // 'line' | 'bar' — applies to every chart on the page
 
 // Shared Chart.js animation preset — same helper as the Dashboard/Market Intelligence pages;
 // bars cascade in one-by-one, lines draw in with a smooth ease.
@@ -24,6 +36,9 @@ function chartAnim(isBar){
       : (ctx.datasetIndex||0) * 150
   };
 }
+// Chart.js renders its own canvas text, which otherwise defaults to the browser's generic
+// sans-serif stack instead of the page's actual font.
+if(window.Chart) Chart.defaults.font.family = getComputedStyle(document.body).fontFamily;
 
 document.addEventListener('DOMContentLoaded', ()=>{
   const me = PORTAL.mount({ title:'Room Rate Comparison', subtitle:'Compare your rooms against mapped competitor rooms, plan by plan, channel by channel.' });
@@ -34,50 +49,42 @@ document.addEventListener('DOMContentLoaded', ()=>{
   const master = channels.find(c=>c.type==='master');
   const myRooms = master ? DB.rooms.byChannel(master.id) : [];
   // Only the real properties your Company Admin actually assigned to you — same set as
-  // Competitors/Rate Shopper/Market Intelligence. The portal's larger synthetic "market sample"
-  // pool (used only on the Competitors browse page) never belongs here, otherwise a single
-  // assigned property balloons into dozens of comparisons that were never actually assigned.
+  // Competitors/Rate Shopper/Market Intelligence.
   const compsAll = PORTALDATA.comparisonRealProperties().map(c=>({...c, group:'real'}));
 
-  document.getElementById('rc_date').value = PORTALDATA.dateKeyOffset(0);
   document.getElementById('rc_room').innerHTML += myRooms.map(r=>`<option value="${r.id}">${r.name}</option>`).join('');
   document.getElementById('rc_channel').innerHTML += PORTALDATA.CHANNELS.map(c=>`<option value="${c.key}">${c.label}</option>`).join('');
-  // Second Channel selector, right on the Room Comparison table itself — kept in sync with the
-  // top filters-bar's rc_channel (either one can drive the filter without the two disagreeing).
-  document.getElementById('rc_channel2').innerHTML += PORTALDATA.CHANNELS.map(c=>`<option value="${c.key}">${c.label}</option>`).join('');
-  document.getElementById('rpta_channel').innerHTML += PORTALDATA.CHANNELS.map(c=>`<option value="${c.key}">${c.label}</option>`).join('');
-
-  // Meal plan (All Plans/EP/CP/MAP/AP) — the single shared control that now drives both the
-  // Rate Plan Trend Analysis charts/KPIs above AND the merged-in Room Comparison table below,
-  // via the #rpta_mealPlanGroup buttons (there's no separate table-only meal plan filter anymore).
-  let mealPlanFilter = '';
 
   // ---- date-range helper: last `days` dates ending today ----
   function rangeDates(days){ return Array.from({length:days}).map((_,d)=> PORTALDATA.dateKeyOffset(d - (days-1))); }
   function avgOf(vals){
     const nums = vals.filter(v=>v!=null);
-    return nums.length ? Math.round(nums.reduce((a,b)=>a+b,0)/nums.length) : 0;
+    return nums.length ? Math.round(nums.reduce((a,b)=>a+b,0)/nums.length) : null;
+  }
+  // Pick the rate plan a room's price should be read from — honoring the Meal Plan filter.
+  // When a meal plan is selected and the room has no matching plan, returns null (skip this
+  // room) instead of silently falling back to a different plan, which would misrepresent the
+  // room as offering a meal plan it doesn't.
+  function pickPlan(plans, mealPlan){
+    if(!plans.length) return null;
+    if(!mealPlan) return plans[0];
+    return plans.find(p=>p.mealPlan===mealPlan) || null;
   }
 
-  // ---- "My Rate" for a room, either on one date or averaged over the compare range. Runs the
-  // same channelRate() markup/markdown the competitor side already gets, so switching the
-  // Channel filter moves our own rate too — otherwise "My Rate" silently stayed pinned to the
-  // flat Direct/master price no matter what channel was selected. ----
-  function myRoomRate(room, dateKey, useAvg, days, channelFilter){
-    const plans = DB.ratePlans.byRoom(room.id);
-    const rp = plans[0];
-    if(!rp) return room.basePrice;
+  // ---- "My Rate" for a room, averaged over the selected date range, honoring the Meal Plan
+  // and Channel filters. Returns null if the room has no rate plan matching the Meal Plan filter. ----
+  function myRoomRate(room, channelFilter){
+    const rp = pickPlan(DB.ratePlans.byRoom(room.id), mealPlanFilter);
+    if(!rp) return null;
     const baseFor = dk=>{ const day = DB.rates.forPlan(rp.id)[dk]; return day ? day.price : room.basePrice; };
-    const raw = useAvg ? avgOf(rangeDates(days).map(baseFor)) : baseFor(dateKey);
-    return channelFilter ? PORTALDATA.channelRate(raw, channelFilter, useAvg ? PORTALDATA.dateKeyOffset(0) : dateKey) : raw;
+    const raw = avgOf(rangeDates(rcDays).map(baseFor));
+    if(raw==null) return null;
+    return channelFilter ? PORTALDATA.channelRate(raw, channelFilter, PORTALDATA.dateKeyOffset(0)) : raw;
   }
 
   // ---- Resolve a competitor's mapped room for one of ours via the same Room Mapping system
   // Rate Matrix uses (MAPPING.ensureAutoMapped/evaluate) — fuzzy name-similarity auto-matching
-  // that self-heals on load, instead of requiring an exact room-name match. An exact-match lookup
-  // silently dropped a competitor from every comparison the moment their room naming differed
-  // even slightly (e.g. "Deluxe Room" vs "Deluxe King Room"), which meant "all assigned
-  // competitors" in practice was only "competitors who happen to name rooms identically to us". ----
+  // that self-heals on load, instead of requiring an exact room-name match. ----
   function mappedCompRoom(comp, room){
     MAPPING.ensureAutoMapped(propertyId, comp.realPropertyId);
     const ev = MAPPING.evaluate(propertyId, comp.realPropertyId);
@@ -85,30 +92,30 @@ document.addEventListener('DOMContentLoaded', ()=>{
     return entry && entry.compRoom ? entry.compRoom : null;
   }
 
-  // ---- Competitor's matched-room rate for a specific room, either snapshot or averaged ----
-  function compRoomRate(comp, room, dateKey, channelFilter, useAvg, days){
+  // ---- Competitor's matched-room rate for a specific room, averaged over the date range,
+  // honoring the Meal Plan and Channel filters. ----
+  function compRoomRate(comp, room, channelFilter){
     const compRoom = mappedCompRoom(comp, room);
     if(!compRoom) return null;
-    const compPlan = DB.ratePlans.byRoom(compRoom.id)[0];
-    const baseFor = dk=>{
-      const day = compPlan ? DB.rates.forPlan(compPlan.id)[dk] : null;
-      return day ? day.price : compRoom.basePrice;
-    };
-    const raw = useAvg ? avgOf(rangeDates(days).map(baseFor)) : baseFor(dateKey);
-    return channelFilter ? PORTALDATA.channelRate(raw, channelFilter, useAvg ? PORTALDATA.dateKeyOffset(0) : dateKey) : raw;
+    const compPlan = pickPlan(DB.ratePlans.byRoom(compRoom.id), mealPlanFilter);
+    if(!compPlan) return null;
+    const baseFor = dk=>{ const day = DB.rates.forPlan(compPlan.id)[dk]; return day ? day.price : compRoom.basePrice; };
+    const raw = avgOf(rangeDates(rcDays).map(baseFor));
+    if(raw==null) return null;
+    return channelFilter ? PORTALDATA.channelRate(raw, channelFilter, PORTALDATA.dateKeyOffset(0)) : raw;
   }
 
-  // ---- Build the flat comparison-row dataset for the currently selected date/channel/metric ----
-  function buildRows(dateKey, channelFilter, useAvg, days){
+  // ---- Build the flat comparison-row dataset for the currently selected filters ----
+  function buildRows(channelFilter){
     const rows = [];
     myRooms.forEach(room=>{
-      const plans = DB.ratePlans.byRoom(room.id);
+      let plans = DB.ratePlans.byRoom(room.id);
+      if(mealPlanFilter) plans = plans.filter(p=>p.mealPlan===mealPlanFilter);
       plans.forEach(rp=>{
-        // Same channel-adjustment myRoomRate() applies, but scoped to this specific rate plan
-        // (myRoomRate always uses the room's first plan — buildRows needs each plan in turn).
         const myBaseFor = dk=>{ const d=DB.rates.forPlan(rp.id)[dk]; return d ? d.price : room.basePrice; };
-        const myRaw = useAvg ? avgOf(rangeDates(days).map(myBaseFor)) : myBaseFor(dateKey);
-        const myRate = channelFilter ? PORTALDATA.channelRate(myRaw, channelFilter, useAvg ? PORTALDATA.dateKeyOffset(0) : dateKey) : myRaw;
+        const myRaw = avgOf(rangeDates(rcDays).map(myBaseFor));
+        if(myRaw==null) return;
+        const myRate = channelFilter ? PORTALDATA.channelRate(myRaw, channelFilter, PORTALDATA.dateKeyOffset(0)) : myRaw;
 
         compsAll.forEach(comp=>{
           const compRoom = mappedCompRoom(comp, room);
@@ -118,11 +125,12 @@ document.addEventListener('DOMContentLoaded', ()=>{
           if(!compPlan) return;
           const channelKey = channelFilter || 'direct';
           const baseFor = dk=>{ const d=DB.rates.forPlan(compPlan.id)[dk]; return d ? d.price : compRoom.basePrice; };
-          const raw = useAvg ? avgOf(rangeDates(days).map(baseFor)) : baseFor(dateKey);
-          const compRate = channelFilter ? PORTALDATA.channelRate(raw, channelFilter, dateKey) : raw;
+          const raw = avgOf(rangeDates(rcDays).map(baseFor));
+          if(raw==null) return;
+          const compRate = channelFilter ? PORTALDATA.channelRate(raw, channelFilter, PORTALDATA.dateKeyOffset(0)) : raw;
           const compRoomName = compRoom.name;
           const ratePlanName = compPlan.name;
-          const lastUpdated = compPlan.createdAt || dateKey;
+          const lastUpdated = compPlan.createdAt || PORTALDATA.dateKeyOffset(0);
 
           const diff = compRate - myRate;
           const diffPct = myRate ? (diff/myRate*100) : 0;
@@ -141,11 +149,9 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
   function applyFilters(rows){
     const roomId = document.getElementById('rc_room').value;
-    const mealPlan = mealPlanFilter;
     const search = document.getElementById('rc_search').value.trim().toLowerCase();
     return rows.filter(r=>{
       if(roomId && r.myRoomId !== roomId) return false;
-      if(mealPlan && r.myRateMealPlan !== mealPlan) return false;
       if(search && !(r.compName.toLowerCase().includes(search) || r.compRoomName.toLowerCase().includes(search) || r.myRoomName.toLowerCase().includes(search))) return false;
       return true;
     });
@@ -168,38 +174,38 @@ document.addEventListener('DOMContentLoaded', ()=>{
   }
 
   // ---- Frozen reference rows: my own room(s), pinned to the top of the table so they stay
-  // visible while scrolling through competitor rows below. Rebuilt from the same Room/Rate
-  // Plan/Date/Rate-Metric filters as the rest of the page, so they always adapt to them. ----
-  function buildFrozenRows(dateKey, useAvg, days, channelFilter){
+  // visible while scrolling through competitor rows below. ----
+  function buildFrozenRows(channelFilter){
     const roomId = document.getElementById('rc_room').value;
-    const mealPlan = mealPlanFilter;
     const rooms = roomId ? myRooms.filter(r=>r.id===roomId) : myRooms;
     const rows = [];
     rooms.forEach(room=>{
       let plans = DB.ratePlans.byRoom(room.id);
-      if(mealPlan) plans = plans.filter(p=>p.mealPlan===mealPlan);
+      if(mealPlanFilter) plans = plans.filter(p=>p.mealPlan===mealPlanFilter);
       plans.forEach(rp=>{
         const myBaseFor = dk=>{ const d=DB.rates.forPlan(rp.id)[dk]; return d ? d.price : room.basePrice; };
-        const myRaw = useAvg ? avgOf(rangeDates(days).map(myBaseFor)) : myBaseFor(dateKey);
-        const myRate = channelFilter ? PORTALDATA.channelRate(myRaw, channelFilter, useAvg ? PORTALDATA.dateKeyOffset(0) : dateKey) : myRaw;
+        const myRaw = avgOf(rangeDates(rcDays).map(myBaseFor));
+        if(myRaw==null) return;
+        const myRate = channelFilter ? PORTALDATA.channelRate(myRaw, channelFilter, PORTALDATA.dateKeyOffset(0)) : myRaw;
         rows.push({ roomName:room.name, ratePlanName:rp.name, myRate });
       });
     });
     return rows;
   }
 
-  function renderKpis(filteredRows, dateKey, useAvg, days, channelFilter){
+  function renderKpis(filteredRows, channelFilter){
     const roomsInScope = focusRooms();
-    const myRatesUnique = roomsInScope.map(r=> myRoomRate(r, dateKey, useAvg, days, channelFilter));
-    const ourAvg = avgOf(myRatesUnique);
+    const myRatesUnique = roomsInScope.map(r=> myRoomRate(r, channelFilter));
+    const ourAvg = avgOf(myRatesUnique) || 0;
     const compRates = filteredRows.map(r=>r.compRate);
-    const compAvg = avgOf(compRates);
+    const compAvg = avgOf(compRates) || 0;
     const cheaper = filteredRows.filter(r=>r.position==='lower').length;
     const pricier = filteredRows.filter(r=>r.position==='higher').length;
+    const rangeLabel = rcDays===365 ? '1 year' : `${rcDays} days`;
 
     document.getElementById('rcKpis').innerHTML = [
       PWIDGETS.kpiCard({icon:'bi-house-door-fill', color:'#3861fb', bg:'#eef4ff', label:'Our Avg. Rate', value:APP.fmtCurrency(ourAvg),
-        desc:'The average rate across the rooms in scope (all rooms, or just the one selected), on the channel selected in the Channel filter (Direct by default).'}),
+        desc:`Average rate over the last ${rangeLabel}, across the rooms in scope, on the selected channel.`}),
       PWIDGETS.kpiCard({icon:'bi-buildings', color:'#8c5cf7', bg:'#f3eeff', label:'Competitors Avg. Rate', value:APP.fmtCurrency(compAvg),
         desc:'The average rate across every matched competitor room in the current filter selection.'}),
       PWIDGETS.kpiCard({icon:'bi-arrow-down-circle', color:'#12b76a', bg:'#e7faf1', label:'Cheaper Than Us', value:cheaper,
@@ -232,13 +238,8 @@ document.addEventListener('DOMContentLoaded', ()=>{
     ];
     const thead = `<thead><tr>${cols.map(c=>`<th class="th-sortable ${rcSort.key===c.key?'active':''}" data-key="${c.key}">${c.label}${rcSort.key===c.key?`<i class="bi ${rcSort.dir==='asc'?'bi-caret-up-fill':'bi-caret-down-fill'}"></i>`:'<i class="bi bi-caret-up-fill" style="opacity:.15"></i>'}</th>`).join('')}</tr></thead>`;
 
-    const dateKey = document.getElementById('rc_date').value || PORTALDATA.dateKeyOffset(0);
-    const useAvg = document.getElementById('rc_rateMetric').value === 'avg';
-    const compareDays = Number(document.getElementById('rc_compare').value);
     const channelFilter = document.getElementById('rc_channel').value;
-    const frozenRows = buildFrozenRows(dateKey, useAvg, compareDays, channelFilter);
-    // The "My Property" label + star only need to appear once — the row tint already groups
-    // every frozen row visually, so repeating the label on each one was just noise.
+    const frozenRows = buildFrozenRows(channelFilter);
     const frozenHtml = frozenRows.map((r,i)=>`
       <tr class="rc-frozen-row">
         <td class="fw-semibold">${i===0 ? '<i class="bi bi-star-fill me-1" style="color:var(--brand-500)"></i>My Property' : ''}</td>
@@ -286,19 +287,16 @@ document.addEventListener('DOMContentLoaded', ()=>{
   }
 
   // ---- Room scope for the derived sections below: the selected room, or every room when
-  // "All Rooms" is chosen — each of those rooms is then compared against its own matched
-  // competitors instead of silently falling back to a single room. ----
+  // "All Rooms" is chosen. ----
   function focusRooms(){
     const roomId = document.getElementById('rc_room').value;
     if(roomId){ const r = myRooms.find(x=>x.id===roomId); return r ? [r] : []; }
     return myRooms;
   }
 
-  function matchedCompsForRoom(room){ return compsAll; }
-
-  function topCompetitorsForRoom(room, dateKey, channelFilter, useAvg, days, limit){
-    const list = matchedCompsForRoom(room).map(c=>{
-      const rate = compRoomRate(c, room, dateKey, channelFilter, useAvg, days);
+  function topCompetitorsForRoom(room, channelFilter, limit){
+    const list = compsAll.map(c=>{
+      const rate = compRoomRate(c, room, channelFilter);
       return rate!=null ? { comp:c, rate } : null;
     }).filter(Boolean);
     list.sort((a,b)=>a.rate-b.rate);
@@ -310,95 +308,118 @@ document.addEventListener('DOMContentLoaded', ()=>{
   // than its max-height instead of squeezing every bar into a fixed canvas.
   function setDistChartHeight(barGroupCount, perGroupPx){
     const inner = document.getElementById('rc_distChartInner');
-    inner.style.height = Math.max(220, barGroupCount * perGroupPx) + 'px';
+    inner.style.height = Math.max(200, barGroupCount * perGroupPx) + 'px';
   }
 
-  function renderDistribution(dateKey, channelFilter, useAvg, days){
+  function renderDistribution(channelFilter){
     const rooms = focusRooms();
-    if(!rooms.length) return;
+    const wrap = document.getElementById('rc_distChartWrap');
+    if(!rooms.length){ wrap.innerHTML = PWIDGETS.emptyState('bi-door-closed','No rooms','Nothing to compare for the current filters.'); return; }
+    if(!document.getElementById('rc_distChart')){ wrap.innerHTML = `<div id="rc_distChartInner"><canvas id="rc_distChart"></canvas></div>`; }
+
+    const isBar = rcChartStyle === 'bar';
 
     if(rooms.length === 1){
       const room = rooms[0];
-      const myRate = myRoomRate(room, dateKey, useAvg, days, channelFilter);
-      const top5 = topCompetitorsForRoom(room, dateKey, channelFilter, useAvg, days, 5);
+      const myRate = myRoomRate(room, channelFilter);
+      const top5 = topCompetitorsForRoom(room, channelFilter, 5);
+      if(myRate==null && !top5.length){
+        wrap.innerHTML = PWIDGETS.emptyState('bi-slash-circle', `No ${mealPlanFilter||'matching'} rate data`, 'Try a different meal plan or room.');
+        return;
+      }
       const labels = ['My Room', ...top5.map(t=>t.comp.name)];
       const data = [myRate, ...top5.map(t=>t.rate)];
       const colors = ['#3861fb', ...top5.map((_,i)=>['#a9b0c9','#9fd6ca','#c3aee8','#f2c194','#e6a8c4'][i%5])];
-      setDistChartHeight(labels.length, 38);
+      setDistChartHeight(labels.length, 36);
       if(rcDistChart) rcDistChart.destroy();
       rcDistChart = new Chart(document.getElementById('rc_distChart'), {
         type:'bar',
         data:{ labels, datasets:[{ data, backgroundColor:colors, borderRadius:6 }] },
-        options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false, animation:chartAnim(true), plugins:{legend:{display:false}}, scales:{x:{ticks:{callback:v=>APP.fmtCurrency(v)}}} }
+        options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false, animation:chartAnim(true), plugins:{legend:{display:false}}, scales:{x:{ticks:{callback:v=>v!=null?APP.fmtCurrency(v):''}}} }
       });
       return;
     }
 
     // "All Rooms": grouped bars per room — My Rate vs Market Average for that room.
     const labels = rooms.map(r=>r.name);
-    const myData = rooms.map(r=> myRoomRate(r, dateKey, useAvg, days, channelFilter));
+    const myData = rooms.map(r=> myRoomRate(r, channelFilter));
     const marketData = rooms.map(r=>{
-      const rates = matchedCompsForRoom(r).map(c=>compRoomRate(c, r, dateKey, channelFilter, useAvg, days)).filter(v=>v!=null);
+      const rates = compsAll.map(c=>compRoomRate(c, r, channelFilter)).filter(v=>v!=null);
       return avgOf(rates);
     });
-    setDistChartHeight(labels.length, 54);
+    setDistChartHeight(labels.length, 52);
     if(rcDistChart) rcDistChart.destroy();
     rcDistChart = new Chart(document.getElementById('rc_distChart'), {
-      type:'bar',
+      type: isBar ? 'bar' : 'bar', // horizontal comparison always reads best as bars regardless of the page-level line/bar toggle
       data:{ labels, datasets:[
         { label:'My Rate', data:myData, backgroundColor:'#3861fb', borderRadius:6 },
         { label:'Market Avg', data:marketData, backgroundColor:'#c3aee8', borderRadius:6 }
       ]},
-      options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false, animation:chartAnim(true), plugins:{legend:{position:'bottom'}}, scales:{x:{ticks:{callback:v=>APP.fmtCurrency(v)}}} }
+      options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false, animation:chartAnim(true), plugins:{legend:{position:'bottom'}}, scales:{x:{ticks:{callback:v=>v!=null?APP.fmtCurrency(v):''}}} }
     });
   }
 
-  function renderRanking(dateKey, channelFilter, useAvg, days){
+  function renderRanking(channelFilter){
     const rooms = focusRooms();
     if(!rooms.length){ document.getElementById('rc_rankTable').innerHTML = ''; return; }
 
     let list = [];
     rooms.forEach(room=>{
-      const myRate = myRoomRate(room, dateKey, useAvg, days, channelFilter);
-      matchedCompsForRoom(room).forEach(c=>{
-        const rate = compRoomRate(c, room, dateKey, channelFilter, useAvg, days);
+      const myRate = myRoomRate(room, channelFilter);
+      compsAll.forEach(c=>{
+        const rate = compRoomRate(c, room, channelFilter);
         if(rate!=null) list.push({ name:c.name, roomName:room.name, rate, isMe:false });
       });
-      list.push({ name:'My Property', roomName:room.name, rate:myRate, isMe:true });
+      if(myRate!=null) list.push({ name:'My Property', roomName:room.name, rate:myRate, isMe:true });
     });
     list.sort((a,b)=>a.rate-b.rate);
     if(rooms.length > 1) list = list.slice(0, 25); // cap the combined view to a readable top slice
 
-    const myRateLookup = new Map(rooms.map(r=>[r.name, myRoomRate(r, dateKey, useAvg, days, channelFilter)]));
+    const myRateLookup = new Map(rooms.map(r=>[r.name, myRoomRate(r, channelFilter)]));
 
     document.getElementById('rc_rankTable').innerHTML = `
-      <thead><tr><th>Rank</th><th>Property</th><th>Room</th><th>Current Rate</th><th>Difference vs. Mine</th></tr></thead>
+      <thead><tr><th>Rank</th><th>Property</th><th>Room</th><th>Avg. Rate</th><th>Difference vs. Mine</th></tr></thead>
       <tbody>${list.map((r,i)=>{
         const myRateForRow = myRateLookup.get(r.roomName);
-        const diff = r.rate - myRateForRow;
+        const diff = myRateForRow!=null ? r.rate - myRateForRow : null;
         return `<tr class="${r.isMe?'fw-bold':''}" style="${r.isMe?'background:var(--brand-50)':''}">
           <td>#${i+1}</td>
           <td>${r.isMe?'<i class="bi bi-star-fill me-1" style="color:var(--brand-500)"></i>':''}${r.name}</td>
           <td>${r.roomName}</td>
           <td class="fw-semibold">${APP.fmtCurrency(r.rate)}</td>
-          <td class="${diff>=0?'text-danger':'text-success'}">${r.isMe?'—':`${diff>=0?'+':''}${APP.fmtCurrency(diff)}`}</td>
+          <td class="${diff==null?'':diff>=0?'text-danger':'text-success'}">${r.isMe?'—':diff==null?'—':`${diff>=0?'+':''}${APP.fmtCurrency(diff)}`}</td>
         </tr>`;
       }).join('') || `<tr><td colspan="5" class="text-center text-muted py-3">No data</td></tr>`}</tbody>`;
   }
 
-  function renderHistory(channelFilter, compareDays){
+  function renderHistory(channelFilter){
     const rooms = focusRooms();
     if(!rooms.length){ document.getElementById('rc_historyTable').innerHTML = ''; return; }
 
-    const days = rangeDates(compareDays);
+    const days = rangeDates(rcDays).length > 30 ? rangeDates(30) : rangeDates(rcDays); // keep the day-by-day table readable even on a 1Y range
     const rows = days.map(dk=>{
-      const myRate = avgOf(rooms.map(r=>myRoomRate(r, dk, false, 1, channelFilter)));
+      const myVals = rooms.map(r=>{
+        const rp = pickPlan(DB.ratePlans.byRoom(r.id), mealPlanFilter);
+        if(!rp) return null;
+        const day = DB.rates.forPlan(rp.id)[dk];
+        const raw = day ? day.price : r.basePrice;
+        return channelFilter ? PORTALDATA.channelRate(raw, channelFilter, dk) : raw;
+      }).filter(v=>v!=null);
+      const myRate = avgOf(myVals);
       const rates = [];
-      rooms.forEach(r=> matchedCompsForRoom(r).forEach(c=>{ const rate=compRoomRate(c, r, dk, channelFilter, false, 1); if(rate!=null) rates.push(rate); }));
+      rooms.forEach(r=> compsAll.forEach(c=>{
+        const compRoom = mappedCompRoom(c, r);
+        if(!compRoom) return;
+        const compPlan = pickPlan(DB.ratePlans.byRoom(compRoom.id), mealPlanFilter);
+        if(!compPlan) return;
+        const day = DB.rates.forPlan(compPlan.id)[dk];
+        const raw = day ? day.price : compRoom.basePrice;
+        rates.push(channelFilter ? PORTALDATA.channelRate(raw, channelFilter, dk) : raw);
+      }));
       const marketAvg = rates.length ? avgOf(rates) : myRate;
       const lowest = rates.length ? Math.min(...rates) : myRate;
       const highest = rates.length ? Math.max(...rates) : myRate;
-      const diff = myRate - lowest;
+      const diff = (myRate!=null && lowest!=null) ? myRate - lowest : null;
       return { dk, myRate, marketAvg, lowest, highest, diff };
     });
 
@@ -406,11 +427,11 @@ document.addEventListener('DOMContentLoaded', ()=>{
       <thead><tr><th>Date</th><th>My Rate</th><th>Market Average</th><th>Lowest Competitor</th><th>Highest Competitor</th><th>Difference</th></tr></thead>
       <tbody>${rows.map(r=>`<tr>
         <td>${new Date(r.dk+'T00:00:00').toLocaleDateString('en-IN',{weekday:'short',day:'2-digit',month:'short',year:'2-digit'})}</td>
-        <td class="fw-semibold">${APP.fmtCurrency(r.myRate)}</td>
-        <td>${APP.fmtCurrency(r.marketAvg)}</td>
-        <td class="text-success">${APP.fmtCurrency(r.lowest)}</td>
-        <td class="text-danger">${APP.fmtCurrency(r.highest)}</td>
-        <td class="${r.diff>=0?'text-danger':'text-success'}">${r.diff>=0?'+':''}${APP.fmtCurrency(r.diff)}</td>
+        <td class="fw-semibold">${r.myRate!=null?APP.fmtCurrency(r.myRate):'—'}</td>
+        <td>${r.marketAvg!=null?APP.fmtCurrency(r.marketAvg):'—'}</td>
+        <td class="text-success">${r.lowest!=null?APP.fmtCurrency(r.lowest):'—'}</td>
+        <td class="text-danger">${r.highest!=null?APP.fmtCurrency(r.highest):'—'}</td>
+        <td class="${r.diff==null?'':r.diff>=0?'text-danger':'text-success'}">${r.diff==null?'—':`${r.diff>=0?'+':''}${APP.fmtCurrency(r.diff)}`}</td>
       </tr>`).join('')}</tbody>`;
   }
 
@@ -432,29 +453,17 @@ document.addEventListener('DOMContentLoaded', ()=>{
   }
 
   function renderAll(){
-    const dateKey = document.getElementById('rc_date').value || PORTALDATA.dateKeyOffset(0);
     const channelFilter = document.getElementById('rc_channel').value;
-    const useAvg = document.getElementById('rc_rateMetric').value === 'avg';
-    const compareDays = Number(document.getElementById('rc_compare').value);
-    rcAllRows = buildRows(dateKey, channelFilter, useAvg, compareDays);
+    rcAllRows = buildRows(channelFilter);
     const filtered = renderTable();
-    renderKpis(filtered, dateKey, useAvg, compareDays, channelFilter);
-    renderDistribution(dateKey, channelFilter, useAvg, compareDays);
-    renderRanking(dateKey, channelFilter, useAvg, compareDays);
-    renderHistory(channelFilter, compareDays);
+    renderKpis(filtered, channelFilter);
+    renderDistribution(channelFilter);
+    renderRanking(channelFilter);
+    renderHistory(channelFilter);
   }
 
-  ['rc_date','rc_room','rc_channel','rc_compare','rc_rateMetric'].forEach(id=>{
+  ['rc_room','rc_channel'].forEach(id=>{
     document.getElementById(id).addEventListener('input', ()=>{ rcPage = 0; renderAll(); });
-  });
-  // The Room Comparison table's own Channel selector mirrors the top filters-bar one — changing
-  // either updates both, so there's never a mismatch between the two.
-  document.getElementById('rc_channel2').addEventListener('input', function(){
-    document.getElementById('rc_channel').value = this.value;
-    rcPage = 0; renderAll();
-  });
-  document.getElementById('rc_channel').addEventListener('input', function(){
-    document.getElementById('rc_channel2').value = this.value;
   });
   document.getElementById('rc_search').addEventListener('input', ()=>{ rcPage = 0; renderTable(); });
   document.getElementById('rc_prevPage').addEventListener('click', ()=>{ rcPage--; renderTable(); });
@@ -465,12 +474,8 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
   /* ======================================================================
      Rate Plan Trend Analysis — meal-plan-scoped (All Plans/EP/CP/MAP/AP) rate
-     vs. market. The meal plan control here is shared with the merged-in Room
-     Comparison table below (mealPlanFilter, declared above) — picking a plan
-     re-renders both together. Chart style (line/bar) stays local to the charts.
+     vs. market, driven entirely by the shared top filter bar.
      ====================================================================== */
-  let rptaStyle = 'line';
-  let rptaChannel = ''; // '' = All Channels — independent from the merged table's own rc_channel filter
   let rptaYearChart = null, rptaMonthChart = null;
   const RPTA_PALETTE = ['#a9b0c9','#9fd6ca','#c3aee8','#f2c194','#e6a8c4'];
 
@@ -494,13 +499,13 @@ document.addEventListener('DOMContentLoaded', ()=>{
     });
   }
 
-  // Meal-plan rate, then the Channel filter's markup/markdown on top — same two-step composition
-  // myRoomRate()/compRoomRate() already use elsewhere on this page. Returns null when the
+  // Meal-plan rate, then the Channel filter's markup/markdown on top. Returns null when the
   // property/competitor has no rooms on this meal plan at all (see mealPlanRateOnDate).
   function rptaRateFor(pid, dateKey){
     const base = PORTALDATA.mealPlanRateOnDate(pid, mealPlanFilter, dateKey);
     if(base==null) return null;
-    return rptaChannel ? PORTALDATA.channelRate(base, rptaChannel, dateKey) : base;
+    const channelFilter = document.getElementById('rc_channel').value;
+    return channelFilter ? PORTALDATA.channelRate(base, channelFilter, dateKey) : base;
   }
 
   function rptaDatasets(points, styleIsBar){
@@ -513,8 +518,6 @@ document.addEventListener('DOMContentLoaded', ()=>{
     // A competitor with zero data points for this meal plan (they simply don't offer it) is
     // dropped from the chart/legend entirely instead of drawing an invisible, all-gap line.
     const compSeries = compSeriesRaw.filter(cs=> cs.data.some(v=>v!=null));
-    // My property is always the thicker, solid, unmistakably-mine series; every competitor is a
-    // thinner dashed line (or a lighter bar) so the two never compete for attention.
     const datasets = [{
       label: 'My Property', data: myData,
       borderColor:'#3861fb', backgroundColor: styleIsBar ? '#3861fb' : 'rgba(56,97,251,.12)',
@@ -534,10 +537,9 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
   function renderRptaKpis(myAvg, compAvgs){
     const planLabel = mealPlanFilter || 'All Plans';
-    const channelLabel = rptaChannel ? (PORTALDATA.CHANNELS.find(c=>c.key===rptaChannel)||{}).label : 'all channels';
+    const channelFilter = document.getElementById('rc_channel').value;
+    const channelLabel = channelFilter ? (PORTALDATA.CHANNELS.find(c=>c.key===channelFilter)||{}).label : 'all channels';
 
-    // No data at all for my property under this meal plan — say so plainly instead of silently
-    // showing a number that isn't really about the plan the buttons say is selected.
     if(myAvg==null){
       document.getElementById('rpta_kpis').innerHTML = `<div class="col-12">${
         PWIDGETS.emptyState('bi-slash-circle', `No ${planLabel} rooms`, `Your property doesn't have any ${planLabel} rate plans, so there's nothing to compare for this meal plan.`)
@@ -565,16 +567,16 @@ document.addEventListener('DOMContentLoaded', ()=>{
   }
 
   function renderRpta(){
-    const styleIsBar = rptaStyle === 'bar';
+    const styleIsBar = rcChartStyle === 'bar';
     const months = trailingMonths();
     const days = currentMonthDays();
 
     const yearly = rptaDatasets(months, styleIsBar);
     const myValid = yearly.myData.filter(v=>v!=null);
-    const compAvgs = yearly.compSeries.map(cs=>({ comp:cs.comp, avg: avgOf(cs.data) }));
+    const compAvgs = yearly.compSeries.map(cs=>({ comp:cs.comp, avg: avgOf(cs.data) })).filter(c=>c.avg!=null);
     renderRptaKpis(myValid.length ? avgOf(myValid) : null, compAvgs);
 
-    const tooltipFmt = { plugins:{ tooltip:{ callbacks:{ label: ctx=>`${ctx.dataset.label}: ${APP.fmtCurrency(ctx.parsed.y)}` } }, legend:{ position:'bottom', labels:{ boxWidth:10, boxHeight:10 } } } };
+    const tooltipFmt = { plugins:{ tooltip:{ callbacks:{ label: ctx=>`${ctx.dataset.label}: ${ctx.parsed.y!=null?APP.fmtCurrency(ctx.parsed.y):'—'}` } }, legend:{ position:'bottom', labels:{ boxWidth:10, boxHeight:10 } } } };
 
     if(rptaYearChart) rptaYearChart.destroy();
     rptaYearChart = new Chart(document.getElementById('rpta_yearChart'), {
@@ -594,28 +596,86 @@ document.addEventListener('DOMContentLoaded', ()=>{
     });
   }
 
-  document.querySelectorAll('#rpta_mealPlanGroup button').forEach(btn=>{
+  /* ======================================================================
+     Meal Plan Rate Comparison — All Properties: a single compact chart
+     showing the average rate for EACH meal plan (EP/CP/MAP/AP), My Property
+     vs. every tracked competitor, over the selected date range/channel/room.
+     Independent of the Meal Plan filter (it always shows all four plans side
+     by side) so you can see plan-by-plan positioning without switching the
+     filter back and forth.
+     ====================================================================== */
+  function renderMealPlanComparison(channelFilter){
+    const plans = DB.MEAL_PLANS; // ['EP','CP','MAP','AP']
+    const isBar = rcChartStyle === 'bar';
+
+    function avgForPlan(pid, plan){
+      const vals = rangeDates(rcDays).map(dk=>{
+        const base = PORTALDATA.mealPlanRateOnDate(pid, plan, dk);
+        if(base==null) return null;
+        return channelFilter ? PORTALDATA.channelRate(base, channelFilter, dk) : base;
+      });
+      return avgOf(vals);
+    }
+
+    const myData = plans.map(p=> avgForPlan(propertyId, p));
+    const compSeries = compsAll.slice(0,5).map((c,i)=>({
+      comp:c, data: plans.map(p=> avgForPlan(c.realPropertyId, p)),
+      color: RPTA_PALETTE[i%RPTA_PALETTE.length]
+    })).filter(cs=> cs.data.some(v=>v!=null));
+
+    const datasets = [
+      { label:'My Property', data:myData, backgroundColor:'#3861fb', borderColor:'#3861fb', borderRadius: isBar?6:0, borderWidth: isBar?0:3, fill:false, tension:.3 },
+      ...compSeries.map(cs=>({ label:cs.comp.name, data:cs.data, backgroundColor:cs.color, borderColor:cs.color, borderRadius: isBar?6:0, borderWidth: isBar?0:2, fill:false, tension:.3 }))
+    ];
+
+    if(rcMealPlanChart) rcMealPlanChart.destroy();
+    rcMealPlanChart = new Chart(document.getElementById('rc_mealPlanChart'), {
+      type: isBar ? 'bar' : 'line',
+      data:{ labels: plans, datasets },
+      options:{
+        responsive:true, animation:chartAnim(isBar),
+        plugins:{ legend:{position:'bottom', labels:{boxWidth:10,boxHeight:10}}, tooltip:{callbacks:{label:ctx=>`${ctx.dataset.label}: ${ctx.parsed.y!=null?APP.fmtCurrency(ctx.parsed.y):'No data'}`}} },
+        scales:{ y:{ticks:{callback:v=>APP.fmtCurrency(v)}} }
+      }
+    });
+  }
+
+  /* ======================================================================
+     Shared filter bar wiring
+     ====================================================================== */
+  document.querySelectorAll('#rc_mealPlanGroup button').forEach(btn=>{
     btn.addEventListener('click', function(){
       mealPlanFilter = this.dataset.plan;
-      document.querySelectorAll('#rpta_mealPlanGroup button').forEach(b=>{ b.classList.remove('btn-outline-primary'); b.classList.add('btn-soft'); });
+      document.querySelectorAll('#rc_mealPlanGroup button').forEach(b=>{ b.classList.remove('btn-outline-primary'); b.classList.add('btn-soft'); });
       this.classList.remove('btn-soft'); this.classList.add('btn-outline-primary');
       rcPage = 0;
       renderRpta();
-      renderAll(); // the merged-in Room Comparison table/KPIs below share this same meal plan filter
+      renderAll();
     });
   });
-  document.querySelectorAll('#rpta_chartStyleGroup button').forEach(btn=>{
+  document.querySelectorAll('#rc_rangeGroup button').forEach(btn=>{
     btn.addEventListener('click', function(){
-      rptaStyle = this.dataset.style;
-      document.querySelectorAll('#rpta_chartStyleGroup button').forEach(b=>{ b.classList.remove('btn-outline-primary'); b.classList.add('btn-soft'); });
+      rcDays = Number(this.dataset.days);
+      document.querySelectorAll('#rc_rangeGroup button').forEach(b=>{ b.classList.remove('btn-outline-primary'); b.classList.add('btn-soft'); });
+      this.classList.remove('btn-soft'); this.classList.add('btn-outline-primary');
+      rcPage = 0;
+      renderAll();
+      renderMealPlanComparison(document.getElementById('rc_channel').value);
+    });
+  });
+  document.querySelectorAll('#rc_chartStyleGroup button').forEach(btn=>{
+    btn.addEventListener('click', function(){
+      rcChartStyle = this.dataset.style;
+      document.querySelectorAll('#rc_chartStyleGroup button').forEach(b=>{ b.classList.remove('btn-outline-primary'); b.classList.add('btn-soft'); });
       this.classList.remove('btn-soft'); this.classList.add('btn-outline-primary');
       renderRpta();
+      renderDistribution(document.getElementById('rc_channel').value);
+      renderMealPlanComparison(document.getElementById('rc_channel').value);
     });
   });
-  document.getElementById('rpta_channel').addEventListener('change', function(){
-    rptaChannel = this.value;
-    renderRpta();
-  });
+  // The top Channel/Room selectors also drive the Trend Analysis and Meal Plan Comparison charts.
+  document.getElementById('rc_channel').addEventListener('input', ()=>{ renderRpta(); renderMealPlanComparison(document.getElementById('rc_channel').value); });
+  document.getElementById('rc_room').addEventListener('input', ()=>{ renderRpta(); });
 
   if(!myRooms.length){
     document.getElementById('rcKpis').innerHTML = `<div class="col-12">${PWIDGETS.emptyState('bi-door-closed','No rooms found','Add rooms to your property\'s Master Channel to use Room Rate Comparison.')}</div>`;
@@ -624,4 +684,5 @@ document.addEventListener('DOMContentLoaded', ()=>{
   }
   renderAll();
   renderRpta();
+  renderMealPlanComparison('');
 });

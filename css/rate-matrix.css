@@ -118,3 +118,10 @@
 .mx-drp-cal .mx-drp-day.mx-drp-endpoint.mx-drp-range-end{ border-radius:0 9px 9px 0; }
 .mx-drp-cal .mx-drp-day.mx-drp-today:not(.mx-drp-endpoint){ box-shadow:inset 0 0 0 1.5px var(--brand-400); font-weight:700; color:var(--brand-600); }
 .mx-drp-footer{ border-top:1px solid var(--border-1); padding-top:12px; }
+
+/* Embedded contexts (Rate Shopper's Rate Matrix iframe) size their own outer iframe to fit
+   exactly, so the grid's row-scroller can't be viewport-relative (100vh) like the standalone
+   page uses — that would create a circular growth/shrink loop against the iframe's own height.
+   A fixed max-height here keeps exactly one scroller (this one) instead of a second, outer one
+   on the iframe itself. */
+.cal-embed .grid-table-wrap{ max-height:460px; }
