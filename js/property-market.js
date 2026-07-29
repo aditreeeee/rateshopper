@@ -211,8 +211,11 @@ function generateMarketInsights(propertyId){
       const ourMeal = d.mappedPlan.ourPlan.mealPlan, compMeal = d.mappedPlan.compPlan.mealPlan;
       if(higher && mealRank[compMeal] > mealRank[ourMeal]){
         reasons.push({ text:`${DB.MEAL_LABELS[compMeal]} is included on their matched room, while yours is ${DB.MEAL_LABELS[ourMeal]}.`, weight:2.5, conf:'High' });
-      } else if(!higher && mealRank[ourMeal] > mealRank[compMeal]){
-        reasons.push({ text:`You include ${DB.MEAL_LABELS[ourMeal]} on this room vs. their ${DB.MEAL_LABELS[compMeal]}, yet you're priced lower.`, weight:2, conf:'Medium' });
+      } else if(!higher && mealRank[compMeal] >= mealRank[ourMeal]){
+        // They're cheaper AND match/beat our meal plan on the same matched room — a genuine
+        // competitive threat (not "we offer more, yet we're cheaper", which would argue against
+        // a decrease, not for one).
+        reasons.push({ text:`Despite being cheaper, their matched room matches or beats your ${DB.MEAL_LABELS[ourMeal]} with ${DB.MEAL_LABELS[compMeal]} — hard to compete on value alone.`, weight:2, conf:'Medium' });
       }
       if(higher && d.mappedPlan.compPlan.refundable && !d.mappedPlan.ourPlan.refundable){
         reasons.push({ text:'Their matched rate offers free cancellation while yours is non-refundable — that flexibility adds perceived value.', weight:1.5, conf:'Medium' });
@@ -221,11 +224,12 @@ function generateMarketInsights(propertyId){
 
     const compAmenities = new Set(d.comp.amenities||[]);
     const extra = [...compAmenities].filter(a=>!myAmenities.has(a));
-    const missing = [...myAmenities].filter(a=>!compAmenities.has(a));
     if(higher && extra.length>=2){
       reasons.push({ text:`Stronger amenity offering — includes ${extra.slice(0,3).join(', ')}${extra.length>3?` +${extra.length-3} more`:''} that you don't have.`, weight:1.2, conf:'Medium' });
-    } else if(!higher && missing.length>=2){
-      reasons.push({ text:`You offer ${missing.slice(0,3).join(', ')}${missing.length>3?` +${missing.length-3} more`:''} that they don't, yet you're priced lower.`, weight:1.2, conf:'Medium' });
+    } else if(!higher && extra.length>=2){
+      // They're cheaper AND out-amenity us — a real competitive threat, unlike the case where
+      // they're cheaper but offer less (which just explains the gap, it doesn't argue for a cut).
+      reasons.push({ text:`Offers ${extra.slice(0,3).join(', ')}${extra.length>3?` +${extra.length-3} more`:''} that you don't have, while charging less — a real competitive threat.`, weight:1.2, conf:'Medium' });
     }
 
     if(Math.abs(d.weeklyPct) >= 5){
