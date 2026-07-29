@@ -95,6 +95,25 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const price = day ? day.price : channelRoom.basePrice;
     return { price, plan };
   }
+  // Average price over the last `days` days (the shared Date Range filter — 7D/14D/30D) instead
+  // of a single day's snapshot, so that filter actually changes what reports 1/3/4 show.
+  function avgRate(channelRoom, mealPlanFilter, ratePlanFilter, days){
+    if(!channelRoom) return null;
+    let plans = DB.ratePlans.byRoom(channelRoom.id);
+    if(mealPlanFilter) plans = plans.filter(p=>p.mealPlan===mealPlanFilter);
+    if(ratePlanFilter==='refundable') plans = plans.filter(p=>p.refundable);
+    else if(ratePlanFilter==='nonrefundable') plans = plans.filter(p=>!p.refundable);
+    const plan = plans[0];
+    if(!plan) return null;
+    let sum = 0, count = 0;
+    for(let d=-(days-1); d<=0; d++){
+      const dateKey = PORTALDATA.dateKeyOffset(d);
+      const day = DB.rates.forPlan(plan.id)[dateKey];
+      sum += day ? day.price : channelRoom.basePrice;
+      count++;
+    }
+    return { price: Math.round(sum/count), plan };
+  }
   function filters(){
     return {
       roomFilter: document.getElementById('rp_room').value,
@@ -142,14 +161,13 @@ document.addEventListener('DOMContentLoaded', ()=>{
      ====================================================================== */
   function renderCompare(){
     const { roomFilter, mealPlanFilter, ratePlanFilter, channel } = filters();
-    const today = PORTALDATA.dateKeyOffset(0);
     const myRooms = ourRooms.filter(r=> !roomFilter || r.id===roomFilter);
     const compMaps = visibleCompetitorMappings(roomFilter);
 
     const rows = [];
     myRooms.forEach(myRoom=>{
       const myChannelRoom = findRoomOnChannel(propertyId, channel, myRoom.name);
-      const myResult = rateFor(myChannelRoom, today, mealPlanFilter, ratePlanFilter);
+      const myResult = avgRate(myChannelRoom, mealPlanFilter, ratePlanFilter, rpRangeDays);
       const myRate = myResult ? myResult.price : null;
 
       // Every competitor mapped to this room, for the Lowest/Highest/Market Average columns
@@ -158,7 +176,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
         const m = mapped.find(x=>x.ourRoom.id===myRoom.id);
         if(!m) return;
         const compChannelRoom = findRoomOnChannel(comp.realPropertyId, channel, m.compRoom.name);
-        const result = rateFor(compChannelRoom, today, mealPlanFilter, ratePlanFilter);
+        const result = avgRate(compChannelRoom, mealPlanFilter, ratePlanFilter, rpRangeDays);
         if(result) compRatesForRoom.push({ comp, compRoom:m.compRoom, plan:result.plan, rate:result.price });
       });
       if(!compRatesForRoom.length) return;
@@ -174,7 +192,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
       });
     });
 
-    document.getElementById('rp1_summary').textContent = `${rows.length} room comparisons across ${myRooms.length} of your rooms and ${compMaps.length} competitor propert${compMaps.length===1?'y':'ies'} for ${APP.fmtDateReadable(today)}.`;
+    document.getElementById('rp1_summary').textContent = `${rows.length} room comparisons across ${myRooms.length} of your rooms and ${compMaps.length} competitor propert${compMaps.length===1?'y':'ies'} — average rate over the last ${rpRangeDays} days.`;
 
     document.getElementById('rp1_table').innerHTML = `
       <thead><tr>
@@ -266,7 +284,6 @@ document.addEventListener('DOMContentLoaded', ()=>{
      ====================================================================== */
   function renderParity(){
     const { roomFilter, mealPlanFilter, ratePlanFilter } = filters();
-    const today = PORTALDATA.dateKeyOffset(0);
     const myRoomsFiltered = ourRooms.filter(r=> !roomFilter || r.id===roomFilter);
     const otaChannels = ourChannels.filter(c=>c.type!=='master');
 
@@ -274,7 +291,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
       const rates = [];
       myRoomsFiltered.forEach(room=>{
         const channelRoom = findRoomOnChannel(propertyId, channel, room.name);
-        const result = rateFor(channelRoom, today, mealPlanFilter, ratePlanFilter);
+        const result = avgRate(channelRoom, mealPlanFilter, ratePlanFilter, rpRangeDays);
         if(result) rates.push(result.price);
       });
       return rates.length ? Math.round(rates.reduce((a,b)=>a+b,0)/rates.length) : null;
@@ -283,7 +300,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
       let count = 0;
       myRoomsFiltered.forEach(room=>{
         const channelRoom = findRoomOnChannel(propertyId, channel, room.name);
-        const result = rateFor(channelRoom, today, mealPlanFilter, ratePlanFilter);
+        const result = avgRate(channelRoom, mealPlanFilter, ratePlanFilter, rpRangeDays);
         if(result && directAvg!=null && result.price < directAvg) count++;
       });
       return count;
@@ -322,7 +339,6 @@ document.addEventListener('DOMContentLoaded', ()=>{
      ====================================================================== */
   function renderMarket(){
     const { roomFilter, mealPlanFilter, ratePlanFilter, channel } = filters();
-    const today = PORTALDATA.dateKeyOffset(0);
     const compMaps = visibleCompetitorMappings(roomFilter);
 
     // One representative rate per competitor: the selected room's rate, or (if "All Rooms")
@@ -330,7 +346,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const compRates = compMaps.map(({comp, mapped})=>{
       const rates = mapped.map(m=>{
         const compChannelRoom = findRoomOnChannel(comp.realPropertyId, channel, m.compRoom.name);
-        const result = rateFor(compChannelRoom, today, mealPlanFilter, ratePlanFilter);
+        const result = avgRate(compChannelRoom, mealPlanFilter, ratePlanFilter, rpRangeDays);
         return result ? result.price : null;
       }).filter(v=>v!=null);
       if(!rates.length) return null;

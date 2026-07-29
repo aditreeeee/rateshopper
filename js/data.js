@@ -159,7 +159,13 @@ const DB = (() => {
   function rand(min,max){ return Math.floor(Math.random()*(max-min+1))+min; }
   function pick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
   function shuffle(arr){ const a=[...arr]; for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
-  function fmtDate(d){ return d.toISOString().slice(0,10); }
+  // Local calendar day (not toISOString's UTC day) — a UTC-based key silently shifts by one
+  // day for any user whose timezone offset is non-zero relative to UTC (e.g. local midnight in
+  // IST is still "yesterday" in UTC), which desyncs date keys from what's actually on screen.
+  function fmtDate(d){
+    const y = d.getFullYear(), m = String(d.getMonth()+1).padStart(2,'0'), day = String(d.getDate()).padStart(2,'0');
+    return `${y}-${m}-${day}`;
+  }
 
   // Builds a {1: price, 2: price, ...} map up to maxOcc guests. Occupancy at/under the
   // rate plan's base occupancy costs the same as the base price; each guest above it adds extraAdultPrice.

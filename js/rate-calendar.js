@@ -121,7 +121,7 @@ function buildWeekdayButtons(){
   document.querySelectorAll('.wd-btn').forEach(b=> b.addEventListener('click', ()=> b.classList.toggle('active')||b.classList.toggle('btn-soft')));
 }
 
-function keyOf(d){ return d.toISOString().slice(0,10); }
+function keyOf(d){ return DB.fmtDate(d); }
 
 /* ==========================================================================
    Date Range Picker — presets (Today/Yesterday/7/14/30 Days/Last Month) plus a
@@ -463,7 +463,7 @@ function collectBulkDates(){
     const from = document.getElementById('bu_fromDate').value;
     const to = document.getElementById('bu_toDate').value;
     if(from && to){
-      for(let d=new Date(from); d<=new Date(to); d.setDate(d.getDate()+1)) dates.push(keyOf(d));
+      for(let d=new Date(from+'T00:00:00'); d<=new Date(to+'T00:00:00'); d.setDate(d.getDate()+1)) dates.push(keyOf(d));
     }
   } else if(scope==='visible'){
     dates = currentDates().map(d=>keyOf(d));
@@ -472,7 +472,7 @@ function collectBulkDates(){
     const to = document.getElementById('bu_wdTo').value;
     const activeDows = [...document.querySelectorAll('.wd-btn.active')].map(b=>Number(b.dataset.dow));
     if(from && to && activeDows.length){
-      for(let d=new Date(from); d<=new Date(to); d.setDate(d.getDate()+1)){
+      for(let d=new Date(from+'T00:00:00'); d<=new Date(to+'T00:00:00'); d.setDate(d.getDate()+1)){
         if(activeDows.includes(d.getDay())) dates.push(keyOf(d));
       }
     }

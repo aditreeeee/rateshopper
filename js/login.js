@@ -39,7 +39,6 @@ document.addEventListener('DOMContentLoaded', ()=>{
       <span class="demo-account-icon"><i class="bi ${acc.icon}"></i></span>
       <span class="flex-grow-1 text-start">
         <span class="d-block fw-semibold text-white" style="font-size:.85rem">${RBAC.ROLE_LABELS[acc.role]}</span>
-        <span class="d-block text-white-50" style="font-size:.72rem">${acc.desc}</span>
       </span>
       <i class="bi bi-arrow-right-short text-white-50"></i>
     </button>`).join('');
