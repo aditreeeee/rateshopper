@@ -9,6 +9,11 @@ function chartAnim(isBar){
   };
 }
 
+// Chart.js renders its own canvas text and otherwise defaults to the browser's generic
+// sans-serif stack, not the page's actual font — make every chart on this page use the same
+// Inter/system-ui stack as the surrounding UI instead of visibly mismatched axis/legend text.
+if(window.Chart) Chart.defaults.font.family = getComputedStyle(document.body).fontFamily;
+
 document.addEventListener('DOMContentLoaded', ()=>{
   const me = PORTAL.mount({ title:'Market Intelligence', subtitle:'An executive overview of the competitive market around your property.' });
   if(!me) return;
@@ -29,6 +34,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
       if(this.dataset.tab==='channels' && caChart) caChart.resize();
     });
   });
+  renderMarketInsights(propertyId);
   renderRecommendations(propertyId);
   renderChannelAnalysis(propertyId);
   document.getElementById('mi_staleBadge').innerHTML = PWIDGETS.staleBadge(PORTALDATA.lastScrapedAt(propertyId));
@@ -93,7 +99,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   const myMatrixAvg = Math.round(myMatrixRates.reduce((a,b)=>a+b,0)/myMatrixRates.length);
 
   const myRowHtml = `<tr class="rc-frozen-row">
-    <td class="fw-semibold"><i class="bi bi-star-fill me-1" style="color:var(--brand-500)"></i>My Property</td>
+    <td class="fw-semibold" style="white-space:nowrap"><i class="bi bi-star-fill me-1" style="color:var(--brand-500)"></i>My Property</td>
     ${myMatrixRates.map(r=>`<td class="fw-bold">${APP.fmtCurrency(r)}</td>`).join('')}
     <td class="fw-bold">${APP.fmtCurrency(myMatrixAvg)}</td>
   </tr>`;
@@ -101,7 +107,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const compRates = matrixDays.map(dk=> PORTALDATA.competitorRateOnDate(c,dk));
     const compAvg = Math.round(compRates.reduce((a,b)=>a+b,0)/compRates.length);
     return `<tr>
-      <td class="fw-semibold">${c.name}</td>
+      <td class="fw-semibold" style="white-space:nowrap">${c.name}</td>
       ${compRates.map((r,i)=>{
         const cls = r < myMatrixRates[i] ? 'text-success' : r > myMatrixRates[i] ? 'text-danger' : '';
         return `<td class="${cls}">${APP.fmtCurrency(r)}</td>`;
@@ -111,7 +117,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   }).join('');
 
   document.getElementById('pricingMatrixTable').innerHTML = `
-    <thead><tr><th>Competitor</th>${matrixDays.map(dk=>`<th>${new Date(dk+'T00:00:00').toLocaleDateString('en-IN',{weekday:'short',day:'2-digit',month:'short'})}</th>`).join('')}<th>7-Day Avg</th></tr></thead>
+    <thead><tr><th style="white-space:nowrap">Competitor</th>${matrixDays.map(dk=>`<th style="white-space:nowrap">${new Date(dk+'T00:00:00').toLocaleDateString('en-IN',{weekday:'short',day:'2-digit',month:'short'})}</th>`).join('')}<th style="white-space:nowrap">7-Day Avg</th></tr></thead>
     <tbody>${myRowHtml}${compRowsHtml}</tbody>`;
 
   // ---- Competitor Movement: biggest 7-day movers, plus where each now sits vs. my rate today
@@ -150,6 +156,188 @@ document.addEventListener('DOMContentLoaded', ()=>{
 });
 
 // ---- Pricing Recommendations (merged in from the standalone Pricing Recommendations page) ----
+/* ==========================================================================
+   Market Insight Cards — WHY competitors are priced higher/lower than us, derived
+   from real signals (star rating, amenities, meal plan, cancellation policy, demand
+   trend, market variance, channel parity) instead of a bare price-difference number.
+   Every card must be backed by at least one concrete data-driven reason — competitors
+   with a price gap but no identifiable driver are skipped rather than shown with a
+   generic "priced differently" message.
+   ========================================================================== */
+function generateMarketInsights(propertyId){
+  const property = DB.properties.get(propertyId);
+  const myStars = (property && property.stars) || 0;
+  const myAmenities = new Set((property && property.amenities) || []);
+  const comps = PORTALDATA.comparisonRealProperties();
+  if(!comps.length) return [];
+
+  const today = PORTALDATA.dateKeyOffset(0);
+  const myRate = PORTALDATA.myRateOnDate(propertyId, today);
+  if(!myRate) return [];
+
+  const compData = comps.map(c=>{
+    const rate = PORTALDATA.competitorRateOnDate(c, today);
+    const rate7ago = PORTALDATA.competitorRateOnDate(c, PORTALDATA.dateKeyOffset(-7));
+    const weeklyPct = rate7ago ? ((rate-rate7ago)/rate7ago*100) : 0;
+    const diffPct = ((rate-myRate)/myRate*100);
+    MAPPING.ensureAutoMapped(propertyId, c.realPropertyId);
+    const ev = MAPPING.evaluate(propertyId, c.realPropertyId);
+    const mappedPlan = ev.plans.find(p=>p.compPlan && p.ourPlan);
+    return { comp:c, rate, diffPct, weeklyPct, mappedPlan };
+  });
+
+  const rates = compData.map(d=>d.rate);
+  const mean = rates.reduce((a,b)=>a+b,0)/rates.length;
+  const stdDev = Math.sqrt(rates.reduce((s,r)=>s+Math.pow(r-mean,2),0)/rates.length);
+
+  const insights = [];
+  const mealRank = {EP:0, CP:1, MAP:2, AP:3};
+
+  // ---- Per-competitor drivers — only for gaps big enough to matter, and only when a
+  // concrete reason can actually be identified in the data. ----
+  [...compData].sort((a,b)=> Math.abs(b.diffPct)-Math.abs(a.diffPct)).forEach(d=>{
+    if(Math.abs(d.diffPct) < 4) return;
+    const higher = d.diffPct > 0;
+    const reasons = [];
+
+    const starDiff = d.comp.stars - myStars;
+    if(higher && starDiff >= 1){
+      reasons.push({ text:`${d.comp.stars}★ vs. your ${myStars}★ — a higher star rating supports a price premium.`, weight:starDiff+1, conf:'High' });
+    } else if(!higher && starDiff <= -1){
+      reasons.push({ text:`${d.comp.stars}★ vs. your ${myStars}★ — their lower star rating is consistent with the lower price.`, weight:Math.abs(starDiff)+1, conf:'High' });
+    }
+
+    if(d.mappedPlan){
+      const ourMeal = d.mappedPlan.ourPlan.mealPlan, compMeal = d.mappedPlan.compPlan.mealPlan;
+      if(higher && mealRank[compMeal] > mealRank[ourMeal]){
+        reasons.push({ text:`${DB.MEAL_LABELS[compMeal]} is included on their matched room, while yours is ${DB.MEAL_LABELS[ourMeal]}.`, weight:2.5, conf:'High' });
+      } else if(!higher && mealRank[ourMeal] > mealRank[compMeal]){
+        reasons.push({ text:`You include ${DB.MEAL_LABELS[ourMeal]} on this room vs. their ${DB.MEAL_LABELS[compMeal]}, yet you're priced lower.`, weight:2, conf:'Medium' });
+      }
+      if(higher && d.mappedPlan.compPlan.refundable && !d.mappedPlan.ourPlan.refundable){
+        reasons.push({ text:'Their matched rate offers free cancellation while yours is non-refundable — that flexibility adds perceived value.', weight:1.5, conf:'Medium' });
+      }
+    }
+
+    const compAmenities = new Set(d.comp.amenities||[]);
+    const extra = [...compAmenities].filter(a=>!myAmenities.has(a));
+    const missing = [...myAmenities].filter(a=>!compAmenities.has(a));
+    if(higher && extra.length>=2){
+      reasons.push({ text:`Stronger amenity offering — includes ${extra.slice(0,3).join(', ')}${extra.length>3?` +${extra.length-3} more`:''} that you don't have.`, weight:1.2, conf:'Medium' });
+    } else if(!higher && missing.length>=2){
+      reasons.push({ text:`You offer ${missing.slice(0,3).join(', ')}${missing.length>3?` +${missing.length-3} more`:''} that they don't, yet you're priced lower.`, weight:1.2, conf:'Medium' });
+    }
+
+    if(Math.abs(d.weeklyPct) >= 5){
+      if(d.weeklyPct>0) reasons.push({ text:`Raised their rate ${d.weeklyPct.toFixed(1)}% over the last 7 days — demand is pushing their price higher.`, weight:1, conf:'Medium' });
+      else reasons.push({ text:`Cut their rate ${Math.abs(d.weeklyPct).toFixed(1)}% over the last 7 days — likely trying to stimulate demand.`, weight:1, conf:'Medium' });
+    }
+
+    if(stdDev>0 && Math.abs(d.rate-mean) > 1.5*stdDev){
+      reasons.push({ text:'This gap exceeds normal variance across your comparison set — an outlier worth double-checking.', weight:1, conf:'Medium' });
+    }
+
+    if(!reasons.length) return; // no identifiable driver — skip rather than show a generic card
+
+    reasons.sort((a,b)=>b.weight-a.weight);
+    const primary = reasons[0];
+    const recommendedPct = Math.min(Math.max(Math.abs(d.diffPct)*0.5, 2), 12);
+    const priority = Math.abs(d.diffPct)>=15 ? 'High' : Math.abs(d.diffPct)>=8 ? 'Medium' : 'Low';
+    const confidence = reasons.length>=2 ? 'High' : primary.conf;
+
+    insights.push({
+      icon: higher ? 'bi-arrow-up-circle-fill' : 'bi-arrow-down-circle-fill',
+      color: higher ? '#ff4d5e' : '#12b76a', bg: higher ? '#fff0f1' : '#e7faf1',
+      title: `${d.comp.name} is priced ${Math.abs(d.diffPct).toFixed(1)}% ${higher?'higher':'lower'}`,
+      detail: primary.text,
+      supporting: reasons.slice(1).map(r=>r.text),
+      action: `Recommended: ${higher?'Increase':'Decrease'} by ${recommendedPct.toFixed(0)}%`,
+      priority, confidence, impact: Math.abs(d.diffPct)
+    });
+  });
+
+  // ---- Overall market positioning ----
+  const marketAvg = Math.round(mean);
+  const overallDiffPct = ((myRate-marketAvg)/marketAvg*100);
+  if(Math.abs(overallDiffPct) >= 6){
+    const over = overallDiffPct > 0;
+    const pct = Math.min(Math.max(Math.abs(overallDiffPct)*0.5, 2), 10);
+    insights.push({
+      icon: over ? 'bi-exclamation-triangle-fill' : 'bi-graph-down-arrow',
+      color: over ? '#ff4d5e' : '#b9791a', bg: over ? '#fff0f1' : '#fff8e6',
+      title: over ? 'Your property is overpriced relative to the market' : 'Your property is underpriced relative to the market',
+      detail: `Your rate is ${Math.abs(overallDiffPct).toFixed(1)}% ${over?'above':'below'} the ${comps.length}-property market average of ${APP.fmtCurrency(marketAvg)}.`,
+      supporting: [],
+      action: `Recommended: ${over?'Decrease':'Increase'} by ${pct.toFixed(0)}%`,
+      priority: Math.abs(overallDiffPct)>=15 ? 'High' : 'Medium', confidence:'High', impact: Math.abs(overallDiffPct)
+    });
+  }
+
+  // ---- Rate parity across your own channels — an OTA undercutting your Direct rate ----
+  const channels = DB.channels.byProperty(propertyId);
+  const master = channels.find(c=>c.type==='master');
+  if(master){
+    const otaChannels = channels.filter(c=>c.type!=='master');
+    const masterRooms = DB.rooms.byChannel(master.id);
+    let violation = null;
+    otaChannels.forEach(ch=>{
+      if(violation) return;
+      masterRooms.forEach(room=>{
+        if(violation) return;
+        DB.ratePlans.byRoom(room.id).forEach(plan=>{
+          if(violation) return;
+          const dayData = DB.rates.forPlan(plan.id)[today];
+          const directPrice = dayData ? dayData.price : room.basePrice;
+          const otaRoom = DB.rooms.byChannel(ch.id).find(r=>r.name===room.name);
+          if(!otaRoom) return;
+          const otaPlan = DB.ratePlans.byRoom(otaRoom.id).find(p=>p.mealPlan===plan.mealPlan);
+          if(!otaPlan) return;
+          const otaDay = DB.rates.forPlan(otaPlan.id)[today];
+          const otaPrice = otaDay ? otaDay.price : otaRoom.basePrice;
+          if(otaPrice < directPrice*0.97){
+            violation = { channel:ch, room, directPrice, otaPrice };
+          }
+        });
+      });
+    });
+    if(violation){
+      const gapPct = ((violation.directPrice-violation.otaPrice)/violation.directPrice*100);
+      insights.push({
+        icon:'bi-exclamation-octagon-fill', color:'#ff4d5e', bg:'#fff0f1',
+        title:'Rate parity issue detected across channels',
+        detail:`${violation.channel.name} is listing ${violation.room.name} at ${APP.fmtCurrency(violation.otaPrice)} — ${gapPct.toFixed(1)}% below your Direct rate of ${APP.fmtCurrency(violation.directPrice)}.`,
+        supporting: [], action:'Recommended: Review channel parity settings',
+        priority:'High', confidence:'High', impact: gapPct+10 // parity issues surface near the top
+      });
+    }
+  }
+
+  insights.sort((a,b)=> b.impact-a.impact);
+  return insights.slice(0, 8);
+}
+
+function renderMarketInsights(propertyId){
+  const insights = generateMarketInsights(propertyId);
+  document.getElementById('insightGrid').innerHTML = insights.length ? insights.map(ins=>`
+    <div class="col-md-6 col-xl-4">
+      <div class="insight-card priority-${ins.priority}">
+        <div class="d-flex align-items-start gap-2 mb-2">
+          <div class="insight-icon" style="background:${ins.bg};color:${ins.color}"><i class="bi ${ins.icon}"></i></div>
+          <div class="flex-grow-1">
+            <div class="fw-bold" style="font-size:.86rem;line-height:1.25">${ins.title}</div>
+            <div class="d-flex gap-1 mt-1">
+              <span class="insight-priority-badge ${ins.priority}">${ins.priority} Priority</span>
+              <span class="insight-confidence-badge">Confidence: ${ins.confidence}</span>
+            </div>
+          </div>
+        </div>
+        <p class="text-muted small mb-2">${ins.detail}</p>
+        ${ins.supporting.length ? `<ul class="insight-supporting mb-2">${ins.supporting.map(s=>`<li>${s}</li>`).join('')}</ul>` : ''}
+        <div class="insight-action"><i class="bi bi-lightbulb-fill"></i>${ins.action}</div>
+      </div>
+    </div>`).join('') : `<div class="col-12">${PWIDGETS.emptyState('bi-stars','No standout insights right now','Your pricing looks well aligned with the market — nothing significant to flag today.')}</div>`;
+}
+
 function renderRecommendations(propertyId){
   const recs = PORTALDATA.recommendations(propertyId);
   document.getElementById('recGrid').innerHTML = recs.map(r=>{
