@@ -31,6 +31,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   });
   renderRecommendations(propertyId);
   renderChannelAnalysis(propertyId);
+  document.getElementById('mi_staleBadge').innerHTML = PWIDGETS.staleBadge(PORTALDATA.lastScrapedAt(propertyId));
 
   if(!comps.length){
     document.getElementById('marketKpis').innerHTML = `<div class="col-12">${PWIDGETS.emptyState('bi-globe-americas','No comparison properties assigned yet','Your Company Admin hasn\'t selected any benchmark properties for you yet.')}</div>`;
@@ -181,7 +182,7 @@ function renderRecommendations(propertyId){
 // ---- Channel Analysis (merged in from the standalone Channel Analysis page) ----
 let caChart = null;
 function renderChannelAnalysis(propertyId){
-  const todayKey = (d=>d.toISOString().slice(0,10))(new Date());
+  const todayKey = DB.fmtDate(new Date());
   const channels = DB.channels.byProperty(propertyId);
   const master = channels.find(c=>c.type==='master');
 
@@ -204,7 +205,7 @@ function renderChannelAnalysis(propertyId){
   const channelMetrics = channels.map(ch=>{
     const series = [];
     for(let d=0; d<WINDOW_DAYS; d++){
-      const dk = (dd=>dd.toISOString().slice(0,10))(new Date(Date.now()+d*86400000));
+      const dk = DB.fmtDate(new Date(Date.now()+d*86400000));
       const rate = channelAvgRateOnDate(ch.id, dk);
       if(rate!=null) series.push(rate);
     }

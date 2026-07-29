@@ -24,6 +24,8 @@ document.addEventListener('DOMContentLoaded', ()=>{
   document.getElementById('cp_viewList').addEventListener('click', ()=>{ setView('list'); });
   setView(cpView);
 
+  document.getElementById('cp_staleBadge').innerHTML = PWIDGETS.staleBadge(PORTALDATA.lastScrapedAt(propertyId));
+
   function render(){
     const search = document.getElementById('cp_search').value.trim().toLowerCase();
     const sort = document.getElementById('cp_sort').value;
@@ -131,7 +133,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     });
     return count ? Math.round(sum/count) : null;
   }
-  function dk(offset){ return new Date(Date.now()+offset*86400000).toISOString().slice(0,10); }
+  function dk(offset){ return DB.fmtDate(new Date(Date.now()+offset*86400000)); }
 
   window.openProfile = function(id){
     const c = PORTALDATA.competitor(propertyId, id);

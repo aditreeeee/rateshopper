@@ -64,5 +64,24 @@ const PWIDGETS = (() => {
     return `<div class="empty-state"><i class="bi ${icon}"></i><h5>${title}</h5><p class="mb-0">${msg}</p></div>`;
   }
 
-  return { kpiCard, trendIcon, channelChip, statusBadge, scoreRing, heatCellColor, skeletonRows, emptyState };
+  function timeAgoShort(date){
+    const mins = Math.max(0, Math.round((Date.now()-date.getTime())/60000));
+    if(mins<1) return 'just now';
+    if(mins<60) return `${mins}m ago`;
+    const hrs = Math.floor(mins/60);
+    if(hrs<24) return `${hrs}h ${mins%60}m ago`;
+    return `${Math.floor(hrs/24)}d ago`;
+  }
+
+  // Small "data as of Xm ago" badge, red-ish once data is stale (default >2hrs) so it's obvious
+  // at a glance whether the rates on screen are fresh enough to act on.
+  function staleBadge(date, staleAfterMins=120){
+    const mins = Math.round((Date.now()-date.getTime())/60000);
+    const stale = mins > staleAfterMins;
+    return `<span class="badge ${stale?'bg-warning-subtle text-warning':'bg-light text-muted border'}" style="font-size:.68rem" title="Rates last refreshed ${date.toLocaleString()}">
+      <i class="bi ${stale?'bi-exclamation-triangle':'bi-check2-circle'} me-1"></i>Data as of ${timeAgoShort(date)}
+    </span>`;
+  }
+
+  return { kpiCard, trendIcon, channelChip, statusBadge, scoreRing, heatCellColor, skeletonRows, emptyState, timeAgoShort, staleBadge };
 })();

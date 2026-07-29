@@ -24,6 +24,21 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
   document.getElementById('rs_matrixFrame').src = 'property-rate-matrix.html?embed=1';
 
+  // No comparison properties assigned yet — nothing to chart or ticker, so swap the whole
+  // data area for an explanatory empty state instead of showing a lone "My Property" line.
+  const hasComps = PORTALDATA.comparisonRealProperties().length > 0;
+  document.getElementById('rs_dataSections').classList.toggle('d-none', !hasComps);
+  document.getElementById('tickerRow').classList.toggle('d-none', !hasComps);
+  const rsEmpty = document.getElementById('rs_emptyState');
+  rsEmpty.classList.toggle('d-none', hasComps);
+  if(!hasComps){
+    rsEmpty.innerHTML = PWIDGETS.emptyState('bi-graph-up','No comparison properties assigned yet','Your Company Admin hasn\'t selected any benchmark properties for you yet — there\'s nothing to rate-shop against.');
+    document.getElementById('rs_tickerCaption').textContent = '';
+    return;
+  }
+
+  document.getElementById('rs_staleBadge').innerHTML = PWIDGETS.staleBadge(PORTALDATA.lastScrapedAt(propertyId));
+
   document.querySelectorAll('#rs_rangeGroup button').forEach(btn=>{
     btn.addEventListener('click', function(){
       rsRangeDays = Number(this.dataset.days);

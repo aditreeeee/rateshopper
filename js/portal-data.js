@@ -179,16 +179,21 @@ const PORTALDATA = (() => {
     return Math.round(rooms.reduce((s,r)=>s+r.basePrice,0)/rooms.length);
   }
   function myRateOnDate(propertyId, dateKey){
-    const rooms = DB.rooms.byProperty(propertyId);
     const channels = DB.channels.byProperty(propertyId);
     const master = channels.find(c=>c.type==='master');
     if(master){
-      const masterRooms = rooms.filter(r=>r.channelId===master.id);
-      const plans = masterRooms.length ? DB.ratePlans.byRoom(masterRooms[0].id) : [];
-      if(plans.length){
-        const dayRates = DB.rates.forPlan(plans[0].id);
-        if(dayRates[dateKey]) return dayRates[dateKey].price;
-      }
+      // Average the base-occupancy price across every Master-channel room/rate plan that has
+      // an actual price set for this date — so editing ANY room's rates in the Rate Calendar
+      // (not just the first room) shows up here, everywhere "My Rate" is read from.
+      const masterRooms = DB.rooms.byChannel(master.id);
+      const prices = [];
+      masterRooms.forEach(room=>{
+        DB.ratePlans.byRoom(room.id).forEach(plan=>{
+          const day = DB.rates.forPlan(plan.id)[dateKey];
+          if(day) prices.push(day.price);
+        });
+      });
+      if(prices.length) return Math.round(prices.reduce((a,b)=>a+b,0)/prices.length);
     }
     const base = myBaseRate(propertyId);
     const variance = 0.97 + seededFloat(propertyId+dateKey+'my') * 0.06;
@@ -317,6 +322,14 @@ const PORTALDATA = (() => {
     }
     return items;
   }
+  // Deterministic "last scraped" moment for a given property+date, so the stale-data badge
+  // stays stable across re-renders in the same session instead of flickering on every reload.
+  function lastScrapedAt(seed){
+    const dayKey = dateKeyOffset(0);
+    const minutesAgo = seededInt(seed+dayKey+'scraped', 4, 340); // ~4 min to ~5.5 hrs ago
+    return new Date(Date.now() - minutesAgo*60000);
+  }
+
   function mkRec(action, amount, reason, confidence, propertyId, dateKey){
     const current = myRateOnDate(propertyId, dateKey);
     const expected = action==='increase' ? current+amount : action==='decrease' ? current-amount : current;
@@ -335,6 +348,6 @@ const PORTALDATA = (() => {
     myBaseRate, myRateOnDate, channelRate, channelVariance, mealPlanBaseRate, mealPlanRateOnDate,
     localEventOn,
     notifications, markNotificationRead, markAllNotificationsRead, unreadNotificationCount,
-    settings, saveSettings, recommendations
+    settings, saveSettings, recommendations, lastScrapedAt
   };
 })();
