@@ -10,6 +10,19 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link href="css/style.css" rel="stylesheet">
 <link href="css/rate-matrix.css" rel="stylesheet">
+<style>
+  /* This page is always embedded in a fixed-height iframe (see property-details.js's Rate
+     Calendar tab) — without this, the iframe's own document could ALSO grow taller than the
+     iframe and pick up its own native scrollbar, stacking on top of the price grid's internal
+     scroller (.grid-table-wrap) below. Pinning the page to exactly the iframe's height and
+     letting only the grid's own wrapper scroll means there is ever only one scroller on screen. */
+  html, body{ height:100%; margin:0; overflow:hidden; }
+  #app-shell{ display:flex; flex-direction:column; height:100vh; box-sizing:border-box; }
+  #app-shell > .cal-toolbar, #app-shell > #parityHint, #app-shell > .cal-actions{ flex:0 0 auto; }
+  #app-shell > .cal-grid-card{ flex:1 1 auto; min-height:0; display:flex; flex-direction:column; overflow:hidden; }
+  #app-shell > .cal-grid-card #gridHost{ flex:1 1 auto; min-height:0; display:flex; flex-direction:column; }
+  #app-shell > .cal-grid-card #gridHost .grid-table-wrap{ flex:1 1 auto; min-height:0; max-height:none; }
+</style>
 </head>
 <body>
 <div id="app-shell">
@@ -59,11 +72,11 @@
 
 <div class="text-muted small mb-2" id="parityHint"><i class="bi bi-info-circle me-1"></i>Click <img src="https://www.eglobe-solutions.com/channelmanager/images/parity-view.png" alt="Rate Parity" class="parity-icon"> next to any occupancy row to compare its rate against other channels.</div>
 
-<div class="section-card">
+<div class="section-card cal-grid-card">
   <div id="gridHost"></div>
 </div>
 
-<div class="d-flex justify-content-end gap-2 mt-3">
+<div class="d-flex justify-content-end gap-2 mt-3 cal-actions">
   <button class="btn btn-light" id="btnCancelChanges">Cancel Changes</button>
   <button class="btn btn-primary" id="btnSaveChanges" disabled><i class="bi bi-save me-1"></i>Save Changes</button>
 </div>

@@ -81,21 +81,48 @@ document.addEventListener('DOMContentLoaded', ()=>{
     return { min: Math.min(...rates), max: Math.max(...rates) };
   }
 
-  // My Rate vs. Market Average: -30..+30 days
-  const labels = [], myLine = [], marketLine = [];
-  for(let d=-30; d<=30; d+=3){
-    const dk = PORTALDATA.dateKeyOffset(d);
-    labels.push(dk.slice(5));
-    myLine.push(PORTALDATA.myRateOnDate(propertyId, dk));
-    marketLine.push(avgCompRateOn(dk));
+  // My Rate vs. Market Average — four series (Our Property, Market Average, Highest/Lowest
+  // Competitor) over a selectable trailing window, so "where do I stand" and "how wide is the
+  // market spread" are both visible on the same chart instead of just the average.
+  let rateTrendChart = null;
+  function renderRateTrend(days){
+    const labels = [], myLine = [], marketLine = [], highLine = [], lowLine = [];
+    for(let d=-(days-1); d<=0; d++){
+      const dk = PORTALDATA.dateKeyOffset(d);
+      labels.push(dk.slice(5));
+      myLine.push(PORTALDATA.myRateOnDate(propertyId, dk));
+      marketLine.push(avgCompRateOn(dk));
+      const { min, max } = minMaxCompRateOn(dk);
+      highLine.push(max);
+      lowLine.push(min);
+    }
+    document.getElementById('rateTrendSubtitle').textContent = `Our rate vs. the market, trailing ${days} days.`;
+    if(rateTrendChart) rateTrendChart.destroy();
+    rateTrendChart = new Chart(document.getElementById('rateTrendChart'), {
+      type:'line',
+      data:{ labels, datasets:[
+        {label:'Our Property Avg. Rate', data:myLine, borderColor:'#3861fb', backgroundColor:'rgba(56,97,251,.1)', borderWidth:3, tension:.35, fill:true, pointRadius:0, pointHoverRadius:5},
+        {label:'Market Average', data:marketLine, borderColor:'#ff9f43', backgroundColor:'transparent', borderDash:[5,4], borderWidth:2, tension:.35, fill:false, pointRadius:0, pointHoverRadius:4},
+        {label:'Highest Competitor', data:highLine, borderColor:'#ff4d5e', backgroundColor:'transparent', borderDash:[2,3], borderWidth:1.5, tension:.35, fill:false, pointRadius:0, pointHoverRadius:4},
+        {label:'Lowest Competitor', data:lowLine, borderColor:'#12b76a', backgroundColor:'transparent', borderDash:[2,3], borderWidth:1.5, tension:.35, fill:false, pointRadius:0, pointHoverRadius:4}
+      ]},
+      options:{
+        responsive:true, animation:chartAnim(false), interaction:{mode:'index', intersect:false},
+        plugins:{
+          legend:{ position:'bottom', labels:{boxWidth:12, boxHeight:12, usePointStyle:true, pointStyle:'line', padding:14} },
+          tooltip:{ callbacks:{ label:ctx=>`${ctx.dataset.label}: ${APP.fmtCurrency(ctx.parsed.y)}` } }
+        },
+        scales:{ y:{ ticks:{ callback:v=>APP.fmtCurrency(v) } } }
+      }
+    });
   }
-  new Chart(document.getElementById('rateTrendChart'), {
-    type:'line',
-    data:{ labels, datasets:[
-      {label:'My Rate', data:myLine, borderColor:'#3861fb', backgroundColor:'rgba(56,97,251,.08)', tension:.35, fill:true},
-      {label:'Market Average', data:marketLine, borderColor:'#ff9f43', backgroundColor:'transparent', borderDash:[5,4], tension:.35}
-    ]},
-    options:{ responsive:true, animation:chartAnim(false), plugins:{legend:{position:'bottom'}}, scales:{y:{ticks:{callback:v=>APP.fmtCurrency(v)}}} }
+  renderRateTrend(14);
+  document.querySelectorAll('#rateTrendRangeGroup [data-days]').forEach(btn=>{
+    btn.addEventListener('click', function(){
+      document.querySelectorAll('#rateTrendRangeGroup [data-days]').forEach(b=>{ b.classList.remove('btn-outline-primary'); b.classList.add('btn-soft'); });
+      this.classList.remove('btn-soft'); this.classList.add('btn-outline-primary');
+      renderRateTrend(Number(this.dataset.days));
+    });
   });
 
   // ---- Competitor Comparison: compact table ----
@@ -112,52 +139,54 @@ document.addEventListener('DOMContentLoaded', ()=>{
       <td class="${r.diff>=0?'text-danger':'text-success'}">${r.diff>=0?'+':''}${APP.fmtCurrency(r.diff)}</td>
     </tr>`).join('') || `<tr><td colspan="3" class="text-center text-muted py-3">No comparison properties assigned yet.</td></tr>`}</tbody>`;
 
-  // ---- Rate Distribution: bell curve over competitor rates today ----
-  const n = compRatesToday.length;
-  const mean = n ? compRatesToday.reduce((a,b)=>a+b,0)/n : myRate;
-  const variance = n ? compRatesToday.reduce((s,r)=>s+Math.pow(r-mean,2),0)/n : 0;
-  const stddev = Math.sqrt(variance) || Math.max(1, mean*0.05);
-  const bellLabels = [], bellData = [];
-  const spanMin = mean - 3*stddev, spanMax = mean + 3*stddev;
-  const steps = 30;
-  for(let i=0; i<=steps; i++){
-    const x = spanMin + (spanMax-spanMin)*(i/steps);
-    const y = (1/(stddev*Math.sqrt(2*Math.PI))) * Math.exp(-0.5*Math.pow((x-mean)/stddev,2));
-    bellLabels.push(`₹${Math.round(x)}`);
-    bellData.push(y);
-  }
-  new Chart(document.getElementById('priceDistChart'), {
-    type:'line',
-    data:{ labels:bellLabels, datasets:[{label:'Rate Distribution', data:bellData, borderColor:'#8c5cf7', backgroundColor:'rgba(140,92,247,.12)', tension:.4, fill:true, pointRadius:0}] },
-    options:{ responsive:true, animation:chartAnim(false), plugins:{legend:{display:false}}, scales:{ x:{ticks:{maxTicksLimit:6}}, y:{display:false} } }
-  });
-
   // ---- Price Trends: merged daily/weekly/monthly, tab-switchable ----
   const dailyLabels=[], dailyData=[];
   for(let d=-13; d<=0; d++){ const dk=PORTALDATA.dateKeyOffset(d); dailyLabels.push(dk.slice(5)); dailyData.push(PORTALDATA.myRateOnDate(propertyId,dk)); }
-  trendDatasets.daily = { labels:dailyLabels, data:dailyData, color:'#3861fb' };
+  trendDatasets.daily = { labels:dailyLabels, data:dailyData, color:'#3861fb', legendLabel:'My Rate — Daily (last 14 days)' };
 
   const weeklyLabels=[], weeklyData=[];
   for(let w=11; w>=0; w--){
     let sum=0; for(let d=0; d<7; d++){ sum += PORTALDATA.myRateOnDate(propertyId, PORTALDATA.dateKeyOffset(-(w*7+d))); }
     weeklyLabels.push(`W-${w}`); weeklyData.push(Math.round(sum/7));
   }
-  trendDatasets.weekly = { labels:weeklyLabels, data:weeklyData, color:'#00c2a8' };
+  trendDatasets.weekly = { labels:weeklyLabels, data:weeklyData, color:'#00c2a8', legendLabel:'My Rate — Weekly Average (last 12 weeks)' };
 
   const monthlyLabels=[], monthlyData=[];
   for(let m=5; m>=0; m--){
     let sum=0, cnt=0; for(let d=0; d<30; d+=5){ sum += PORTALDATA.myRateOnDate(propertyId, PORTALDATA.dateKeyOffset(-(m*30+d))); cnt++; }
     monthlyLabels.push(`M-${m}`); monthlyData.push(Math.round(sum/cnt));
   }
-  trendDatasets.monthly = { labels:monthlyLabels, data:monthlyData, color:'#8c5cf7' };
+  trendDatasets.monthly = { labels:monthlyLabels, data:monthlyData, color:'#8c5cf7', legendLabel:'My Rate — Monthly Average (last 6 months)' };
 
+  // A legend on a single-line chart still earns its keep here: the line's meaning (what's
+  // averaged, over what window) changes with the Daily/Weekly/Monthly toggle, so the label needs
+  // to change with it too instead of leaving the line unexplained.
   function renderTrend(range){
     const t = trendDatasets[range];
     if(priceTrendChart) priceTrendChart.destroy();
-    priceTrendChart = new Chart(document.getElementById('priceTrendChart'), {
+    const ctx = document.getElementById('priceTrendChart').getContext('2d');
+    const gradient = ctx.createLinearGradient(0, 0, 0, 220);
+    gradient.addColorStop(0, t.color+'40');
+    gradient.addColorStop(1, t.color+'02');
+    priceTrendChart = new Chart(ctx, {
       type:'line',
-      data:{ labels:t.labels, datasets:[{data:t.data, borderColor:t.color, backgroundColor:t.color+'15', tension:.3, fill:true, pointRadius:0}] },
-      options:{ responsive:true, animation:chartAnim(false), plugins:{legend:{display:false}}, scales:{y:{ticks:{callback:v=>APP.fmtCurrency(v)}}} }
+      data:{ labels:t.labels, datasets:[{
+        label:t.legendLabel, data:t.data, borderColor:t.color, backgroundColor:gradient,
+        borderWidth:2.5, tension:.35, fill:true, pointRadius:0, pointHoverRadius:5,
+        pointHoverBackgroundColor:t.color, pointHoverBorderColor:'#fff', pointHoverBorderWidth:2
+      }] },
+      options:{
+        responsive:true, maintainAspectRatio:false, animation:chartAnim(false),
+        interaction:{ mode:'index', intersect:false },
+        plugins:{
+          legend:{ display:true, position:'bottom', labels:{boxWidth:12, boxHeight:12, usePointStyle:true, pointStyle:'line', padding:14} },
+          tooltip:{ callbacks:{ label:ctx=>APP.fmtCurrency(ctx.parsed.y) } }
+        },
+        scales:{
+          x:{ grid:{ display:false }, ticks:{ maxRotation:0, autoSkip:true, maxTicksLimit:7 } },
+          y:{ grid:{ color:'rgba(120,130,160,.12)' }, ticks:{ callback:v=>APP.fmtCurrency(v), maxTicksLimit:5 } }
+        }
+      }
     });
   }
   renderTrend('daily');
@@ -171,44 +200,98 @@ document.addEventListener('DOMContentLoaded', ()=>{
     });
   });
 
-  // ---- Price Calendar: Date | My Rate | Lowest Competitor | Highest Competitor | Difference —
-  // 7/14/30 day range, toggled by the pill group in the section header. ----
-  function renderPriceCalendar(days){
-    const rows = Array.from({length:days}).map((_,d)=>{
-      const dk = PORTALDATA.dateKeyOffset(d);
-      const mine = PORTALDATA.myRateOnDate(propertyId, dk);
-      const {min, max} = minMaxCompRateOn(dk);
-      const diff = mine-min;
-      return `<tr>
-        <td>${new Date(dk+'T00:00:00').toLocaleDateString('en-IN',{weekday:'short',day:'2-digit',month:'short'})} ${PORTALDATA.isWeekend(dk)?'<span class="badge bg-light text-dark border ms-1" style="font-size:.62rem">Weekend</span>':''} ${PORTALDATA.isHoliday(dk)?'<span class="badge bg-warning-subtle text-warning-emphasis ms-1" style="font-size:.62rem">Holiday</span>':''}</td>
-        <td class="fw-semibold">${APP.fmtCurrency(mine)}</td>
-        <td class="text-success">${APP.fmtCurrency(min)}</td>
-        <td class="text-danger">${APP.fmtCurrency(max)}</td>
-        <td class="${diff>=0?'text-danger':'text-success'}">${diff>=0?'+':''}${APP.fmtCurrency(diff)}</td>
-      </tr>`;
-    }).join('');
-    document.getElementById('priceCalendarTable').innerHTML = `
-      <thead><tr><th>Date</th><th>My Rate</th><th>Lowest Competitor</th><th>Highest Competitor</th><th>Difference</th></tr></thead>
-      <tbody>${rows}</tbody>`;
-  }
-  renderPriceCalendar(14);
-  document.querySelectorAll('#priceCalRangeGroup [data-days]').forEach(btn=>{
-    btn.addEventListener('click', function(){
-      document.querySelectorAll('#priceCalRangeGroup [data-days]').forEach(b=>{
-        b.classList.toggle('btn-outline-primary', b===this);
-        b.classList.toggle('btn-soft', b!==this);
-      });
-      renderPriceCalendar(Number(this.dataset.days));
-    });
-  });
+  initRevenueCalendar(propertyId, comps);
 
-  // Rate position gauge
-  const pos = Math.max(0, Math.min(100, priceIndex));
+  // ---- Today's Revenue Brief — an executive summary distilled from the same underlying
+  // signals as Market Intelligence's Insight Generation and Action Center (market gap, channel
+  // parity, competitor movement, room-level pricing opportunity), so the Dashboard's headline
+  // card and the deeper analysis pages never tell a different story. Each bullet only appears
+  // when its condition is actually true today — nothing here is filler. ----
+  function generateRevenueBrief(){
+    const bullets = [];
+    const overallDiffPct = ((myRate-marketAvg)/marketAvg*100);
+
+    if(Math.abs(overallDiffPct) >= 4){
+      const over = overallDiffPct > 0;
+      bullets.push({ icon: over?'bi-arrow-up-circle-fill':'bi-arrow-down-circle-fill', tone: over?'warn':'danger',
+        text:`You are ${Math.abs(overallDiffPct).toFixed(0)}% ${over?'above':'below'} market.` });
+    } else {
+      bullets.push({ icon:'bi-check-circle-fill', tone:'success', text:'Your rate is well aligned with the market today.' });
+    }
+
+    if(comps.length){
+      const moves = comps.map(c=>{
+        const t = PORTALDATA.competitorRateOnDate(c, today);
+        const y = PORTALDATA.competitorRateOnDate(c, PORTALDATA.dateKeyOffset(-1));
+        return t>y ? 1 : t<y ? -1 : 0;
+      });
+      const upCount = moves.filter(m=>m>0).length, downCount = moves.filter(m=>m<0).length;
+      if(upCount>0 && upCount>=downCount){
+        bullets.push({ icon:'bi-graph-up-arrow', tone:'info', text:`${upCount} competitor${upCount===1?'':'s'} increased ${upCount===1?'its':'their'} price today.` });
+      } else if(downCount>0){
+        bullets.push({ icon:'bi-graph-down-arrow', tone:'warn', text:`${downCount} competitor${downCount===1?'':'s'} cut ${downCount===1?'its':'their'} price today.` });
+      }
+    }
+
+    const violation = PORTALDATA.firstParityViolation(propertyId, today);
+    if(violation){
+      const gapPct = Math.round((violation.directPrice-violation.otaPrice)/violation.directPrice*100);
+      bullets.push({ icon:'bi-exclamation-octagon-fill', tone:'danger', text:`${violation.channel.name} parity issue detected — ${gapPct}% below your Direct rate.` });
+    }
+
+    // Which of my own rooms is priced furthest below its matched competitor rooms (same room
+    // name on each comparison property's Master channel) — the strongest case for a rate raise.
+    const channels = DB.channels.byProperty(propertyId);
+    const master = channels.find(c=>c.type==='master');
+    if(master && comps.length){
+      function roomAvgRate(roomId){
+        const plans = DB.ratePlans.byRoom(roomId);
+        if(!plans.length) return null;
+        const room = DB.rooms.get(roomId);
+        const prices = plans.map(p=>{ const day=DB.rates.forPlan(p.id)[today]; return day ? day.price : room.basePrice; });
+        return prices.reduce((a,b)=>a+b,0)/prices.length;
+      }
+      let best = null;
+      DB.rooms.byChannel(master.id).forEach(room=>{
+        const myRoomRate = roomAvgRate(room.id);
+        if(myRoomRate==null) return;
+        const matched = [];
+        comps.forEach(c=>{
+          const compMaster = DB.channels.byProperty(c.realPropertyId).find(ch=>ch.type==='master');
+          if(!compMaster) return;
+          const matchRoom = DB.rooms.byChannel(compMaster.id).find(r=>r.name===room.name);
+          if(!matchRoom) return;
+          const rate = roomAvgRate(matchRoom.id);
+          if(rate!=null) matched.push(rate);
+        });
+        if(!matched.length) return;
+        const matchedAvg = matched.reduce((a,b)=>a+b,0)/matched.length;
+        const gapPct = ((matchedAvg-myRoomRate)/myRoomRate)*100; // positive = my room is cheaper = opportunity
+        if(gapPct>6 && (!best || gapPct>best.gapPct)) best = { room, gapPct };
+      });
+      if(best) bullets.push({ icon:'bi-door-open-fill', tone:'success', text:`${best.room.name} has the strongest pricing opportunity — ${Math.round(best.gapPct)}% below comparable rooms.` });
+    }
+
+    return bullets.slice(0,4);
+  }
+
+  const brief = generateRevenueBrief();
+  const toneIcon = { warn:'#b9791a', danger:'#ff4d5e', success:'#12b76a', info:'#3861fb' };
+  const toneBg = { warn:'#fff8e6', danger:'#fff0f1', success:'#e7faf1', info:'#eef4ff' };
+
   document.getElementById('ratePositionWidget').innerHTML = `
-    <div class="rate-gauge">
-      <div class="rate-gauge-bar"><div class="rate-gauge-marker" style="left:${pos}%"></div></div>
-      <div class="rate-gauge-labels w-100"><span>Cheapest</span><span>Market</span><span>Priciest</span></div>
-      <div class="text-center mt-2"><div class="fw-bold fs-5">${priceIndex}</div><div class="text-muted small">${ratePosition}</div></div>
+    <div class="rp-brief">
+      <div class="rp-brief-head">
+        <div class="text-muted flex-grow-1" style="font-size:.72rem">Executive summary from Insight Generation &amp; Action Center</div>
+        <span class="badge bg-primary-subtle text-primary" style="font-size:.58rem"><i class="bi bi-stars me-1"></i>AI</span>
+      </div>
+      <ul class="rp-brief-list">
+        ${brief.map((b,i)=>`<li class="rp-brief-item" style="animation-delay:${i*60}ms">
+          <span class="rp-brief-dot" style="background:${toneBg[b.tone]};color:${toneIcon[b.tone]}"><i class="bi ${b.icon}"></i></span>
+          <span>${b.text}</span>
+        </li>`).join('')}
+      </ul>
+      <a href="property-market.html?tab=action" class="rp-brief-link">Open Action Center <i class="bi bi-arrow-right ms-1"></i></a>
     </div>`;
 
   // Leaderboard (top 5 by rate diff)
@@ -233,3 +316,190 @@ document.addEventListener('DOMContentLoaded', ()=>{
     </div>`;
   }).join('');
 });
+
+/* ==========================================================================
+   Revenue Intelligence Calendar — replaces the old Price Calendar table. A compact month grid
+   where each day carries only the essentials (rate, a market-position color, an action icon);
+   everything else (mapped competitor prices, parity, recommendation, confidence, recent
+   competitor movement, suggested rate) lives in a rich hover/click popover instead of being
+   crammed into the cell itself. Reuses the same signals as Today's Revenue Brief and Market
+   Intelligence (PORTALDATA.myRateOnDate/competitorRateOnDate/firstParityViolation) so this
+   calendar never disagrees with the rest of the dashboard about what's happening on a given date.
+   ========================================================================== */
+function initRevenueCalendar(propertyId, comps){
+  const grid = document.getElementById('ric_grid');
+  const popover = document.getElementById('ric_popover');
+  if(!grid || !popover) return;
+
+  let anchor = new Date(); anchor.setDate(1); anchor.setHours(0,0,0,0);
+  let pinnedDk = null; // date key currently pinned open by a click, or null if only hover-shown
+  let hideTimer = null;
+
+  function dayInfo(date){
+    const dk = DB.fmtDate(date);
+    const prevDk = DB.fmtDate(new Date(date.getTime()-86400000));
+    const myR = PORTALDATA.myRateOnDate(propertyId, dk);
+    const compRates = comps.map(c=>({ name:c.name, rate:PORTALDATA.competitorRateOnDate(c, dk) })).sort((a,b)=>a.rate-b.rate);
+    const mktAvg = compRates.length ? Math.round(compRates.reduce((s,c)=>s+c.rate,0)/compRates.length) : myR;
+    const gapPct = mktAvg ? ((myR-mktAvg)/mktAvg*100) : 0;
+    // Opportunity = priced below market (room to raise) · Risk = priced above it (losing
+    // competitiveness) · Aligned = within a quiet band either side — the vast majority of days,
+    // deliberately left unaccented so the few days that actually need a look stand out.
+    const tone = gapPct <= -4 ? 'opp' : gapPct >= 4 ? 'risk' : 'aligned';
+    const violation = comps.length ? PORTALDATA.firstParityViolation(propertyId, dk) : null;
+    const moves = comps.map(c=>{
+      const t = PORTALDATA.competitorRateOnDate(c, dk), y = PORTALDATA.competitorRateOnDate(c, prevDk);
+      return t>y ? 1 : t<y ? -1 : 0;
+    });
+    const upCount = moves.filter(m=>m>0).length, downCount = moves.filter(m=>m<0).length;
+
+    let action, actionIcon, confidence, suggested;
+    if(gapPct <= -6){
+      action = 'Increase'; actionIcon = 'bi-arrow-up-circle-fill';
+      confidence = Math.min(96, 58 + Math.round(Math.abs(gapPct)));
+      suggested = Math.max(500, Math.round((myR + (mktAvg-myR)*0.6)/10)*10);
+    } else if(gapPct >= 6){
+      action = 'Decrease'; actionIcon = 'bi-arrow-down-circle-fill';
+      confidence = Math.min(96, 58 + Math.round(Math.abs(gapPct)));
+      suggested = Math.max(500, Math.round((myR - (myR-mktAvg)*0.5)/10)*10);
+    } else {
+      action = 'Hold'; actionIcon = 'bi-check-circle-fill'; confidence = 88; suggested = myR;
+    }
+    if(violation) actionIcon = 'bi-exclamation-octagon-fill';
+
+    return { dk, date, myR, compRates, mktAvg, gapPct, tone, violation, upCount, downCount, action, actionIcon, confidence, suggested };
+  }
+
+  const TONE_META = {
+    opp:     { label:'Opportunity', color:'var(--success)' },
+    risk:    { label:'Risk',        color:'var(--danger)'  },
+    aligned: { label:'Aligned',     color:'var(--text-3)'  }
+  };
+
+  function popoverHtml(info){
+    const tm = TONE_META[info.tone];
+    return `
+      <div class="ric-pop-head">
+        <div>
+          <div class="ric-pop-date">${info.date.toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'short'})}</div>
+          <span class="ric-pop-tone" style="color:${tm.color}"><i class="bi bi-record-fill"></i>${tm.label}</span>
+        </div>
+        <button type="button" class="ric-pop-close" id="ric_popClose" aria-label="Close"><i class="bi bi-x-lg"></i></button>
+      </div>
+      <div class="ric-pop-grid">
+        <div><span class="k">Our Rate</span><span class="v">${APP.fmtCurrency(info.myR)}</span></div>
+        <div><span class="k">Market Avg</span><span class="v">${APP.fmtCurrency(info.mktAvg)}</span></div>
+        <div><span class="k">Price Gap</span><span class="v ${info.gapPct>=0?'text-danger':'text-success'}">${info.gapPct>=0?'+':''}${info.gapPct.toFixed(1)}%</span></div>
+        <div><span class="k">Parity</span><span class="v ${info.violation?'text-danger':'text-success'}">${info.violation?'Undercut':'On Track'}</span></div>
+      </div>
+      ${info.compRates.length ? `<div class="ric-pop-section">
+        <div class="ric-pop-label">Mapped Competitors</div>
+        <div class="ric-pop-comp-list">
+          ${info.compRates.slice(0,5).map(c=>`<div class="ric-pop-row"><span>${c.name}</span><span>${APP.fmtCurrency(c.rate)}</span></div>`).join('')}
+        </div>
+      </div>` : `<div class="ric-pop-section"><div class="text-muted" style="font-size:.72rem">No comparison properties assigned yet.</div></div>`}
+      ${info.violation ? `<div class="ric-pop-alert"><i class="bi bi-exclamation-octagon-fill"></i><span>${info.violation.channel.name} undercutting Direct by ${Math.round((info.violation.directPrice-info.violation.otaPrice)/info.violation.directPrice*100)}%</span></div>` : ''}
+      <div class="ric-pop-recommend">
+        <span class="ric-pop-rec-icon"><i class="bi ${info.actionIcon}"></i></span>
+        <div class="flex-grow-1">
+          <div class="d-flex justify-content-between align-items-center gap-2">
+            <span class="ric-pop-rec-title">${info.action==='Hold' ? 'Hold current rate' : info.action+' rate'}</span>
+            <span class="ric-pop-confidence">${info.confidence}%</span>
+          </div>
+          ${info.action!=='Hold' ? `<div class="ric-pop-rec-sub">Suggested: <b>${APP.fmtCurrency(info.suggested)}</b></div>` : `<div class="ric-pop-rec-sub">Well positioned — no change needed</div>`}
+        </div>
+      </div>
+      ${comps.length ? `<div class="ric-pop-moves"><i class="bi bi-activity"></i>${info.upCount} up · ${info.downCount} down vs. previous day</div>` : ''}
+    `;
+  }
+
+  function positionPopover(cell){
+    const r = cell.getBoundingClientRect();
+    const popW = Math.min(300, window.innerWidth - 24);
+    popover.style.width = popW+'px';
+    popover.classList.remove('d-none');
+    const popH = popover.offsetHeight;
+    let left = r.left + r.width/2 - popW/2;
+    left = Math.max(12, Math.min(left, window.innerWidth - popW - 12));
+    let top = r.bottom + 10;
+    let arrowAbove = true;
+    if(top + popH > window.innerHeight - 12){ top = r.top - popH - 10; arrowAbove = false; }
+    popover.style.left = left+'px';
+    popover.style.top = top+'px';
+    popover.classList.toggle('arrow-top', arrowAbove);
+    popover.classList.toggle('arrow-bottom', !arrowAbove);
+    popover.style.setProperty('--ric-arrow-x', (r.left + r.width/2 - left)+'px');
+  }
+
+  function show(cell){
+    clearTimeout(hideTimer);
+    const info = dayInfo(new Date(cell.dataset.dk+'T00:00:00'));
+    popover.innerHTML = popoverHtml(info);
+    positionPopover(cell);
+    document.getElementById('ric_popClose').addEventListener('click', hide);
+  }
+  function scheduleHide(){
+    if(pinnedDk) return;
+    hideTimer = setTimeout(hide, 180);
+  }
+  function hide(){
+    clearTimeout(hideTimer);
+    pinnedDk = null;
+    popover.classList.add('d-none');
+    grid.querySelectorAll('.ric-cell.is-pinned').forEach(c=>c.classList.remove('is-pinned'));
+  }
+
+  popover.addEventListener('mouseenter', ()=> clearTimeout(hideTimer));
+  popover.addEventListener('mouseleave', scheduleHide);
+  document.addEventListener('click', (e)=>{
+    if(pinnedDk && !popover.contains(e.target) && !e.target.closest('.ric-cell')) hide();
+  });
+
+  function render(){
+    document.getElementById('ric_monthLabel').textContent = anchor.toLocaleDateString('en-IN',{month:'long',year:'numeric'});
+    const year = anchor.getFullYear(), month = anchor.getMonth();
+    const firstDow = new Date(year,month,1).getDay();
+    const daysInMonth = new Date(year,month+1,0).getDate();
+    const todayKey = DB.fmtDate(new Date());
+    const dowLabels = ['S','M','T','W','T','F','S'];
+
+    let html = dowLabels.map(d=>`<div class="ric-dow">${d}</div>`).join('');
+    for(let i=0;i<firstDow;i++) html += `<div class="ric-cell ric-empty"></div>`;
+    for(let d=1; d<=daysInMonth; d++){
+      const date = new Date(year,month,d);
+      const dk = DB.fmtDate(date);
+      const info = dayInfo(date);
+      const cellClasses = ['ric-cell', `tone-${info.tone}`];
+      if(dk===todayKey) cellClasses.push('is-today');
+      if(info.action!=='Hold') cellClasses.push('has-action');
+      html += `<button type="button" class="${cellClasses.join(' ')}" data-dk="${dk}" style="animation-delay:${(d%7)*22}ms" aria-label="${date.toDateString()}: ${info.action} recommended, our rate ${APP.fmtCurrency(info.myR)}">
+        <span class="ric-cell-bar"></span>
+        <span class="ric-date">${d}${dk===todayKey?'<i class=\"ric-today-dot\"></i>':''}</span>
+        <span class="ric-rate">${APP.fmtCurrency(info.myR)}</span>
+        <span class="ric-action-dot"><i class="bi ${info.actionIcon}"></i></span>
+      </button>`;
+    }
+    grid.innerHTML = html;
+
+    grid.querySelectorAll('.ric-cell[data-dk]').forEach(cell=>{
+      cell.addEventListener('mouseenter', ()=> show(cell));
+      cell.addEventListener('mouseleave', scheduleHide);
+      cell.addEventListener('focus', ()=> show(cell));
+      cell.addEventListener('blur', scheduleHide);
+      cell.addEventListener('click', (e)=>{
+        e.stopPropagation();
+        if(pinnedDk === cell.dataset.dk){ hide(); return; }
+        grid.querySelectorAll('.ric-cell.is-pinned').forEach(c=>c.classList.remove('is-pinned'));
+        pinnedDk = cell.dataset.dk;
+        cell.classList.add('is-pinned');
+        show(cell);
+      });
+    });
+  }
+
+  document.getElementById('ric_prevMonth').addEventListener('click', ()=>{ anchor.setMonth(anchor.getMonth()-1); hide(); render(); });
+  document.getElementById('ric_nextMonth').addEventListener('click', ()=>{ anchor.setMonth(anchor.getMonth()+1); hide(); render(); });
+  window.addEventListener('resize', ()=>{ if(!popover.classList.contains('d-none')){ const c=grid.querySelector('.ric-cell.is-pinned')||grid.querySelector('.ric-cell.is-today'); if(c) positionPopover(c); } });
+
+  render();
+}

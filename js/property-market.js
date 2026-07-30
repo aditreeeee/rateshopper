@@ -88,8 +88,6 @@ document.addEventListener('DOMContentLoaded', ()=>{
       desc:'How many comparison properties your Company Admin has assigned to you for benchmarking.'}),
   ].join('');
 
-  renderValueProposition(propertyId, comps, today);
-
   document.getElementById('marketSummary').innerHTML = `
     <div class="kv-row"><span class="k">Total Competitors</span><span class="v">${supply}</span></div>
     <div class="kv-row"><span class="k">Avg. Star Rating</span><span class="v">${(comps.reduce((s,c)=>s+c.stars,0)/comps.length).toFixed(1)}★</span></div>
@@ -105,100 +103,6 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
   function seededPct(seed){ let h=0; for(let i=0;i<seed.length;i++){h=(h*31+seed.charCodeAt(i))|0;} return (Math.abs(h)%1000)/1000; }
 });
-
-// ---- Value Proposition Analysis — two separate, independent readings instead of one forced
-// composite number:
-//   • Value Score — normalized 0-100 quality score from Amenity Score, Meal Plan Quality,
-//     Cancellation Flexibility, and Room Size (each normalized against the highest value seen
-//     in this comparison set, so it's always relative to your actual competitors, not an
-//     arbitrary fixed scale).
-//   • Price Position — your rate vs. the average of your mapped competitors, as a plain %.
-// Kept as two numbers on purpose: "how good is it" and "how expensive is it" answer different
-// questions, and collapsing them into one score hides which one is actually driving the result. ----
-let vpChart = null;
-const VP_WEIGHTS = { amenity:0.3, mealPlan:0.3, cancellation:0.2, roomSize:0.2 };
-function renderValueProposition(propertyId, comps, today){
-  const mealRank = { EP:0, CP:1, MAP:2, AP:3 };
-
-  function rawProfile(pid){
-    const p = DB.properties.get(pid);
-    const amenities = (p && p.amenities) ? p.amenities.length : 0;
-    const channels = DB.channels.byProperty(pid);
-    const master = channels.find(c=>c.type==='master');
-    const rooms = master ? DB.rooms.byChannel(master.id) : [];
-    const plans = rooms.flatMap(r=>DB.ratePlans.byRoom(r.id));
-    const refundablePct = plans.length ? Math.round(plans.filter(pl=>pl.refundable).length/plans.length*100) : 0;
-    const mealPlanAvgRank = plans.length ? plans.reduce((s,pl)=>s+(mealRank[pl.mealPlan]||0),0)/plans.length : 0; // 0..3
-    const roomsWithSize = rooms.filter(r=>r.size);
-    const avgRoomSize = roomsWithSize.length ? Math.round(roomsWithSize.reduce((s,r)=>s+r.size,0)/roomsWithSize.length) : 0;
-    return { amenities, refundablePct, mealPlanAvgRank, avgRoomSize };
-  }
-
-  const rows = [{ name:'My Property', isMe:true, rate:PORTALDATA.myRateOnDate(propertyId, today), ...rawProfile(propertyId) }];
-  comps.forEach(c=>{
-    rows.push({ name:c.name, isMe:false, rate:PORTALDATA.competitorRateOnDate(c, today), ...rawProfile(c.realPropertyId) });
-  });
-
-  // Normalize each raw factor against the max seen across THIS comparison set — so the score
-  // always reflects standing relative to your actual competitors, not a fixed/arbitrary scale.
-  const maxAmenities = Math.max(1, ...rows.map(r=>r.amenities));
-  const maxRoomSize = Math.max(1, ...rows.map(r=>r.avgRoomSize));
-  const haveRoomSize = maxRoomSize > 1;
-
-  rows.forEach(r=>{
-    const amenityScore = (r.amenities/maxAmenities)*100;
-    const mealPlanQuality = (r.mealPlanAvgRank/3)*100;
-    const cancellationFlexibility = r.refundablePct;
-    const roomSizeScore = haveRoomSize ? (r.avgRoomSize/maxRoomSize)*100 : null;
-    // If no property in the set has room-size data, drop that weight and re-normalize the rest
-    // rather than silently scoring everyone 0 on a factor nobody actually has data for.
-    const parts = [
-      { w:VP_WEIGHTS.amenity, v:amenityScore },
-      { w:VP_WEIGHTS.mealPlan, v:mealPlanQuality },
-      { w:VP_WEIGHTS.cancellation, v:cancellationFlexibility },
-      ...(roomSizeScore!=null ? [{ w:VP_WEIGHTS.roomSize, v:roomSizeScore }] : [])
-    ];
-    const totalW = parts.reduce((s,p)=>s+p.w,0);
-    r.valueScore = Math.round(parts.reduce((s,p)=>s+p.w*p.v,0)/totalW);
-    r.amenityScore = Math.round(amenityScore); r.mealPlanQuality = Math.round(mealPlanQuality); r.roomSizeScore = roomSizeScore!=null?Math.round(roomSizeScore):null;
-  });
-
-  const compRates = comps.map(c=>PORTALDATA.competitorRateOnDate(c, today));
-  const compAvg = compRates.length ? Math.round(compRates.reduce((a,b)=>a+b,0)/compRates.length) : null;
-  rows.forEach(r=>{ r.pricePositionPct = compAvg ? Math.round(((r.rate-compAvg)/compAvg)*1000)/10 : null; });
-
-  const ranked = [...rows].sort((a,b)=>b.valueScore-a.valueScore);
-  const myRank = ranked.findIndex(r=>r.isMe) + 1;
-  const mine = rows[0];
-
-  document.getElementById('vp_summary').textContent = mine.pricePositionPct!=null
-    ? `Value Score rank: #${myRank} of ${rows.length}. Price Position: ${mine.pricePositionPct>=0?'+':''}${mine.pricePositionPct}% vs. the ${comps.length}-competitor average — Value Score is quality (amenities, meal plan, flexibility, room size) normalized 0-100; Price Position is purely how your rate compares.`
-    : `Value Score rank: #${myRank} of ${rows.length}. Add comparison properties to see Price Position.`;
-
-  if(vpChart) vpChart.destroy();
-  vpChart = new Chart(document.getElementById('vp_chart'), {
-    type:'bar',
-    data:{ labels: ranked.map(r=>r.name), datasets:[{ label:'Value Score', data: ranked.map(r=>r.valueScore), backgroundColor: ranked.map(r=>r.isMe?'#3861fb':'#c3aee8'), borderRadius:5 }] },
-    options:{ indexAxis:'y', responsive:true, animation:chartAnim(true), plugins:{legend:{display:false},
-      tooltip:{callbacks:{label:ctx=>`Value Score: ${ctx.parsed.x}/100`}}}, scales:{x:{min:0,max:100,ticks:{precision:0}}} }
-  });
-
-  function pricePositionCell(pct){
-    if(pct==null) return '<span class="text-muted">—</span>';
-    const cls = pct>0 ? 'text-danger' : pct<0 ? 'text-success' : 'text-muted';
-    const label = pct>0 ? 'above avg' : pct<0 ? 'below avg' : 'at avg';
-    return `<span class="${cls} fw-semibold">${pct>=0?'+':''}${pct}% ${label}</span>`;
-  }
-
-  document.getElementById('vp_table').innerHTML = `
-    <thead><tr><th>Property</th><th class="text-end">Rate</th><th class="text-center">Value Score</th><th class="text-center">Price Position</th></tr></thead>
-    <tbody>${ranked.map(r=>`<tr class="${r.isMe?'rc-frozen-row':''}">
-      <td class="fw-semibold">${r.isMe?'<i class="bi bi-star-fill me-1" style="color:var(--brand-500)"></i>':''}${r.name}</td>
-      <td class="text-end">${APP.fmtCurrency(r.rate)}</td>
-      <td class="text-center fw-bold">${r.valueScore}/100</td>
-      <td class="text-center">${pricePositionCell(r.pricePositionPct)}</td>
-    </tr>`).join('')}</tbody>`;
-}
 
 // ---- Pricing Recommendations (merged in from the standalone Pricing Recommendations page) ----
 /* ==========================================================================
