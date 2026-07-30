@@ -25,6 +25,8 @@ document.addEventListener('DOMContentLoaded', ()=>{
   const marketAvg = compRatesToday.length ? Math.round(compRatesToday.reduce((a,b)=>a+b,0)/compRatesToday.length) : myRate;
   const lowest = compRatesToday.length ? Math.min(...compRatesToday) : myRate;
   const highest = compRatesToday.length ? Math.max(...compRatesToday) : myRate;
+  const cheapestComp = comps.length ? comps.reduce((min,c)=> PORTALDATA.competitorRateOnDate(c,today) < PORTALDATA.competitorRateOnDate(min,today) ? c : min) : null;
+  const priciestComp = comps.length ? comps.reduce((max,c)=> PORTALDATA.competitorRateOnDate(c,today) > PORTALDATA.competitorRateOnDate(max,today) ? c : max) : null;
   const priceIndex = Math.round((myRate/marketAvg)*100);
   const ratePosition = myRate<lowest ? 'Below Market' : myRate>highest ? 'Above Market' : 'Within Market';
   // Rate Parity Score — % of your own Direct-vs-OTA room/rate-plan pairs (today) where the OTA
@@ -49,26 +51,32 @@ document.addEventListener('DOMContentLoaded', ()=>{
     <span class="snap-sep">|</span>
     <div class="snap-item"><i class="bi bi-buildings"></i> Competitors Tracked <b>${comps.length}</b></div>`;
 
-  document.getElementById('kpiPrimary').innerHTML = [
+  // ---- Section 1: Your Property ----
+  document.getElementById('kpiYourProperty').innerHTML = [
     PWIDGETS.kpiCard({icon:'bi-cash-coin', color:'#3861fb', bg:'#eef4ff', label:'Current Hotel Rate', value:APP.fmtCurrency(myRate), sub:`${rateChangePct>=0?'+':''}${rateChangePct}% vs yesterday`, subDir: rateChangePct>=0?'up':'down',
       desc:"Your own property's rate for today, on your Direct (Master) channel."}),
-    PWIDGETS.kpiCard({icon:'bi-bar-chart', color:'#8c5cf7', bg:'#f3eeff', label:'Market Average', value:APP.fmtCurrency(marketAvg), sub:`${comps.length} competitors tracked`, subDir:'flat',
-      desc:"The average rate across all your assigned comparison properties for today."}),
-    PWIDGETS.kpiCard({icon:'bi-arrow-down-circle', color:'#12b76a', bg:'#e7faf1', label:'Lowest Competitor', value:APP.fmtCurrency(lowest),
-      desc:'The cheapest rate among your comparison properties today.'}),
-    PWIDGETS.kpiCard({icon:'bi-arrow-up-circle', color:'#ff4d5e', bg:'#fff0f1', label:'Highest Competitor', value:APP.fmtCurrency(highest),
-      desc:'The most expensive rate among your comparison properties today.'}),
-  ].join('');
-
-  document.getElementById('kpiSecondary').innerHTML = [
+    PWIDGETS.kpiCard({icon:'bi-percent', color: rateChangePct>=0?'#12b76a':'#ff4d5e', bg: rateChangePct>=0?'#e7faf1':'#fff0f1', label:'Rate Change %', value:`${rateChangePct>=0?'+':''}${rateChangePct}%`,
+      desc:"How much your own rate has moved compared to yesterday."}),
     PWIDGETS.kpiCard({icon:'bi-speedometer', color:'#b9791a', bg:'#fff8e6', label:'Price Index', value:`${priceIndex}`, sub:'vs. market = 100',
       desc:'Your rate as a percentage of the market average. 100 = exactly at market; above 100 means you\'re priced higher than the market, below means lower.'}),
     PWIDGETS.kpiCard({icon:'bi-signpost-split', color:'#3861fb', bg:'#eef4ff', label:'Rate Position', value:ratePosition,
       desc:"Whether your rate sits below, within, or above the range set by your cheapest and most expensive comparison properties."}),
     PWIDGETS.kpiCard({icon:'bi-shield-check', color:'#00c2a8', bg:'#e6fbf8', label:'Rate Parity Score', value:`${parityScore}/100`,
       desc:'How consistently your rate is honored across channels — a lower score means one or more OTAs may be undercutting your Direct rate.'}),
-    PWIDGETS.kpiCard({icon:'bi-percent', color: rateChangePct>=0?'#12b76a':'#ff4d5e', bg: rateChangePct>=0?'#e7faf1':'#fff0f1', label:'Rate Change %', value:`${rateChangePct>=0?'+':''}${rateChangePct}%`,
-      desc:"How much your own rate has moved compared to yesterday."}),
+  ].join('');
+
+  // ---- Section 2: Market Overview — every card mentions the total tracked competitor count ----
+  document.getElementById('kpiMarketOverview').innerHTML = [
+    PWIDGETS.kpiCard({icon:'bi-bar-chart', color:'#8c5cf7', bg:'#f3eeff', label:'Market Average', value:APP.fmtCurrency(marketAvg), sub:`across ${comps.length} competitors tracked`, subDir:'flat',
+      desc:"The average rate across all your assigned comparison properties for today."}),
+    PWIDGETS.kpiCard({icon:'bi-arrow-down-circle', color:'#12b76a', bg:'#e7faf1', label:'Lowest Market Rate', value:APP.fmtCurrency(lowest), sub:`out of ${comps.length} competitors tracked`, subDir:'flat',
+      desc:'The cheapest rate among your comparison properties today.'}),
+    PWIDGETS.kpiCard({icon:'bi-arrow-up-circle', color:'#ff4d5e', bg:'#fff0f1', label:'Highest Market Rate', value:APP.fmtCurrency(highest), sub:`out of ${comps.length} competitors tracked`, subDir:'flat',
+      desc:'The most expensive rate among your comparison properties today.'}),
+    PWIDGETS.kpiCard({icon:'bi-trophy', color:'#12b76a', bg:'#e7faf1', label:'Cheapest Competitor', value: cheapestComp ? cheapestComp.name : '—', sub: cheapestComp ? `${APP.fmtCurrency(PORTALDATA.competitorRateOnDate(cheapestComp,today))} · out of ${comps.length} tracked` : `out of ${comps.length} tracked`, subDir:'flat',
+      desc:'Which comparison property currently has the lowest rate.'}),
+    PWIDGETS.kpiCard({icon:'bi-gem', color:'#ff4d5e', bg:'#fff0f1', label:'Most Expensive Competitor', value: priciestComp ? priciestComp.name : '—', sub: priciestComp ? `${APP.fmtCurrency(PORTALDATA.competitorRateOnDate(priciestComp,today))} · out of ${comps.length} tracked` : `out of ${comps.length} tracked`, subDir:'flat',
+      desc:'Which comparison property currently has the highest rate.'}),
   ].join('');
 
   function avgCompRateOn(dk){

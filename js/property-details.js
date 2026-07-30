@@ -44,10 +44,14 @@ document.addEventListener('DOMContentLoaded', ()=>{
   const canCreateRoom = RBAC.can(RBAC.MODULES.ROOMS, 'create');
   const addRoomBtn = document.getElementById('addRoomBtn');
   if(canCreateRoom){ addRoomBtn.href = `add-room.html?propertyId=${p.id}`; } else { addRoomBtn.classList.add('d-none'); }
+  const importRoomsBtn = document.getElementById('importRoomsBtn');
+  if(canCreateRoom){ importRoomsBtn.addEventListener('click', openImportRoomsModal); } else { importRoomsBtn.classList.add('d-none'); }
 
   const canCreateRatePlan = RBAC.can(RBAC.MODULES.RATE_PLANS, 'create');
   const addRpBtn = document.getElementById('addRpBtn');
   if(canCreateRatePlan){ addRpBtn.href = `add-rate-plan.html?propertyId=${p.id}`; } else { addRpBtn.classList.add('d-none'); }
+  const importRpBtn = document.getElementById('importRpBtn');
+  if(canCreateRatePlan){ importRpBtn.addEventListener('click', openImportRpModal); } else { importRpBtn.classList.add('d-none'); }
 
   populateChannelFilters();
   renderOverview();
@@ -202,6 +206,7 @@ function renderRooms(){
   let rooms = DB.rooms.byProperty(p.id);
   if(channelId) rooms = rooms.filter(r=>r.channelId===channelId);
   const canEdit = RBAC.can(RBAC.MODULES.ROOMS, 'edit');
+  const canCreate = RBAC.can(RBAC.MODULES.ROOMS, 'create');
   const canDelete = RBAC.can(RBAC.MODULES.ROOMS, 'delete');
   document.getElementById('roomsCount').textContent = `${rooms.length} room type(s)`;
 
@@ -218,6 +223,7 @@ function renderRooms(){
             <span class="fw-bold text-primary">${APP.fmtCurrency(r.basePrice)}<small class="text-muted fw-normal">/night</small></span>
             <div class="d-flex gap-1">
               ${canEdit ? `<a href="add-room.html?id=${r.id}" class="btn btn-sm-icon btn-soft" title="Edit"><i class="bi bi-pencil"></i></a>` : ''}
+              ${canCreate ? `<button class="btn btn-sm-icon btn-soft" title="Duplicate" onclick="duplicatePropertyRoom('${r.id}')"><i class="bi bi-copy"></i></button>` : ''}
               ${canDelete ? `<button class="btn btn-sm-icon btn-light-danger" title="Delete" onclick="deletePropertyRoom('${r.id}')"><i class="bi bi-trash3"></i></button>` : ''}
             </div>
           </div>
@@ -235,6 +241,7 @@ function renderRooms(){
       <td class="text-end fw-semibold">${APP.fmtCurrency(r.basePrice)}</td>
       <td class="text-end">
         ${canEdit ? `<a href="add-room.html?id=${r.id}" class="btn btn-sm-icon btn-soft" title="Edit"><i class="bi bi-pencil"></i></a>` : ''}
+        ${canCreate ? `<button class="btn btn-sm-icon btn-soft" title="Duplicate" onclick="duplicatePropertyRoom('${r.id}')"><i class="bi bi-copy"></i></button>` : ''}
         ${canDelete ? `<button class="btn btn-sm-icon btn-light-danger" title="Delete" onclick="deletePropertyRoom('${r.id}')"><i class="bi bi-trash3"></i></button>` : ''}
       </td>
     </tr>`).join('') : `<tr><td colspan="7"><div class="empty-state"><i class="bi bi-door-closed"></i><h5>No rooms yet</h5><p>Add a room type to this channel.</p></div></td></tr>`;
@@ -246,6 +253,7 @@ function renderRatePlans(){
   let ratePlans = DB.ratePlans.byProperty(p.id);
   if(channelId) ratePlans = ratePlans.filter(rp=>rp.channelId===channelId);
   const canEdit = RBAC.can(RBAC.MODULES.RATE_PLANS, 'edit');
+  const canCreate = RBAC.can(RBAC.MODULES.RATE_PLANS, 'create');
   const canDelete = RBAC.can(RBAC.MODULES.RATE_PLANS, 'delete');
   document.getElementById('rpCount').textContent = `${ratePlans.length} rate plan(s)`;
   document.getElementById('rpBody').innerHTML = ratePlans.length ? ratePlans.map(rp=>{
@@ -260,6 +268,7 @@ function renderRatePlans(){
       <td class="text-end">
         ${canEdit ? `<button class="btn btn-sm-icon btn-soft" title="Set Price for Date Range" onclick="openPriceRangeModal('${rp.id}')"><i class="bi bi-calendar-range"></i></button>` : ''}
         ${canEdit ? `<a href="add-rate-plan.html?id=${rp.id}" class="btn btn-sm-icon btn-outline-primary" title="Edit Rate Plan"><i class="bi bi-pencil"></i></a>` : ''}
+        ${canCreate ? `<button class="btn btn-sm-icon btn-soft" title="Duplicate" onclick="duplicatePropertyRatePlan('${rp.id}')"><i class="bi bi-copy"></i></button>` : ''}
         ${canDelete ? `<button class="btn btn-sm-icon btn-light-danger" title="Delete Rate Plan" onclick="deletePropertyRatePlan('${rp.id}')"><i class="bi bi-trash3"></i></button>` : ''}
       </td>
     </tr>`;
@@ -331,4 +340,151 @@ function deletePropertyRatePlan(ratePlanId){
     confirmText:'Delete', danger:true,
     onConfirm: ()=>{ DB.ratePlans.remove(ratePlanId); APP.toast('Rate Plan Deleted', `${rp.name} removed.`, 'danger'); renderRatePlans(); renderOverview(); }
   });
+}
+
+// ---- Duplicate ----
+function duplicatePropertyRoom(roomId){
+  if(!RBAC.can(RBAC.MODULES.ROOMS, 'create')){ APP.toast('Not Allowed', 'You do not have permission to create rooms.', 'danger'); return; }
+  const r = DB.rooms.get(roomId);
+  if(!r) return;
+  const { id, ...rest } = r;
+  const saved = DB.rooms.save({ ...rest, name: `${r.name} (Copy)` });
+  APP.toast('Room Duplicated', `${saved.name} created from ${r.name}.`, 'success');
+  renderRooms(); renderRatePlans(); renderOverview(); renderChannels();
+}
+
+function duplicatePropertyRatePlan(ratePlanId){
+  if(!RBAC.can(RBAC.MODULES.RATE_PLANS, 'create')){ APP.toast('Not Allowed', 'You do not have permission to create rate plans.', 'danger'); return; }
+  const rp = DB.ratePlans.get(ratePlanId);
+  if(!rp) return;
+  const { id, createdAt, ...rest } = rp;
+  const saved = DB.ratePlans.save({ ...rest, name: `${rp.name} (Copy)` });
+  APP.toast('Rate Plan Duplicated', `${saved.name} created from ${rp.name}.`, 'success');
+  renderRatePlans(); renderOverview();
+}
+
+// ---- Import — paste-in CSV, one row per room/rate plan. Kept intentionally simple (no quoted-
+// field support) since this is a bulk-entry convenience, not a general CSV parser. ----
+function parseCsv(text){
+  const lines = text.split('\n').map(l=>l.trim()).filter(Boolean);
+  if(lines.length < 2) return { header:[], rows:[] };
+  const header = lines[0].split(',').map(h=>h.trim());
+  const rows = lines.slice(1).map(line=>{
+    const cells = line.split(',').map(c=>c.trim());
+    const row = {};
+    header.forEach((h,i)=> row[h] = cells[i] !== undefined ? cells[i] : '');
+    return row;
+  });
+  return { header, rows };
+}
+
+function openImportRoomsModal(){
+  const p = currentProperty;
+  const channels = DB.channels.byProperty(p.id);
+  const sel = document.getElementById('importRoomsChannel');
+  sel.innerHTML = channels.length ? channels.map(c=>`<option value="${c.id}">${c.name}</option>`).join('') : `<option value="">No channels — add one first</option>`;
+  document.getElementById('importRoomsCsv').value = '';
+  document.getElementById('importRoomsError').classList.add('d-none');
+  new bootstrap.Modal(document.getElementById('importRoomsModal')).show();
+}
+
+document.addEventListener('DOMContentLoaded', ()=>{
+  document.getElementById('importRoomsApply').addEventListener('click', ()=>{
+    const errEl = document.getElementById('importRoomsError');
+    errEl.classList.add('d-none');
+    const channelId = document.getElementById('importRoomsChannel').value;
+    if(!channelId){ errEl.textContent = 'Select a channel first.'; errEl.classList.remove('d-none'); return; }
+    const { header, rows } = parseCsv(document.getElementById('importRoomsCsv').value);
+    const required = ['name','category','bedType','size','capacity','maxOccupancy','totalRooms','basePrice','mealPlans','status'];
+    const missing = required.filter(h=>!header.includes(h));
+    if(!rows.length || missing.length){
+      errEl.textContent = missing.length ? `Missing column(s): ${missing.join(', ')}.` : 'Paste at least one data row below the header.';
+      errEl.classList.remove('d-none');
+      return;
+    }
+    const p = currentProperty;
+    let created = 0;
+    rows.forEach(row=>{
+      if(!row.name) return;
+      DB.rooms.save({
+        propertyId: p.id,
+        channelId,
+        name: row.name,
+        category: row.category || 'Standard',
+        bedType: row.bedType || 'Queen',
+        size: Number(row.size) || 0,
+        capacity: Number(row.capacity) || 1,
+        maxOccupancy: Number(row.maxOccupancy) || Number(row.capacity) || 1,
+        totalRooms: Number(row.totalRooms) || 1,
+        basePrice: Number(row.basePrice) || 0,
+        status: row.status === 'inactive' ? 'inactive' : 'active',
+        img: 'https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=600',
+        amenities: [],
+        mealPlans: (row.mealPlans||'EP').split('|').map(m=>m.trim()).filter(Boolean)
+      });
+      created++;
+    });
+    bootstrap.Modal.getInstance(document.getElementById('importRoomsModal')).hide();
+    APP.toast('Rooms Imported', `${created} room(s) created.`, 'success');
+    renderRooms(); renderRatePlans(); renderOverview(); renderChannels();
+  });
+
+  document.getElementById('importRpApply').addEventListener('click', ()=>{
+    const errEl = document.getElementById('importRpError');
+    errEl.classList.add('d-none');
+    const channelId = document.getElementById('importRpChannel').value;
+    if(!channelId){ errEl.textContent = 'Select a channel first.'; errEl.classList.remove('d-none'); return; }
+    const { header, rows } = parseCsv(document.getElementById('importRpCsv').value);
+    const required = ['name','roomName','mealPlan','refundable','minStay','maxStay','cancellationPolicy','baseOccupancy','extraAdultPrice','extraChildPrice','status'];
+    const missing = required.filter(h=>!header.includes(h));
+    if(!rows.length || missing.length){
+      errEl.textContent = missing.length ? `Missing column(s): ${missing.join(', ')}.` : 'Paste at least one data row below the header.';
+      errEl.classList.remove('d-none');
+      return;
+    }
+    const p = currentProperty;
+    const roomsOnChannel = DB.rooms.byChannel(channelId);
+    let created = 0;
+    const notFound = [];
+    rows.forEach(row=>{
+      if(!row.name) return;
+      const room = roomsOnChannel.find(r=>r.name.toLowerCase() === (row.roomName||'').toLowerCase());
+      if(!room){ notFound.push(row.roomName || '(blank)'); return; }
+      DB.ratePlans.save({
+        propertyId: p.id,
+        channelId,
+        roomId: room.id,
+        name: row.name,
+        mealPlan: row.mealPlan || 'EP',
+        refundable: String(row.refundable).toLowerCase() === 'true',
+        minStay: Number(row.minStay) || 1,
+        maxStay: Number(row.maxStay) || 30,
+        cancellationPolicy: row.cancellationPolicy || 'Non-refundable. No changes or cancellations allowed.',
+        baseOccupancy: Number(row.baseOccupancy) || 2,
+        extraAdultPrice: Number(row.extraAdultPrice) || 0,
+        extraChildPrice: Number(row.extraChildPrice) || 0,
+        status: row.status === 'inactive' ? 'inactive' : 'active'
+      });
+      created++;
+    });
+    if(notFound.length){
+      errEl.textContent = `Skipped row(s) — room not found on this channel: ${notFound.join(', ')}.`;
+      errEl.classList.remove('d-none');
+    }
+    if(created){
+      bootstrap.Modal.getInstance(document.getElementById('importRpModal')).hide();
+      APP.toast('Rate Plans Imported', `${created} rate plan(s) created.`, 'success');
+      renderRatePlans(); renderOverview();
+    }
+  });
+});
+
+function openImportRpModal(){
+  const p = currentProperty;
+  const channels = DB.channels.byProperty(p.id);
+  const sel = document.getElementById('importRpChannel');
+  sel.innerHTML = channels.length ? channels.map(c=>`<option value="${c.id}">${c.name}</option>`).join('') : `<option value="">No channels — add one first</option>`;
+  document.getElementById('importRpCsv').value = '';
+  document.getElementById('importRpError').classList.add('d-none');
+  new bootstrap.Modal(document.getElementById('importRpModal')).show();
 }

@@ -68,6 +68,7 @@
         <button type="button" class="btn btn-soft" id="rm_viewGrid" title="Grid view"><i class="bi bi-grid-3x3-gap"></i></button>
         <button type="button" class="btn btn-soft" id="rm_viewList" title="List view"><i class="bi bi-list-ul"></i></button>
       </div>
+      <button type="button" class="btn btn-soft btn-sm" id="importRoomsBtn"><i class="bi bi-upload me-1"></i>Import</button>
       <a href="#" id="addRoomBtn" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg me-1"></i>Add Room</a>
     </div>
   </div>
@@ -91,6 +92,7 @@
       <div class="text-muted small" id="rpCount"></div>
       <select class="form-select form-select-sm" id="rpChannelFilter" style="width:auto;min-width:180px"></select>
     </div>
+    <button type="button" class="btn btn-soft btn-sm" id="importRpBtn"><i class="bi bi-upload me-1"></i>Import</button>
     <a href="#" id="addRpBtn" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg me-1"></i>Add Rate Plan</a>
   </div>
   <div class="card-surface p-0 overflow-hidden">
@@ -132,6 +134,56 @@
       <div class="modal-footer border-0 pt-0">
         <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
         <button type="button" class="btn btn-primary" id="prApply">Apply Pricing Range</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Import Rooms — paste CSV rows to bulk-create room types on a channel -->
+<div class="modal fade" id="importRoomsModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content" style="border-radius:18px;border:none">
+      <div class="modal-header border-0 pb-0">
+        <h5 class="modal-title fw-bold mb-0"><i class="bi bi-upload me-2"></i>Import Rooms</h5>
+        <button class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <label class="form-label">Channel *</label>
+        <select class="form-select mb-3" id="importRoomsChannel"></select>
+        <label class="form-label">Paste CSV rows *</label>
+        <div class="text-muted small mb-2">Header row required: <code>name,category,bedType,size,capacity,maxOccupancy,totalRooms,basePrice,mealPlans,status</code>. <code>mealPlans</code> is pipe-separated (e.g. <code>EP|CP</code>).</div>
+        <textarea class="form-control" id="importRoomsCsv" rows="8" style="font-family:monospace;font-size:.8rem" placeholder="name,category,bedType,size,capacity,maxOccupancy,totalRooms,basePrice,mealPlans,status
+Deluxe King,Deluxe,King,32,2,3,10,6500,EP|CP,active"></textarea>
+        <div class="text-danger small mt-2 d-none" id="importRoomsError"></div>
+      </div>
+      <div class="modal-footer border-0 pt-0">
+        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-primary" id="importRoomsApply"><i class="bi bi-upload me-1"></i>Import Rooms</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Import Rate Plans — paste CSV rows to bulk-create rate plans on a channel/room -->
+<div class="modal fade" id="importRpModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content" style="border-radius:18px;border:none">
+      <div class="modal-header border-0 pb-0">
+        <h5 class="modal-title fw-bold mb-0"><i class="bi bi-upload me-2"></i>Import Rate Plans</h5>
+        <button class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <label class="form-label">Channel *</label>
+        <select class="form-select mb-3" id="importRpChannel"></select>
+        <label class="form-label">Paste CSV rows *</label>
+        <div class="text-muted small mb-2">Header row required: <code>name,roomName,mealPlan,refundable,minStay,maxStay,cancellationPolicy,baseOccupancy,extraAdultPrice,extraChildPrice,status</code>. <code>roomName</code> must match an existing room on the selected channel.</div>
+        <textarea class="form-control" id="importRpCsv" rows="8" style="font-family:monospace;font-size:.8rem" placeholder="name,roomName,mealPlan,refundable,minStay,maxStay,cancellationPolicy,baseOccupancy,extraAdultPrice,extraChildPrice,status
+Standard Rate,Deluxe King,EP,true,1,30,Free cancellation up to 24 hours before check-in.,2,800,400,active"></textarea>
+        <div class="text-danger small mt-2 d-none" id="importRpError"></div>
+      </div>
+      <div class="modal-footer border-0 pt-0">
+        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-primary" id="importRpApply"><i class="bi bi-upload me-1"></i>Import Rate Plans</button>
       </div>
     </div>
   </div>
