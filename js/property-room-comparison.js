@@ -676,11 +676,11 @@ document.addEventListener('DOMContentLoaded', ()=>{
    Channel Performance — moved here from Market Intelligence, which duplicated this exact
    per-channel/room-parity breakdown right alongside its own Channel Analysis. Room Rate
    Comparison is the Analysis-stage home for per-room/per-channel breakdowns, so this belongs
-   here rather than in Market Intelligence (which is now Decision & Action only).
+   here rather than in Forecast & Actions (which is now Forecast/Action Center only).
    ========================================================================== */
 /* ==========================================================================
    Value Proposition Analysis — moved here from Market Intelligence (which is now
-   Decision & Action only). Two separate, independent readings instead of one forced composite
+   Forecast & Actions). Two separate, independent readings instead of one forced composite
    number:
    • Value Score — normalized 0-100 quality score from Amenity Score, Meal Plan Quality,
      Cancellation Flexibility, and Room Size (each normalized against the highest value seen in

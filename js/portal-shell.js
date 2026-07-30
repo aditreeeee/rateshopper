@@ -11,7 +11,7 @@ const PORTAL = (() => {
     {href:'property-dashboard.html', icon:'bi-speedometer2', label:'Dashboard'},
     {href:'property-rate-shopper.html', icon:'bi-search', label:'Rate Shopper'},
     {href:'property-room-comparison.html', icon:'bi-columns-gap', label:'Comparison'},
-    {href:'property-market.html', icon:'bi-globe-americas', label:'Decision & Actions'},
+    {href:'property-market.html', icon:'bi-globe-americas', label:'Forecast & Actions'},
     {section:'Property'},
     {href:'property-details.html', icon:'bi-building-gear', label:'My Property', dynamicId:true},
     {href:'property-competitors.html', icon:'bi-building', label:'Competitors'},
