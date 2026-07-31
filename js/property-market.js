@@ -319,7 +319,7 @@ function renderForecastOpportunities(propertyId, realComps, forecastComps, days,
     <div class="col-md-6 col-xl-4">
       <div class="insight-card forecast-card ${c.tone}">
         <div class="d-flex align-items-start gap-2 mb-2">
-          <div class="insight-icon" style="background:var(--bg-surface-2);color:var(--brand-600)"><i class="bi ${c.icon}"></i></div>
+          <div class="insight-icon"><i class="bi ${c.icon}"></i></div>
           <div class="flex-grow-1">
             <div class="fw-bold" style="font-size:.86rem;line-height:1.25">${c.title}</div>
             <span class="insight-confidence-badge mt-1 d-inline-block">Confidence: ${c.confidence}%</span>
@@ -497,7 +497,7 @@ function generateMarketInsights(propertyId){
 
     insights.push({
       icon: higher ? 'bi-arrow-up-circle-fill' : 'bi-arrow-down-circle-fill',
-      color: higher ? '#ff4d5e' : '#12b76a', bg: higher ? '#fff0f1' : '#e7faf1',
+      color: higher ? 'var(--fa-text-mod)' : 'var(--fa-text-mild)', bg: higher ? 'var(--fa-tint-mod)' : 'var(--fa-tint-mild)',
       title: `${d.comp.name} is priced ${Math.abs(d.diffPct).toFixed(1)}% ${higher?'higher':'lower'}`,
       detail: primary.text,
       supporting: reasons.slice(1).map(r=>r.text),
@@ -514,7 +514,7 @@ function generateMarketInsights(propertyId){
     const pct = Math.min(Math.max(Math.abs(overallDiffPct)*0.5, 2), 10);
     insights.push({
       icon: over ? 'bi-exclamation-triangle-fill' : 'bi-graph-down-arrow',
-      color: over ? '#ff4d5e' : '#b9791a', bg: over ? '#fff0f1' : '#fff8e6',
+      color: over ? 'var(--fa-text-strong)' : 'var(--fa-text-mod)', bg: over ? 'var(--fa-tint-strong)' : 'var(--fa-tint-mod)',
       title: over ? 'Your property is overpriced relative to the market' : 'Your property is underpriced relative to the market',
       detail: `Your rate is ${Math.abs(overallDiffPct).toFixed(1)}% ${over?'above':'below'} the ${comps.length}-property market average of ${APP.fmtCurrency(marketAvg)}.`,
       supporting: [],
@@ -531,7 +531,7 @@ function generateMarketInsights(propertyId){
   if(violation0){
     const gapPct = ((violation0.directPrice-violation0.otaPrice)/violation0.directPrice*100);
     insights.push({
-      icon:'bi-exclamation-octagon-fill', color:'#ff4d5e', bg:'#fff0f1',
+      icon:'bi-exclamation-octagon-fill', color:'var(--fa-text-strong)', bg:'var(--fa-tint-strong)',
       title:'Rate parity issue detected across channels',
       detail:`${violation0.channel.name} is listing ${violation0.room.name} at ${APP.fmtCurrency(violation0.otaPrice)} — ${gapPct.toFixed(1)}% below your Direct rate of ${APP.fmtCurrency(violation0.directPrice)}.`,
       supporting: [], action:'Recommended: Review channel parity settings',
@@ -573,15 +573,15 @@ function renderMarketInsights(propertyId){
    fill space.
    ========================================================================== */
 const REC_ACTION_TYPES = {
-  increase:        { label:'Increase Price',                  icon:'bi-arrow-up-circle-fill',   color:'#12b76a', bg:'#e7faf1' },
-  decrease:        { label:'Decrease Price',                  icon:'bi-arrow-down-circle-fill',  color:'#ff4d5e', bg:'#fff0f1' },
-  maintain:        { label:'Maintain Current Price',          icon:'bi-dash-circle-fill',        color:'#3861fb', bg:'#eef4ff' },
-  channelAdjust:   { label:'Adjust Channel-Specific Rates',   icon:'bi-sliders',                 color:'#8c5cf7', bg:'#f3eeff' },
-  parity:          { label:'Fix Rate Parity Issues',          icon:'bi-exclamation-octagon-fill',color:'#ff4d5e', bg:'#fff0f1' },
-  mealPlan:        { label:'Review Meal Plan Pricing',        icon:'bi-cup-hot-fill',            color:'#b9791a', bg:'#fff8e6' },
-  roomPositioning: { label:'Review Room Positioning',         icon:'bi-door-open-fill',          color:'#00c2a8', bg:'#e6fbf8' },
-  promotions:      { label:'Monitor Competitor Promotions',   icon:'bi-megaphone-fill',          color:'#b9791a', bg:'#fff8e6' },
-  opportunity:     { label:'Capitalize on Market Opportunities', icon:'bi-graph-up-arrow',        color:'#12b76a', bg:'#e7faf1' },
+  increase:        { label:'Increase Price',                  icon:'bi-arrow-up-circle-fill',   color:'var(--fa-text-mild)', bg:'var(--fa-tint-mild)' },
+  decrease:        { label:'Decrease Price',                  icon:'bi-arrow-down-circle-fill',  color:'var(--fa-text-mod)',  bg:'var(--fa-tint-mod)' },
+  maintain:        { label:'Maintain Current Price',          icon:'bi-dash-circle-fill',        color:'var(--fa-text-mod)',  bg:'var(--fa-tint-mod)' },
+  channelAdjust:   { label:'Adjust Channel-Specific Rates',   icon:'bi-sliders',                 color:'var(--fa-text-mild)', bg:'var(--fa-tint-mild)' },
+  parity:          { label:'Fix Rate Parity Issues',          icon:'bi-exclamation-octagon-fill',color:'var(--fa-text-strong)', bg:'var(--fa-tint-strong)' },
+  mealPlan:        { label:'Review Meal Plan Pricing',        icon:'bi-cup-hot-fill',            color:'var(--fa-text-mod)',  bg:'var(--fa-tint-mod)' },
+  roomPositioning: { label:'Review Room Positioning',         icon:'bi-door-open-fill',          color:'var(--fa-text-mild)', bg:'var(--fa-tint-mild)' },
+  promotions:      { label:'Monitor Competitor Promotions',   icon:'bi-megaphone-fill',          color:'var(--fa-text-mod)',  bg:'var(--fa-tint-mod)' },
+  opportunity:     { label:'Capitalize on Market Opportunities', icon:'bi-graph-up-arrow',        color:'var(--fa-text-mild)', bg:'var(--fa-tint-mild)' },
 };
 
 function generatePricingRecommendations(propertyId){
@@ -752,7 +752,7 @@ function renderActionCenter(propertyId){
         <p class="text-muted small mb-2">${r.detail}</p>
         <div class="row g-2 mb-2">
           <div class="col-6"><div class="text-muted" style="font-size:.68rem">Current Rate</div><div class="fw-semibold">${APP.fmtCurrency(r.currentRate)}</div></div>
-          <div class="col-6"><div class="text-muted" style="font-size:.68rem">New Rate</div><div class="fw-semibold ${delta>0?'text-danger':'text-success'}">${APP.fmtCurrency(r.expectedRate)}</div></div>
+          <div class="col-6"><div class="text-muted" style="font-size:.68rem">New Rate</div><div class="fw-semibold" style="color:${delta>0?'var(--fa-text-mod)':'var(--fa-text-mild)'}">${APP.fmtCurrency(r.expectedRate)}</div></div>
         </div>
         <button class="btn btn-primary btn-sm w-100" onclick="openApplyModal(${i})"><i class="bi bi-lightning-charge-fill me-1"></i>Apply Rate Change</button>
       </div>
@@ -766,7 +766,7 @@ function renderRecentlyApplied(propertyId){
   const applied = PORTALDATA.notifications(propertyId).filter(n=>n.type==='rateApplied').slice(0,6);
   document.getElementById('ac_recentList').innerHTML = applied.length ? applied.map(n=>`
     <div class="d-flex align-items-start gap-2 mb-2 pb-2" style="border-bottom:1px solid var(--border-2)">
-      <i class="bi bi-check-circle-fill mt-1" style="color:#12b76a;font-size:.85rem"></i>
+      <i class="bi bi-check-circle-fill mt-1" style="color:var(--fa-text-mod);font-size:.85rem"></i>
       <div class="flex-grow-1">
         <div style="font-size:.8rem" class="fw-semibold">${n.title}</div>
         <div class="text-muted" style="font-size:.72rem">${n.message}</div>

@@ -37,19 +37,16 @@ document.addEventListener('DOMContentLoaded', ()=>{
   const yesterdayRate = PORTALDATA.myRateOnDate(propertyId, PORTALDATA.dateKeyOffset(-1));
   const rateChangePct = ((myRate-yesterdayRate)/yesterdayRate*100).toFixed(1);
 
-  // ---- Slim market snapshot banner ----
-  document.getElementById('marketSnapshotBar').innerHTML = `
-    <div class="snap-item"><i class="bi bi-cash-coin"></i> My Rate <b>${APP.fmtCurrency(myRate)}</b></div>
-    <span class="snap-sep">|</span>
-    <div class="snap-item"><i class="bi bi-bar-chart"></i> Market Avg <b>${APP.fmtCurrency(marketAvg)}</b></div>
-    <span class="snap-sep">|</span>
-    <div class="snap-item"><i class="bi bi-arrow-down-circle"></i> Lowest <b>${APP.fmtCurrency(lowest)}</b></div>
-    <span class="snap-sep">|</span>
-    <div class="snap-item"><i class="bi bi-arrow-up-circle"></i> Highest <b>${APP.fmtCurrency(highest)}</b></div>
-    <span class="snap-sep">|</span>
-    <div class="snap-item"><i class="bi bi-signpost-split"></i> Position <b>${ratePosition}</b></div>
-    <span class="snap-sep">|</span>
-    <div class="snap-item"><i class="bi bi-buildings"></i> Competitors Tracked <b>${comps.length}</b></div>`;
+  // ---- Slim quick-actions bar — one-click shortcuts to the pages an owner reaches for most
+  // often; the stats this used to show (My Rate, Market Avg, Lowest/Highest, Position,
+  // Competitors Tracked) are already covered by the KPI cards directly below. ----
+  document.getElementById('quickActionsBar').innerHTML = [
+    { icon:'bi-calendar3-week', label:'Set Rates', href:`property-details.html?id=${propertyId}&tab=ratecalendar` },
+    { icon:'bi-magic', label:'View Forecast', href:'property-market.html?tab=recommendations' },
+    { icon:'bi-lightning-charge-fill', label:'Action Center', href:'property-market.html?tab=action' },
+    { icon:'bi-search', label:'Rate Shopper', href:'property-rate-shopper.html' },
+    { icon:'bi-building', label:'Competitors', href:'property-competitors.html' },
+  ].map(a=>`<a href="${a.href}" class="qa-btn"><i class="bi ${a.icon}"></i>${a.label}</a>`).join('');
 
   // ---- Section 1: Your Property ----
   document.getElementById('kpiYourProperty').innerHTML = [
@@ -289,12 +286,8 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
   document.getElementById('ratePositionWidget').innerHTML = `
     <div class="rp-brief">
-      <div class="rp-brief-head">
-        <div class="text-muted flex-grow-1" style="font-size:.72rem">Executive summary from Insight Generation &amp; Action Center</div>
-        <span class="badge bg-primary-subtle text-primary" style="font-size:.58rem"><i class="bi bi-stars me-1"></i>AI</span>
-      </div>
       <ul class="rp-brief-list">
-        ${brief.map((b,i)=>`<li class="rp-brief-item" style="animation-delay:${i*60}ms">
+        ${brief.map(b=>`<li class="rp-brief-item">
           <span class="rp-brief-dot" style="background:${toneBg[b.tone]};color:${toneIcon[b.tone]}"><i class="bi ${b.icon}"></i></span>
           <span>${b.text}</span>
         </li>`).join('')}
@@ -326,22 +319,22 @@ document.addEventListener('DOMContentLoaded', ()=>{
 });
 
 /* ==========================================================================
-   Revenue Intelligence Calendar — replaces the old Price Calendar table. A compact month grid
-   where each day carries only the essentials (rate, a market-position color, an action icon);
-   everything else (mapped competitor prices, parity, recommendation, confidence, recent
-   competitor movement, suggested rate) lives in a rich hover/click popover instead of being
-   crammed into the cell itself. Reuses the same signals as Today's Revenue Brief and Market
-   Intelligence (PORTALDATA.myRateOnDate/competitorRateOnDate/firstParityViolation) so this
-   calendar never disagrees with the rest of the dashboard about what's happening on a given date.
+   Revenue Intelligence Calendar — a compact month grid where each day carries only the
+   essentials (rate, a market-position color, an action indicator); everything else (mapped
+   competitor prices, parity, recommendation, confidence, recent competitor movement, suggested
+   rate) lives in the persistent detail panel beside the grid — hover previews a date, click locks
+   it in — rather than a floating popover the user has to chase around the screen. Reuses the
+   same signals as Today's Revenue Brief and Decision & Actions
+   (PORTALDATA.myRateOnDate/competitorRateOnDate/firstParityViolation) so this calendar never
+   disagrees with the rest of the dashboard about what's happening on a given date.
    ========================================================================== */
 function initRevenueCalendar(propertyId, comps){
   const grid = document.getElementById('ric_grid');
-  const popover = document.getElementById('ric_popover');
-  if(!grid || !popover) return;
+  const detail = document.getElementById('ric_detail');
+  if(!grid || !detail) return;
 
   let anchor = new Date(); anchor.setDate(1); anchor.setHours(0,0,0,0);
-  let pinnedDk = null; // date key currently pinned open by a click, or null if only hover-shown
-  let hideTimer = null;
+  let pinnedDk = null; // date key locked in by a click — survives mouse-out, previewed by hover otherwise
 
   function dayInfo(date){
     const dk = DB.fmtDate(date);
@@ -355,11 +348,12 @@ function initRevenueCalendar(propertyId, comps){
     // deliberately left unaccented so the few days that actually need a look stand out.
     const tone = gapPct <= -4 ? 'opp' : gapPct >= 4 ? 'risk' : 'aligned';
     const violation = comps.length ? PORTALDATA.firstParityViolation(propertyId, dk) : null;
-    const moves = comps.map(c=>{
+    const moveDeltas = comps.map(c=>{
       const t = PORTALDATA.competitorRateOnDate(c, dk), y = PORTALDATA.competitorRateOnDate(c, prevDk);
-      return t>y ? 1 : t<y ? -1 : 0;
+      return y ? ((t-y)/y*100) : 0;
     });
-    const upCount = moves.filter(m=>m>0).length, downCount = moves.filter(m=>m<0).length;
+    const upCount = moveDeltas.filter(m=>m>0).length, downCount = moveDeltas.filter(m=>m<0).length;
+    const avgMovePct = moveDeltas.length ? moveDeltas.reduce((a,b)=>a+b,0)/moveDeltas.length : 0;
 
     let action, actionIcon, confidence, suggested;
     if(gapPct <= -6){
@@ -375,93 +369,91 @@ function initRevenueCalendar(propertyId, comps){
     }
     if(violation) actionIcon = 'bi-exclamation-octagon-fill';
 
-    return { dk, date, myR, compRates, mktAvg, gapPct, tone, violation, upCount, downCount, action, actionIcon, confidence, suggested };
+    return { dk, date, myR, compRates, mktAvg, gapPct, tone, violation, upCount, downCount, avgMovePct, action, actionIcon, confidence, suggested };
   }
 
   const TONE_META = {
-    opp:     { label:'Opportunity', color:'var(--success)' },
-    risk:    { label:'Risk',        color:'var(--danger)'  },
-    aligned: { label:'Aligned',     color:'var(--text-3)'  }
+    opp:     { label:'Opportunity', dotClass:'tone-opp'     },
+    risk:    { label:'Risk',        dotClass:'tone-risk'    },
+    aligned: { label:'Aligned',     dotClass:'tone-aligned' }
   };
 
-  function popoverHtml(info){
+  function detailHtml(info, isPinned){
     const tm = TONE_META[info.tone];
+    const actionLabel = info.action==='Increase' ? 'Raise Rate' : info.action==='Decrease' ? 'Lower Rate' : 'Hold Rate';
+
+    // ---- Compact chip row — every glanceable status/signal as a short 1-3 word pill instead of
+    // sentence-style text, so the panel reads at a glance without growing taller. ----
+    const chips = [];
+    chips.push(`<span class="ric-chip ${info.gapPct>=0?'chip-risk':'chip-opp'}">${info.gapPct>=0?'+':''}${info.gapPct.toFixed(1)}% vs Market</span>`);
+    chips.push(`<span class="ric-chip ${info.violation?'chip-alert':'chip-soft'}">Parity ${info.violation?'Undercut':'On Track'}</span>`);
+    if(comps.length){
+      chips.push(`<span class="ric-chip chip-soft">${info.upCount} Up</span>`);
+      chips.push(`<span class="ric-chip chip-soft">${info.downCount} Down</span>`);
+      if(Math.abs(info.avgMovePct) >= 1){
+        chips.push(`<span class="ric-chip chip-soft">Market ${info.avgMovePct>=0?'↑':'↓'}${Math.abs(Math.round(info.avgMovePct))}%</span>`);
+      }
+    }
+
     return `
-      <div class="ric-pop-head">
+      <div class="ric-detail-head">
         <div>
-          <div class="ric-pop-date">${info.date.toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'short'})}</div>
-          <span class="ric-pop-tone" style="color:${tm.color}"><i class="bi bi-record-fill"></i>${tm.label}</span>
+          <div class="ric-detail-date">${info.date.toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'short'})}</div>
+          <span class="ric-detail-tone"><span class="dot ${tm.dotClass}"></span>${tm.label}</span>
         </div>
-        <button type="button" class="ric-pop-close" id="ric_popClose" aria-label="Close"><i class="bi bi-x-lg"></i></button>
+        ${isPinned ? `<span class="ric-detail-pin"><i class="bi bi-pin-angle-fill me-1"></i>Selected</span>` : ''}
       </div>
-      <div class="ric-pop-grid">
+      <div class="ric-detail-grid">
         <div><span class="k">Our Rate</span><span class="v">${APP.fmtCurrency(info.myR)}</span></div>
         <div><span class="k">Market Avg</span><span class="v">${APP.fmtCurrency(info.mktAvg)}</span></div>
-        <div><span class="k">Price Gap</span><span class="v ${info.gapPct>=0?'text-danger':'text-success'}">${info.gapPct>=0?'+':''}${info.gapPct.toFixed(1)}%</span></div>
-        <div><span class="k">Parity</span><span class="v ${info.violation?'text-danger':'text-success'}">${info.violation?'Undercut':'On Track'}</span></div>
       </div>
-      ${info.compRates.length ? `<div class="ric-pop-section">
-        <div class="ric-pop-label">Mapped Competitors</div>
-        <div class="ric-pop-comp-list">
-          ${info.compRates.slice(0,5).map(c=>`<div class="ric-pop-row"><span>${c.name}</span><span>${APP.fmtCurrency(c.rate)}</span></div>`).join('')}
+      <div class="ric-chip-row">${chips.join('')}</div>
+      ${info.compRates.length ? `<div class="ric-detail-section">
+        <div class="ric-detail-label">Mapped Competitors</div>
+        <div class="ric-detail-comp-list">
+          ${info.compRates.slice(0,4).map(c=>`<div class="ric-detail-row"><span>${c.name}</span><span>${APP.fmtCurrency(c.rate)}</span></div>`).join('')}
         </div>
-      </div>` : `<div class="ric-pop-section"><div class="text-muted" style="font-size:.72rem">No comparison properties assigned yet.</div></div>`}
-      ${info.violation ? `<div class="ric-pop-alert"><i class="bi bi-exclamation-octagon-fill"></i><span>${info.violation.channel.name} undercutting Direct by ${Math.round((info.violation.directPrice-info.violation.otaPrice)/info.violation.directPrice*100)}%</span></div>` : ''}
-      <div class="ric-pop-recommend">
-        <span class="ric-pop-rec-icon"><i class="bi ${info.actionIcon}"></i></span>
-        <div class="flex-grow-1">
-          <div class="d-flex justify-content-between align-items-center gap-2">
-            <span class="ric-pop-rec-title">${info.action==='Hold' ? 'Hold current rate' : info.action+' rate'}</span>
-            <span class="ric-pop-confidence">${info.confidence}%</span>
+      </div>` : `<div class="ric-detail-section"><div class="text-muted" style="font-size:.71rem">No comparison properties assigned yet.</div></div>`}
+      ${info.violation ? `<div class="ric-detail-alert"><i class="bi bi-exclamation-octagon-fill"></i><span>${info.violation.channel.name} undercutting Direct by ${Math.round((info.violation.directPrice-info.violation.otaPrice)/info.violation.directPrice*100)}%</span></div>` : ''}
+      <div class="ric-detail-section">
+        <div class="d-flex align-items-center justify-content-between mb-2">
+          <div class="ric-detail-label mb-0">Recommendation</div>
+          <span class="ric-chip chip-ai"><i class="bi bi-stars me-1"></i>AI Recommended</span>
+        </div>
+        <div class="ric-detail-recommend">
+          <span class="ric-detail-rec-icon"><i class="bi ${info.actionIcon}"></i></span>
+          <div class="flex-grow-1">
+            <div class="d-flex justify-content-between align-items-center gap-2">
+              <span class="ric-detail-rec-title">${actionLabel}</span>
+              <span class="ric-detail-confidence">${info.confidence}% Confidence</span>
+            </div>
+            ${info.action!=='Hold' ? `<div class="ric-detail-rec-sub">Suggested: <b>${APP.fmtCurrency(info.suggested)}</b></div>` : `<div class="ric-detail-rec-sub">Well positioned — no change needed</div>`}
           </div>
-          ${info.action!=='Hold' ? `<div class="ric-pop-rec-sub">Suggested: <b>${APP.fmtCurrency(info.suggested)}</b></div>` : `<div class="ric-pop-rec-sub">Well positioned — no change needed</div>`}
         </div>
       </div>
-      ${comps.length ? `<div class="ric-pop-moves"><i class="bi bi-activity"></i>${info.upCount} up · ${info.downCount} down vs. previous day</div>` : ''}
     `;
   }
 
-  function positionPopover(cell){
-    const r = cell.getBoundingClientRect();
-    const popW = Math.min(300, window.innerWidth - 24);
-    popover.style.width = popW+'px';
-    popover.classList.remove('d-none');
-    const popH = popover.offsetHeight;
-    let left = r.left + r.width/2 - popW/2;
-    left = Math.max(12, Math.min(left, window.innerWidth - popW - 12));
-    let top = r.bottom + 10;
-    let arrowAbove = true;
-    if(top + popH > window.innerHeight - 12){ top = r.top - popH - 10; arrowAbove = false; }
-    popover.style.left = left+'px';
-    popover.style.top = top+'px';
-    popover.classList.toggle('arrow-top', arrowAbove);
-    popover.classList.toggle('arrow-bottom', !arrowAbove);
-    popover.style.setProperty('--ric-arrow-x', (r.left + r.width/2 - left)+'px');
+  // The panel always reflects a real date: hover previews it, a click locks it in (pinnedDk)
+  // until another date is clicked or the month changes — never an empty state once the calendar
+  // has rendered at least once.
+  function renderDetail(dk){
+    const cell = dk ? grid.querySelector(`.ric-cell[data-dk="${dk}"]`) : null;
+    if(!cell){
+      detail.innerHTML = `<div class="ric-detail-empty"><i class="bi bi-calendar3"></i><span>Hover or select a date to see its full breakdown</span></div>`;
+      return;
+    }
+    const info = dayInfo(new Date(dk+'T00:00:00'));
+    detail.innerHTML = detailHtml(info, pinnedDk===dk);
   }
 
-  function show(cell){
-    clearTimeout(hideTimer);
-    const info = dayInfo(new Date(cell.dataset.dk+'T00:00:00'));
-    popover.innerHTML = popoverHtml(info);
-    positionPopover(cell);
-    document.getElementById('ric_popClose').addEventListener('click', hide);
-  }
-  function scheduleHide(){
-    if(pinnedDk) return;
-    hideTimer = setTimeout(hide, 180);
-  }
-  function hide(){
-    clearTimeout(hideTimer);
-    pinnedDk = null;
-    popover.classList.add('d-none');
+  function syncPinnedCellClass(){
     grid.querySelectorAll('.ric-cell.is-pinned').forEach(c=>c.classList.remove('is-pinned'));
+    if(pinnedDk){
+      const c = grid.querySelector(`.ric-cell[data-dk="${pinnedDk}"]`);
+      if(c) c.classList.add('is-pinned');
+    }
   }
-
-  popover.addEventListener('mouseenter', ()=> clearTimeout(hideTimer));
-  popover.addEventListener('mouseleave', scheduleHide);
-  document.addEventListener('click', (e)=>{
-    if(pinnedDk && !popover.contains(e.target) && !e.target.closest('.ric-cell')) hide();
-  });
 
   function render(){
     document.getElementById('ric_monthLabel').textContent = anchor.toLocaleDateString('en-IN',{month:'long',year:'numeric'});
@@ -480,34 +472,37 @@ function initRevenueCalendar(propertyId, comps){
       const cellClasses = ['ric-cell', `tone-${info.tone}`];
       if(dk===todayKey) cellClasses.push('is-today');
       if(info.action!=='Hold') cellClasses.push('has-action');
-      html += `<button type="button" class="${cellClasses.join(' ')}" data-dk="${dk}" style="animation-delay:${(d%7)*22}ms" aria-label="${date.toDateString()}: ${info.action} recommended, our rate ${APP.fmtCurrency(info.myR)}">
+      html += `<button type="button" class="${cellClasses.join(' ')}" data-dk="${dk}" aria-label="${date.toDateString()}: ${info.action} recommended, our rate ${APP.fmtCurrency(info.myR)}">
         <span class="ric-cell-bar"></span>
         <span class="ric-date">${d}${dk===todayKey?'<i class=\"ric-today-dot\"></i>':''}</span>
         <span class="ric-rate">${APP.fmtCurrency(info.myR)}</span>
-        <span class="ric-action-dot"><i class="bi ${info.actionIcon}"></i></span>
+        <span class="ric-action-dot"></span>
       </button>`;
     }
     grid.innerHTML = html;
 
+    // Whatever date was pinned/hovered before a re-render (e.g. month navigation) may no longer
+    // exist in this month — fall back to today if visible, else the 1st of the displayed month,
+    // so the panel is never left showing stale or blank content.
+    if(!grid.querySelector(`.ric-cell[data-dk="${pinnedDk}"]`)) pinnedDk = null;
+    const defaultDk = grid.querySelector(`.ric-cell[data-dk="${todayKey}"]`) ? todayKey : DB.fmtDate(new Date(year,month,1));
+    syncPinnedCellClass();
+    renderDetail(pinnedDk || defaultDk);
+
     grid.querySelectorAll('.ric-cell[data-dk]').forEach(cell=>{
-      cell.addEventListener('mouseenter', ()=> show(cell));
-      cell.addEventListener('mouseleave', scheduleHide);
-      cell.addEventListener('focus', ()=> show(cell));
-      cell.addEventListener('blur', scheduleHide);
-      cell.addEventListener('click', (e)=>{
-        e.stopPropagation();
-        if(pinnedDk === cell.dataset.dk){ hide(); return; }
-        grid.querySelectorAll('.ric-cell.is-pinned').forEach(c=>c.classList.remove('is-pinned'));
-        pinnedDk = cell.dataset.dk;
-        cell.classList.add('is-pinned');
-        show(cell);
+      cell.addEventListener('mouseenter', ()=> renderDetail(cell.dataset.dk));
+      cell.addEventListener('mouseleave', ()=> renderDetail(pinnedDk || defaultDk));
+      cell.addEventListener('focus', ()=> renderDetail(cell.dataset.dk));
+      cell.addEventListener('click', ()=>{
+        pinnedDk = pinnedDk===cell.dataset.dk ? null : cell.dataset.dk;
+        syncPinnedCellClass();
+        renderDetail(pinnedDk || defaultDk);
       });
     });
   }
 
-  document.getElementById('ric_prevMonth').addEventListener('click', ()=>{ anchor.setMonth(anchor.getMonth()-1); hide(); render(); });
-  document.getElementById('ric_nextMonth').addEventListener('click', ()=>{ anchor.setMonth(anchor.getMonth()+1); hide(); render(); });
-  window.addEventListener('resize', ()=>{ if(!popover.classList.contains('d-none')){ const c=grid.querySelector('.ric-cell.is-pinned')||grid.querySelector('.ric-cell.is-today'); if(c) positionPopover(c); } });
+  document.getElementById('ric_prevMonth').addEventListener('click', ()=>{ anchor.setMonth(anchor.getMonth()-1); render(); });
+  document.getElementById('ric_nextMonth').addEventListener('click', ()=>{ anchor.setMonth(anchor.getMonth()+1); render(); });
 
   render();
 }
