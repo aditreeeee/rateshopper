@@ -38,6 +38,10 @@
           <datalist id="countryList"></datalist>
         </div>
         <div class="col-md-4">
+          <label class="form-label">State</label>
+          <input type="text" class="form-control" id="f_state" placeholder="e.g. Goa">
+        </div>
+        <div class="col-md-4">
           <label class="form-label">City *</label>
           <input type="text" class="form-control" id="f_city" required placeholder="e.g. Goa">
         </div>
@@ -48,6 +52,24 @@
             <option value="4">4 Star</option>
             <option value="5" selected>5 Star</option>
           </select>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Currency</label>
+          <select class="form-select" id="f_currency">
+            <option value="INR">Indian Rupee (INR)</option>
+            <option value="USD">US Dollar (USD)</option>
+            <option value="EUR">Euro (EUR)</option>
+            <option value="GBP">British Pound (GBP)</option>
+            <option value="AED">UAE Dirham (AED)</option>
+            <option value="CAD">Canadian Dollar (CAD)</option>
+          </select>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Timezone</label>
+          <input type="text" class="form-control" id="f_timezone" placeholder="e.g. Asia/Kolkata (GMT+5:30)">
+        </div>
+        <div class="col-12">
+          <div class="text-muted small"><i class="bi bi-info-circle me-1"></i>Currency and Timezone here are this property's own reference values. Rates and dates display using your Company Settings' currency/timezone across the app.</div>
         </div>
         <div class="col-12">
           <label class="form-label">Full Address *</label>

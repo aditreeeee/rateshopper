@@ -72,6 +72,8 @@
     </div>
     <div class="d-flex gap-2 flex-wrap">
       <input type="text" class="form-control form-control-sm" id="rc_search" placeholder="Search property or room..." style="width:220px">
+      <button class="btn btn-soft btn-sm" id="rc_toggleGroup" title="Group rows by your room"><i class="bi bi-layout-three-columns me-1"></i>Group by Room</button>
+      <button class="btn btn-primary btn-sm active" id="rc_togglePin" title="Freeze the My Room column while scrolling"><i class="bi bi-pin-angle-fill me-1"></i>Pin Column</button>
       <button class="btn btn-outline-primary btn-sm" id="rc_exportCsv"><i class="bi bi-filetype-csv me-1"></i>Export CSV</button>
       <button class="btn btn-outline-primary btn-sm" id="rc_exportExcel"><i class="bi bi-file-earmark-excel me-1"></i>Export Excel</button>
       <button class="btn btn-soft btn-sm" id="rc_print"><i class="bi bi-printer me-1"></i>Print</button>
@@ -83,7 +85,7 @@
     <div class="mx-edge-scroll mx-edge-bottom" id="rc_edgeDown" aria-hidden="true"><i class="bi bi-chevron-down"></i></div>
     <div class="mx-edge-scroll mx-edge-left" id="rc_edgeLeft" aria-hidden="true"><i class="bi bi-chevron-left"></i></div>
     <div class="mx-edge-scroll mx-edge-right" id="rc_edgeRight" aria-hidden="true"><i class="bi bi-chevron-right"></i></div>
-    <div class="rate-shopper-table-wrap" id="rc_tableWrap">
+    <div class="rate-shopper-table-wrap tbl-pin-col" id="rc_tableWrap">
       <table class="table-modern w-100" id="rc_table"></table>
     </div>
     <div class="d-flex justify-content-between align-items-center px-3 py-2 flex-wrap gap-2" style="border-top:1px solid var(--border-1)">

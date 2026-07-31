@@ -143,7 +143,15 @@ function setupDateRangePicker(){
     setActiveSeg(presetKey);
     document.getElementById('mx_dateRangeLabel').textContent = calSameDay(calRangeStart,calRangeEnd)
       ? calFmtShort(calRangeStart) : `${calFmtShort(calRangeStart)} – ${calFmtShort(calRangeEnd)}`;
-    renderGrid();
+    // Cross-fade the grid instead of an instant column-count jump — going from 7D to 14D/30D
+    // roughly doubles the date columns, which felt like a jarring, "choppy" jump when swapped in
+    // instantly.
+    const host = document.getElementById('gridHost');
+    host.classList.add('mx-grid-fade');
+    requestAnimationFrame(()=>{
+      renderGrid();
+      requestAnimationFrame(()=> host.classList.remove('mx-grid-fade'));
+    });
   }
 
   function calDaysInMonthGrid(monthDate){
@@ -617,28 +625,54 @@ function renderParityGrid(){
     <thead><tr><th class="grid-sticky-col">Channel</th>${theadDates}</tr></thead>
     <tbody>${bodyRows}</tbody>
   </table></div>`;
-
-  wireParityScrollButtons();
 }
 
-// Arrow buttons alongside the native scrollbar — an easier click target than dragging a thin
-// scrollbar, especially with many date columns. Re-wired on every render since the scroll
-// container is rebuilt each time; buttons disable themselves at either end.
-function wireParityScrollButtons(){
-  const wrap = document.querySelector('#parityGridHost .grid-table-wrap');
-  const leftBtn = document.getElementById('parity_scrollLeft');
-  const rightBtn = document.getElementById('parity_scrollRight');
-  if(!wrap) return;
-  const STEP = 220;
-  function updateArrows(){
-    leftBtn.disabled = wrap.scrollLeft <= 0;
-    rightBtn.disabled = wrap.scrollLeft >= wrap.scrollWidth - wrap.clientWidth - 1;
+// Edge hover-scroll — hovering near an edge of a grid scrolls smoothly toward it for as long as
+// the cursor stays there, instead of a click-to-scroll arrow. Looks up the scroll container fresh
+// on every frame since renderGrid()/renderParityGrid() rebuild their host's innerHTML (and
+// therefore the .grid-table-wrap element itself) on every change, so a reference captured once
+// would go stale. Shared between the main Rate Calendar grid (4 directions) and the Rate Parity
+// modal's grid (left/right only, it never scrolls vertically).
+function wireEdgeScroll(wrapSelector, zoneSpecs){
+  let raf = null;
+  function tick(dx, dy){
+    const wrap = document.querySelector(wrapSelector);
+    if(wrap) wrap.scrollBy({ left:dx, top:dy });
+    raf = requestAnimationFrame(()=> tick(dx, dy));
   }
-  leftBtn.onclick = ()=> wrap.scrollBy({ left:-STEP, behavior:'smooth' });
-  rightBtn.onclick = ()=> wrap.scrollBy({ left:STEP, behavior:'smooth' });
-  wrap.addEventListener('scroll', updateArrows);
-  updateArrows();
+  zoneSpecs.forEach(z=>{
+    const el = document.getElementById(z.id);
+    if(!el) return;
+    el.addEventListener('mouseenter', ()=>{
+      el.classList.add('is-active');
+      cancelAnimationFrame(raf);
+      tick(z.dx, z.dy);
+    });
+    el.addEventListener('mouseleave', ()=>{
+      el.classList.remove('is-active');
+      cancelAnimationFrame(raf);
+      raf = null;
+    });
+    // Click still jumps a fixed step in the same direction, for users who prefer a tap over a
+    // hover-hold — coexists with the hover-scroll above and the wrap's native scrollbar.
+    el.addEventListener('click', ()=>{
+      const wrap = document.querySelector(wrapSelector);
+      if(wrap) wrap.scrollBy({ left:z.dx*24, top:z.dy*24, behavior:'smooth' });
+    });
+  });
 }
+document.addEventListener('DOMContentLoaded', ()=>{
+  wireEdgeScroll('#gridHost .grid-table-wrap', [
+    { id:'cal_edgeUp',    dx:0,  dy:-9 },
+    { id:'cal_edgeDown',  dx:0,  dy:9  },
+    { id:'cal_edgeLeft',  dx:-9, dy:0  },
+    { id:'cal_edgeRight', dx:9,  dy:0  },
+  ]);
+  wireEdgeScroll('#parityGridHost .grid-table-wrap', [
+    { id:'parity_edgeLeft',  dx:-9, dy:0 },
+    { id:'parity_edgeRight', dx:9,  dy:0 },
+  ]);
+});
 
 function setParityActivePreset(days){
   document.querySelectorAll('#parity_rangeGroup [data-days]').forEach(b=>{
@@ -686,5 +720,9 @@ function openRateParity(roomId, planId, occ){
   setParityActivePreset(null);
 
   renderParityGrid();
-  new bootstrap.Modal(document.getElementById('parityModal')).show();
+  // getOrCreateInstance (not `new Modal(...)`) — this can be opened many times per visit, and
+  // constructing a fresh instance every time leaves the previous one's event listeners attached
+  // to the same DOM element, which can make the page feel unresponsive ("frozen") after the modal
+  // has been opened more than once.
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('parityModal')).show();
 }

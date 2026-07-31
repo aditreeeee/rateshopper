@@ -150,8 +150,11 @@ document.addEventListener('DOMContentLoaded', ()=>{
     document.getElementById('f_name').value = existing.name;
     document.getElementById('f_type').value = existing.type;
     document.getElementById('f_country').value = existing.country || '';
+    document.getElementById('f_state').value = existing.state || '';
     document.getElementById('f_city').value = existing.city;
     document.getElementById('f_stars').value = existing.stars;
+    document.getElementById('f_currency').value = existing.currency || 'INR';
+    document.getElementById('f_timezone').value = existing.timezone || '';
     document.getElementById('f_address').value = existing.address;
     document.getElementById('f_description').value = existing.description;
     document.getElementById('f_phone').value = existing.phone;
@@ -181,8 +184,11 @@ document.addEventListener('DOMContentLoaded', ()=>{
       name: document.getElementById('f_name').value.trim(),
       type: document.getElementById('f_type').value,
       country: document.getElementById('f_country').value.trim(),
+      state: document.getElementById('f_state').value.trim(),
       city: document.getElementById('f_city').value.trim(),
       stars: Number(document.getElementById('f_stars').value),
+      currency: document.getElementById('f_currency').value,
+      timezone: document.getElementById('f_timezone').value.trim(),
       address: document.getElementById('f_address').value.trim(),
       description: document.getElementById('f_description').value.trim(),
       phone: document.getElementById('f_phone').value.trim(),

@@ -147,6 +147,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const diff = rate - myRate;
     return { name:c.name, rate, diff };
   }).sort((a,b)=>a.rate-b.rate);
+  document.getElementById('competitorComparisonChip').textContent = `${comps.length} tracked`;
   document.getElementById('competitorComparisonTable').innerHTML = `
     <thead><tr><th>Competitor</th><th>Rate</th><th>Difference</th></tr></thead>
     <tbody>${compRows.map(r=>`<tr>
@@ -305,6 +306,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   const toneIcon = { warn:'#b9791a', danger:'#ff4d5e', success:'#12b76a', info:'#3861fb' };
   const toneBg = { warn:'#fff8e6', danger:'#fff0f1', success:'#e7faf1', info:'#eef4ff' };
 
+  document.getElementById('revenueBriefChip').innerHTML = `<i class="bi bi-stars me-1"></i>${brief.length} Insight${brief.length===1?'':'s'}`;
   document.getElementById('ratePositionWidget').innerHTML = `
     <div class="rp-brief">
       <ul class="rp-brief-list">
@@ -316,27 +318,42 @@ document.addEventListener('DOMContentLoaded', ()=>{
       <a href="property-market.html?tab=action" class="rp-brief-link">Open Action Center <i class="bi bi-arrow-right ms-1"></i></a>
     </div>`;
 
-  // Leaderboard (top 5 by rate diff)
+  // Leaderboard (top 5 by rate diff) — each row's chip shows that competitor's rate vs. mine, so
+  // the leaderboard reads as "who's cheaper/pricier than me and by how much" at a glance instead
+  // of just a raw price list you'd have to mentally compare to the number up in the KPI row.
   const leaderboard = [...comps].map(c=>({...c, rate:PORTALDATA.competitorRateOnDate(c,today)})).sort((a,b)=>a.rate-b.rate).slice(0,5);
-  document.getElementById('leaderboardWidget').innerHTML = leaderboard.map((c,i)=>`
-    <div class="leaderboard-row">
+  document.getElementById('leaderboardWidget').innerHTML = leaderboard.map((c,i)=>{
+    const diffPct = myRate ? ((c.rate-myRate)/myRate*100) : 0;
+    const cheaper = diffPct < 0;
+    return `<div class="leaderboard-row">
       <div class="leaderboard-rank">${i+1}</div>
       <img src="${c.image}" style="width:34px;height:34px;border-radius:8px;object-fit:cover">
       <div class="flex-grow-1">
         <div class="fw-semibold" style="font-size:.82rem">${c.name}</div>
         <div class="text-muted" style="font-size:.7rem">${c.distanceKm}km • ${c.stars}★</div>
       </div>
-      <div class="fw-bold" style="font-size:.82rem">${APP.fmtCurrency(c.rate)}</div>
-    </div>`).join('');
-
-  // Channel performance widget (top channels by ADR)
-  document.getElementById('channelPerfWidget').innerHTML = PORTALDATA.CHANNELS.slice(0,5).map(ch=>{
-    const rate = PORTALDATA.channelRate(myRate, ch.key, today);
-    return `<div class="d-flex align-items-center justify-content-between mb-2">
-      ${PWIDGETS.channelChip(ch.key)}
-      <span class="fw-semibold" style="font-size:.8rem">${APP.fmtCurrency(rate)}</span>
+      <div class="text-end">
+        <div class="fw-bold" style="font-size:.82rem">${APP.fmtCurrency(c.rate)}</div>
+        <span class="dash-chip ${cheaper?'dash-chip-down':'dash-chip-up'}">${diffPct>=0?'+':''}${diffPct.toFixed(0)}%</span>
+      </div>
     </div>`;
   }).join('');
+
+  // Channel performance widget (top channels by ADR) — a "vs Direct" chip per channel makes the
+  // list answer "which channels are undercutting my own Direct rate" without a separate lookup.
+  document.getElementById('channelPerfChip').textContent = `${PORTALDATA.CHANNELS.length} Channels`;
+  document.getElementById('channelPerfWidget').innerHTML = `<div class="d-flex flex-column gap-2">${PORTALDATA.CHANNELS.slice(0,5).map(ch=>{
+    const rate = PORTALDATA.channelRate(myRate, ch.key, today);
+    const diffPct = myRate ? ((rate-myRate)/myRate*100) : 0;
+    const isDirect = ch.key === 'direct';
+    return `<div class="d-flex align-items-center justify-content-between">
+      ${PWIDGETS.channelChip(ch.key)}
+      <div class="text-end d-flex align-items-center gap-2">
+        ${isDirect ? '' : `<span class="dash-chip ${diffPct<0?'dash-chip-down':'dash-chip-up'}">${diffPct>=0?'+':''}${diffPct.toFixed(0)}%</span>`}
+        <span class="fw-semibold" style="font-size:.8rem">${APP.fmtCurrency(rate)}</span>
+      </div>
+    </div>`;
+  }).join('')}</div>`;
 });
 
 /* ==========================================================================

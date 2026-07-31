@@ -9,6 +9,7 @@
 <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link href="css/style.css" rel="stylesheet">
+<link href="css/portal.css" rel="stylesheet">
 <link href="css/rate-matrix.css" rel="stylesheet">
 <style>
   /* This page is always embedded in a fixed-height iframe (see property-details.js's Rate
@@ -72,7 +73,11 @@
 
 <div class="text-muted small mb-2" id="parityHint"><i class="bi bi-info-circle me-1"></i>Click <img src="https://www.eglobe-solutions.com/channelmanager/images/parity-view.png" alt="Rate Parity" class="parity-icon"> next to any occupancy row to compare its rate against other channels.</div>
 
-<div class="section-card cal-grid-card">
+<div class="section-card cal-grid-card" style="position:relative">
+  <div class="mx-edge-scroll mx-edge-top" id="cal_edgeUp" aria-hidden="true"><i class="bi bi-chevron-up"></i></div>
+  <div class="mx-edge-scroll mx-edge-bottom" id="cal_edgeDown" aria-hidden="true"><i class="bi bi-chevron-down"></i></div>
+  <div class="mx-edge-scroll mx-edge-left" id="cal_edgeLeft" aria-hidden="true"><i class="bi bi-chevron-left"></i></div>
+  <div class="mx-edge-scroll mx-edge-right" id="cal_edgeRight" aria-hidden="true"><i class="bi bi-chevron-right"></i></div>
   <div id="gridHost"></div>
 </div>
 
@@ -196,9 +201,9 @@
           <button type="button" class="btn btn-primary btn-sm" id="parity_apply"><i class="bi bi-check2 me-1"></i>Apply</button>
         </div>
         <div class="parity-scroll-wrap">
-          <button type="button" class="parity-scroll-btn parity-scroll-left" id="parity_scrollLeft" title="Scroll left" aria-label="Scroll left"><i class="bi bi-chevron-left"></i></button>
+          <div class="mx-edge-scroll mx-edge-left" id="parity_edgeLeft" aria-hidden="true"><i class="bi bi-chevron-left"></i></div>
+          <div class="mx-edge-scroll mx-edge-right" id="parity_edgeRight" aria-hidden="true"><i class="bi bi-chevron-right"></i></div>
           <div id="parityGridHost"></div>
-          <button type="button" class="parity-scroll-btn parity-scroll-right" id="parity_scrollRight" title="Scroll right" aria-label="Scroll right"><i class="bi bi-chevron-right"></i></button>
         </div>
       </div>
     </div>

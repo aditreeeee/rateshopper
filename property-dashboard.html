@@ -43,11 +43,14 @@
       <canvas id="rateTrendChart" height="90"></canvas>
     </div>
 
-    <div class="row g-3 mb-3">
+    <div class="row g-3 mb-3 align-items-stretch">
       <div class="col-md-6">
-        <div class="chart-card h-100">
-          <div class="rc-section-title mb-2"><span class="rc-section-icon"><i class="bi bi-table"></i></span><div class="fw-bold">Competitor Comparison</div></div>
-          <div class="table-responsive"><table class="table-modern w-100" id="competitorComparisonTable"></table></div>
+        <div class="chart-card h-100 d-flex flex-column">
+          <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+            <div class="rc-section-title mb-0"><span class="rc-section-icon"><i class="bi bi-table"></i></span><div class="fw-bold">Competitor Comparison</div></div>
+            <span class="dash-chip" id="competitorComparisonChip"></span>
+          </div>
+          <div class="table-responsive flex-grow-1 d-flex flex-column justify-content-center"><table class="table-modern w-100" id="competitorComparisonTable"></table></div>
         </div>
       </div>
       <div class="col-md-6">
@@ -67,11 +70,11 @@
 
   </div>
 
-  <div class="col-xxl-4">
+  <div class="col-xxl-4 d-flex flex-column">
     <div class="section-card rp-brief-card mb-3">
       <div class="d-flex justify-content-between align-items-center mb-1">
         <div class="rc-section-title mb-0"><span class="rc-section-icon"><i class="bi bi-stars"></i></span><div class="fw-bold">Today's Revenue Brief</div></div>
-        <span class="badge bg-primary-subtle text-primary" style="font-size:.58rem"><i class="bi bi-stars me-1"></i>AI</span>
+        <span class="dash-chip dash-chip-ai" id="revenueBriefChip"><i class="bi bi-stars me-1"></i>AI</span>
       </div>
       <div id="ratePositionWidget"></div>
     </div>
@@ -79,13 +82,16 @@
     <div class="section-card mb-3">
       <div class="d-flex justify-content-between align-items-center mb-2">
         <div class="rc-section-title mb-0"><span class="rc-section-icon"><i class="bi bi-trophy"></i></span><div class="fw-bold">Competitor Leaderboard</div></div>
-        <a href="property-competitors.html" class="small">View all</a>
+        <a href="property-competitors.html" class="dash-chip dash-chip-link">View all<i class="bi bi-arrow-right ms-1"></i></a>
       </div>
       <div id="leaderboardWidget"></div>
     </div>
 
     <div class="section-card">
-      <div class="rc-section-title mb-2"><span class="rc-section-icon"><i class="bi bi-diagram-3-fill"></i></span><div class="fw-bold">Channel Performance</div></div>
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <div class="rc-section-title mb-0"><span class="rc-section-icon"><i class="bi bi-diagram-3-fill"></i></span><div class="fw-bold">Channel Performance</div></div>
+        <span class="dash-chip" id="channelPerfChip"></span>
+      </div>
       <div id="channelPerfWidget"></div>
     </div>
   </div>

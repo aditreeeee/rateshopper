@@ -41,6 +41,19 @@ const MAPPING = (() => {
     return Math.round(45 + (shared/union) * 50);
   }
 
+  // ---- Room-pair match score: every competitor room must land in the SAME master category
+  // (Standard/Deluxe/Suite/Family — the same tiering used across the whole app) as the room it's
+  // compared against, or price comparisons across channels stop meaning anything ("Standard Twin"
+  // vs "Presidential Suite" isn't a rate-parity signal, it's noise). A same-category pair is
+  // boosted well above a same-category-less name coincidence, so greedy pairing in autoMap()
+  // always prefers staying within category even when a cross-category name match scores higher
+  // on text alone. ----
+  function matchScore(ourRoom, compRoom){
+    const nameScore = similarity(ourRoom.name, compRoom.name);
+    const sameCategory = ourRoom.category && compRoom.category && ourRoom.category === compRoom.category;
+    return sameCategory ? Math.min(99, nameScore + 35) : Math.round(nameScore * 0.5);
+  }
+
   // ---- Rate-plan auto-match for one already-mapped room pair: meal plan + refundable flag ----
   function autoMapPlansForRoom(ourRoomId, compRoomId, planMap){
     const ourPlans = DB.ratePlans.byRoom(ourRoomId);
@@ -71,7 +84,7 @@ const MAPPING = (() => {
 
     const pairs = [];
     ourRooms.forEach(or=> compRooms.forEach(cr=>{
-      const score = similarity(or.name, cr.name);
+      const score = matchScore(or, cr);
       if(score > 0) pairs.push({ourId:or.id, compId:cr.id, score});
     }));
     pairs.sort((a,b)=>b.score-a.score);
@@ -119,7 +132,7 @@ const MAPPING = (() => {
       let best = null, bestScore = 0;
       compRooms.forEach(cr=>{
         if(usedComp.has(cr.id)) return;
-        const score = similarity(or.name, cr.name);
+        const score = matchScore(or, cr);
         if(score > bestScore){ bestScore = score; best = cr; }
       });
       if(best && bestScore > 0){
@@ -191,7 +204,7 @@ const MAPPING = (() => {
       // of the real name-similarity score, not a flat floor. Picking a genuinely dissimilar room
       // still shows up honestly as low/partial confidence instead of being hidden behind 90%.
       const ourRoom = DB.rooms.get(ourRoomId), compRoom = DB.rooms.get(compRoomId);
-      const confidence = Math.min(99, similarity(ourRoom.name, compRoom.name) + 10);
+      const confidence = Math.min(99, matchScore(ourRoom, compRoom) + 10);
       roomMap[ourRoomId] = { competitorRoomId:compRoomId, confidence, status:statusFor(confidence) };
       autoMapPlansForRoom(ourRoomId, compRoomId, planMap);
     }
@@ -262,11 +275,11 @@ const MAPPING = (() => {
       const current = r.compRoom ? r.compRoom.id : '';
       return `
       <tr>
-        <td class="fw-semibold">${r.ourRoom.name}</td>
+        <td class="fw-semibold">${r.ourRoom.name}<div class="text-muted" style="font-size:.7rem">${r.ourRoom.category||'—'}</div></td>
         <td>
           <select class="form-select form-select-sm mr-room-pick" data-our-room-id="${r.ourRoom.id}" data-initial="${current}">
             <option value="">— Not Mapped —</option>
-            ${ev.compRooms.map(cr=>`<option value="${cr.id}" ${current===cr.id?'selected':''}>${cr.name}</option>`).join('')}
+            ${ev.compRooms.map(cr=>`<option value="${cr.id}" ${current===cr.id?'selected':''}>${cr.name} (${cr.category||'—'})</option>`).join('')}
           </select>
         </td>
         <td>${confidencePill(r.mapping?r.mapping.confidence:null)}</td>
@@ -295,7 +308,7 @@ const MAPPING = (() => {
     const allGoodMsg = `<div class="rm-empty"><i class="bi bi-check2-circle text-success"></i><p>Everything is mapped with high confidence — nothing needs your review.</p></div>`;
 
     const okRoomRows = ev.rooms.filter(r=>!r.needsReview).map(r=>`
-      <tr><td>${r.ourRoom.name}</td><td>${r.compRoom.name}</td><td>${confidencePill(r.mapping.confidence)}</td><td>${statusPill(r.status)}</td></tr>`).join('');
+      <tr><td>${r.ourRoom.name}<div class="text-muted" style="font-size:.7rem">${r.ourRoom.category||'—'}</div></td><td>${r.compRoom.name}<div class="text-muted" style="font-size:.7rem">${r.compRoom.category||'—'}</div></td><td>${confidencePill(r.mapping.confidence)}</td><td>${statusPill(r.status)}</td></tr>`).join('');
     const okPlanRows = ev.plans.filter(p=>!p.needsReview).map(p=>`
       <tr><td>${p.ourRoom.name} <span class="text-muted">(${p.ourPlan.mealPlan})</span></td><td>${p.compPlan.name.split(' - ')[0]} (${p.compPlan.mealPlan})</td><td>${confidencePill(p.mapping.confidence)}</td><td>${statusPill(p.status)}</td></tr>`).join('');
 

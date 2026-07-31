@@ -1,6 +1,17 @@
 let profileChart = null;
 let profileTrendChart = null;
 
+// Shared Chart.js animation preset — same helper as Dashboard/Rate Shopper/Reports/Room Comparison.
+function chartAnim(isBar){
+  return {
+    duration: 850, easing: 'easeOutQuart',
+    delay: (ctx)=> isBar
+      ? (ctx.type==='data' ? ctx.dataIndex*30 + (ctx.datasetIndex||0)*80 : 0)
+      : (ctx.datasetIndex||0) * 150
+  };
+}
+if(window.Chart) Chart.defaults.font.family = getComputedStyle(document.body).fontFamily;
+
 document.addEventListener('DOMContentLoaded', ()=>{
   const me = PORTAL.mount({ title:'Competitors', subtitle:'The properties selected by your Company Admin to compare against.' });
   if(!me) return;
@@ -208,19 +219,41 @@ document.addEventListener('DOMContentLoaded', ()=>{
         </div>
       </div>`;
 
-    new bootstrap.Modal(document.getElementById('competitorProfileModal')).show();
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('competitorProfileModal')).show();
     setTimeout(()=>{
       if(profileChart) profileChart.destroy();
       if(profileTrendChart) profileTrendChart.destroy();
       profileChart = new Chart(document.getElementById('cprof_histChart'), {
         type:'line',
-        data:{ labels:histLabels, datasets:[{label:hotel.name, data:histData, borderColor:'#3861fb', backgroundColor:'rgba(56,97,251,.08)', tension:.35, fill:true, spanGaps:true}] },
-        options:{ responsive:true, plugins:{legend:{display:false}} }
+        data:{ labels:histLabels, datasets:[{label:hotel.name, data:histData, borderColor:'#3861fb', backgroundColor:'rgba(56,97,251,.08)', tension:.35, fill:true, spanGaps:true, pointRadius:0, pointHoverRadius:5, pointHitRadius:12, pointBackgroundColor:'#3861fb', borderWidth:2}] },
+        options:{
+          responsive:true, animation:chartAnim(false),
+          interaction:{ mode:'index', intersect:false },
+          plugins:{
+            legend:{display:false},
+            tooltip:{ callbacks:{ label:ctx=> ctx.parsed.y!=null ? APP.fmtCurrency(ctx.parsed.y) : '—' } }
+          },
+          scales:{
+            x:{ grid:{display:false} },
+            y:{ ticks:{ callback:v=>APP.fmtCurrency(v) }, grid:{ color:'rgba(0,0,0,.04)' } }
+          }
+        }
       });
       profileTrendChart = new Chart(document.getElementById('cprof_trendChart'), {
         type:'line',
-        data:{ labels:trendLabels, datasets:[{label:hotel.name, data:trendData, borderColor:'#00c2a8', backgroundColor:'rgba(0,194,168,.08)', tension:.35, fill:true, spanGaps:true}] },
-        options:{ responsive:true, plugins:{legend:{display:false}} }
+        data:{ labels:trendLabels, datasets:[{label:hotel.name, data:trendData, borderColor:'#00c2a8', backgroundColor:'rgba(0,194,168,.08)', tension:.35, fill:true, spanGaps:true, pointRadius:0, pointHoverRadius:5, pointHitRadius:12, pointBackgroundColor:'#00c2a8', borderWidth:2}] },
+        options:{
+          responsive:true, animation:chartAnim(false),
+          interaction:{ mode:'index', intersect:false },
+          plugins:{
+            legend:{display:false},
+            tooltip:{ callbacks:{ label:ctx=> ctx.parsed.y!=null ? APP.fmtCurrency(ctx.parsed.y) : '—' } }
+          },
+          scales:{
+            x:{ grid:{display:false} },
+            y:{ ticks:{ callback:v=>APP.fmtCurrency(v) }, grid:{ color:'rgba(0,0,0,.04)' } }
+          }
+        }
       });
     }, 150);
   };

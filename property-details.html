@@ -35,13 +35,19 @@
   <div class="row g-3">
     <div class="col-lg-8">
       <div class="section-card mb-3">
-        <div class="section-title mb-2">About This Property</div>
+        <div class="rc-section-title mb-2">
+          <span class="rc-section-icon"><i class="bi bi-info-circle-fill"></i></span>
+          <div class="fw-bold">About This Property</div>
+        </div>
         <p class="text-muted" id="p_desc"></p>
       </div>
     </div>
     <div class="col-lg-4">
       <div class="section-card">
-        <div class="section-title mb-3">Quick Info</div>
+        <div class="rc-section-title mb-3">
+          <span class="rc-section-icon"><i class="bi bi-list-ul"></i></span>
+          <div class="fw-bold">Quick Info</div>
+        </div>
         <div class="kv-row"><span class="k">Type</span><span class="v" id="kv_type"></span></div>
         <div class="kv-row"><span class="k">City</span><span class="v" id="kv_city"></span></div>
         <div class="kv-row"><span class="k">Total Rooms</span><span class="v" id="kv_rooms"></span></div>
@@ -52,56 +58,78 @@
 </div>
 
 <div id="tab-channels" class="d-none">
-  <div class="d-flex justify-content-between align-items-center mb-3">
-    <div class="text-muted small" id="channelsCount"></div>
-    <a href="#" id="addChannelBtn" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg me-1"></i>Add Channel</a>
+  <div class="section-card">
+    <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+      <div class="rc-section-title mb-0">
+        <span class="rc-section-icon"><i class="bi bi-diagram-3-fill"></i></span>
+        <div>
+          <div class="fw-bold">Channels</div>
+          <div class="text-muted small" id="channelsCount">-</div>
+        </div>
+      </div>
+      <a href="#" id="addChannelBtn" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg me-1"></i>Add Channel</a>
+    </div>
+    <div class="row g-3" id="channelsGrid"></div>
   </div>
-  <div class="row g-3" id="channelsGrid"></div>
 </div>
 
 <div id="tab-rooms" class="d-none">
-  <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-    <div class="d-flex align-items-center gap-2">
-      <div class="text-muted small" id="roomsCount"></div>
-      <select class="form-select form-select-sm" id="roomsChannelFilter" style="width:auto;min-width:180px"></select>
-    </div>
-    <div class="d-flex align-items-center gap-2">
-      <div class="btn-group btn-group-sm">
-        <button type="button" class="btn btn-soft" id="rm_viewGrid" title="Grid view"><i class="bi bi-grid-3x3-gap"></i></button>
-        <button type="button" class="btn btn-soft" id="rm_viewList" title="List view"><i class="bi bi-list-ul"></i></button>
+  <div class="section-card">
+    <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+      <div class="rc-section-title mb-0">
+        <span class="rc-section-icon"><i class="bi bi-door-open-fill"></i></span>
+        <div>
+          <div class="fw-bold">Rooms</div>
+          <div class="text-muted small" id="roomsCount">-</div>
+        </div>
       </div>
-      <button type="button" class="btn btn-soft btn-sm" id="importRoomsBtn"><i class="bi bi-upload me-1"></i>Import</button>
-      <a href="#" id="addRoomBtn" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg me-1"></i>Add Room</a>
+      <div class="d-flex align-items-center gap-2 flex-wrap">
+        <select class="form-select form-select-sm" id="roomsChannelFilter" style="width:auto;min-width:180px"></select>
+        <div class="btn-group btn-group-sm">
+          <button type="button" class="btn btn-soft" id="rm_viewGrid" title="Grid view"><i class="bi bi-grid-3x3-gap"></i></button>
+          <button type="button" class="btn btn-soft" id="rm_viewList" title="List view"><i class="bi bi-list-ul"></i></button>
+        </div>
+        <button type="button" class="btn btn-soft btn-sm" id="importRoomsBtn"><i class="bi bi-upload me-1"></i>Import</button>
+        <a href="#" id="addRoomBtn" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg me-1"></i>Add Room</a>
+      </div>
     </div>
-  </div>
-  <div class="row g-3" id="roomsGrid"></div>
-  <div class="card-surface p-0 overflow-hidden d-none" id="roomsListWrap">
-    <div class="table-responsive">
-      <table class="table-modern w-100">
-        <thead><tr>
-          <th>Room</th><th>Channel</th><th>Bed Type</th><th class="text-center">Capacity</th>
-          <th>Meal Plans</th><th class="text-end">Base Price</th><th class="text-end">Actions</th>
-        </tr></thead>
-        <tbody id="roomsListBody"></tbody>
-      </table>
+    <div class="row g-3" id="roomsGrid"></div>
+    <div class="card-surface p-0 overflow-hidden d-none" id="roomsListWrap">
+      <div class="table-responsive">
+        <table class="table-modern w-100">
+          <thead><tr>
+            <th>Room</th><th>Channel</th><th>Bed Type</th><th class="text-center">Capacity</th>
+            <th>Meal Plans</th><th class="text-end">Base Price</th><th class="text-end">Actions</th>
+          </tr></thead>
+          <tbody id="roomsListBody"></tbody>
+        </table>
+      </div>
     </div>
   </div>
 </div>
 
 <div id="tab-rateplans" class="d-none">
-  <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-    <div class="d-flex align-items-center gap-2">
-      <div class="text-muted small" id="rpCount"></div>
-      <select class="form-select form-select-sm" id="rpChannelFilter" style="width:auto;min-width:180px"></select>
+  <div class="section-card">
+    <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+      <div class="rc-section-title mb-0">
+        <span class="rc-section-icon"><i class="bi bi-tags-fill"></i></span>
+        <div>
+          <div class="fw-bold">Rate Plans</div>
+          <div class="text-muted small" id="rpCount">-</div>
+        </div>
+      </div>
+      <div class="d-flex align-items-center gap-2 flex-wrap">
+        <select class="form-select form-select-sm" id="rpChannelFilter" style="width:auto;min-width:180px"></select>
+        <button type="button" class="btn btn-soft btn-sm" id="importRpBtn"><i class="bi bi-upload me-1"></i>Import</button>
+        <a href="#" id="addRpBtn" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg me-1"></i>Add Rate Plan</a>
+      </div>
     </div>
-    <button type="button" class="btn btn-soft btn-sm" id="importRpBtn"><i class="bi bi-upload me-1"></i>Import</button>
-    <a href="#" id="addRpBtn" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg me-1"></i>Add Rate Plan</a>
-  </div>
-  <div class="card-surface p-0 overflow-hidden">
-    <table class="table-modern w-100">
-      <thead><tr><th>Rate Plan</th><th>Channel</th><th>Room</th><th>Meal Plan</th><th>Cancellation</th><th>Status</th><th class="text-end">Actions</th></tr></thead>
-      <tbody id="rpBody"></tbody>
-    </table>
+    <div class="card-surface p-0 overflow-hidden">
+      <table class="table-modern w-100">
+        <thead><tr><th>Rate Plan</th><th>Channel</th><th>Room</th><th>Meal Plan</th><th>Cancellation</th><th>Status</th><th class="text-end">Actions</th></tr></thead>
+        <tbody id="rpBody"></tbody>
+      </table>
+    </div>
   </div>
 </div>
 
@@ -193,6 +221,10 @@ Standard Rate,Deluxe King,EP,true,1,30,Free cancellation up to 24 hours before c
 
 <div id="tab-ratecalendar" class="d-none">
   <div class="section-card p-0 overflow-hidden">
+    <div class="rc-section-title p-3 pb-0">
+      <span class="rc-section-icon"><i class="bi bi-calendar3-week"></i></span>
+      <div class="fw-bold">Rate Calendar</div>
+    </div>
     <iframe id="calendarFrame" src="" style="width:100%;height:90vh;border:none;display:block"></iframe>
   </div>
 </div>
@@ -201,7 +233,10 @@ Standard Rate,Deluxe King,EP,true,1,30,Free cancellation up to 24 hours before c
   <div class="row g-3">
     <div class="col-lg-6">
       <div class="section-card">
-        <div class="section-title mb-3">Contact Details</div>
+        <div class="rc-section-title mb-3">
+          <span class="rc-section-icon"><i class="bi bi-telephone-fill"></i></span>
+          <div class="fw-bold">Contact Details</div>
+        </div>
         <div class="kv-row"><span class="k">Phone</span><span class="v" id="c_phone"></span></div>
         <div class="kv-row"><span class="k">Email</span><span class="v" id="c_email"></span></div>
         <div class="kv-row"><span class="k">Website</span><span class="v" id="c_website"></span></div>
@@ -210,7 +245,10 @@ Standard Rate,Deluxe King,EP,true,1,30,Free cancellation up to 24 hours before c
     </div>
     <div class="col-lg-6">
       <div class="section-card">
-        <div class="section-title mb-3">Amenities</div>
+        <div class="rc-section-title mb-3">
+          <span class="rc-section-icon"><i class="bi bi-check2-circle"></i></span>
+          <div class="fw-bold">Amenities</div>
+        </div>
         <div id="c_amenities"></div>
       </div>
     </div>

@@ -20,7 +20,11 @@ document.addEventListener('DOMContentLoaded', ()=>{
   document.getElementById('s_alertNewMappedRoom').checked = s.alertNewMappedRoom;
   document.getElementById('s_dashboardLayout').value = s.dashboardLayout;
   document.getElementById('s_defaultRangeDays').value = s.defaultRangeDays;
-  document.getElementById('s_theme').value = APP.getTheme();
+
+  // Appearance applies immediately (same as the topbar's own theme toggle) rather than waiting
+  // on the form's Save button — a theme switch isn't the kind of setting anyone expects to have
+  // to "save" before it takes effect.
+  document.getElementById('s_themeToggle').addEventListener('click', ()=> APP.toggleTheme());
 
   document.getElementById('settingsForm').addEventListener('submit', function(e){
     e.preventDefault();
@@ -36,7 +40,6 @@ document.addEventListener('DOMContentLoaded', ()=>{
       defaultRangeDays: Number(document.getElementById('s_defaultRangeDays').value)
     };
     PORTALDATA.saveSettings(propertyId, updated);
-    APP.setTheme(document.getElementById('s_theme').value);
     APP.toast('Settings Saved', 'Your preferences have been updated.', 'success');
   });
 });

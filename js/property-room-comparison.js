@@ -20,6 +20,7 @@ let rcAllRows = [];
 let rcPage = 0;
 const RC_PAGE_SIZE = 50;
 let rcSort = { key:'compRate', dir:'asc' };
+let rcGroupByRoom = false; // when true, the Room Comparison table clusters rows under a header per My Room
 
 // Shared filter state — read by every render function below.
 let mealPlanFilter = '';   // '' | EP | CP | MAP | AP
@@ -139,6 +140,14 @@ document.addEventListener('DOMContentLoaded', ()=>{
           const ratePlanName = compPlan.name;
           const lastUpdated = compPlan.createdAt || PORTALDATA.dateKeyOffset(0);
 
+          // Promotional status — same signal Decision & Actions' "Monitor Competitor Promotions"
+          // uses: a sharp rate cut over the last 7 days reads as a likely active promotion.
+          const weekAgo = DB.rates.forPlan(compPlan.id)[PORTALDATA.dateKeyOffset(-7)];
+          const weekAgoPrice = weekAgo ? weekAgo.price : null;
+          const todayForPromo = DB.rates.forPlan(compPlan.id)[PORTALDATA.dateKeyOffset(0)];
+          const todayPrice = todayForPromo ? todayForPromo.price : compRoom.basePrice;
+          const onPromo = weekAgoPrice ? ((todayPrice-weekAgoPrice)/weekAgoPrice*100) <= -8 : false;
+
           channelsToShow.forEach(channelKey=>{
             const myRate = rateOnChannel(myRaw, channelKey);
             const compRate = rateOnChannel(raw, channelKey);
@@ -149,10 +158,32 @@ document.addEventListener('DOMContentLoaded', ()=>{
             rows.push({
               compId: comp.id, compName: comp.name, compRoomName, channelKey, ratePlanName,
               myRoomId: room.id, myRoomName: room.name, myRatePlanName: rp.name, myRateMealPlan: rp.mealPlan,
+              roomCategory: room.category,
+              compRefundable: compPlan.refundable, onPromo,
               myRate, compRate, diff, diffPct, position, lastUpdated, isReal: true
             });
           });
         });
+      });
+    });
+
+    // ---- Market Average + Ranking Position — computed per (my room + meal plan + channel)
+    // group, so "market average" and "#2 of 5 cheapest" always mean "among the competitors
+    // actually being compared against this specific room/plan/channel", not a blanket average
+    // across everything on the page. ----
+    const groups = {};
+    rows.forEach(r=>{
+      const key = `${r.myRoomId}|${r.myRateMealPlan}|${r.channelKey}`;
+      (groups[key] = groups[key] || []).push(r);
+    });
+    Object.values(groups).forEach(group=>{
+      const marketAvg = avgOf(group.map(r=>r.compRate));
+      const ranked = [...group].sort((a,b)=>a.compRate-b.compRate);
+      group.forEach(r=>{
+        r.marketAvg = marketAvg;
+        r.marketAvgDiffPct = marketAvg ? ((r.compRate-marketAvg)/marketAvg*100) : 0;
+        r.rank = ranked.indexOf(r) + 1;
+        r.rankTotal = ranked.length;
       });
     });
     return rows;
@@ -183,6 +214,14 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const [cls,label] = map[pos];
     return `<span class="badge-status ${cls}">${label}</span>`;
   }
+  function promoBadge(onPromo){
+    return onPromo
+      ? `<span class="badge bg-warning-subtle text-warning"><i class="bi bi-tag-fill me-1"></i>Promo</span>`
+      : `<span class="text-muted" style="font-size:.72rem">—</span>`;
+  }
+  function rankBadge(rank, total){
+    return `<span class="badge bg-light text-dark border">#${rank} of ${total}</span>`;
+  }
 
   // ---- Frozen reference rows: my own room(s), pinned to the top of the table so they stay
   // visible while scrolling through competitor rows below. ----
@@ -198,7 +237,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
         const myRaw = avgOf(rangeDates(rcDays).map(myBaseFor));
         if(myRaw==null) return;
         const myRate = channelFilter ? PORTALDATA.channelRate(myRaw, channelFilter, PORTALDATA.dateKeyOffset(0)) : myRaw;
-        rows.push({ roomName:room.name, ratePlanName:rp.name, myRate });
+        rows.push({ roomName:room.name, category:room.category, ratePlanName:rp.name, mealPlan:rp.mealPlan, myRate });
       });
     });
     return rows;
@@ -236,14 +275,20 @@ document.addEventListener('DOMContentLoaded', ()=>{
     document.getElementById('rc_summary').textContent = `${filtered.length} matched room comparisons across ${myRooms.length} of your rooms and ${compsAll.length} assigned comparison ${compsAll.length===1?'property':'properties'}`;
 
     const cols = [
+      {key:'myRoomName', label:'My Room'},
+      {key:'roomCategory', label:'Category'},
       {key:'compName', label:'Competitor Property'},
       {key:'compRoomName', label:'Competitor Room'},
       {key:'channelKey', label:'Channel'},
-      {key:'ratePlanName', label:'Rate Plan'},
+      {key:'myRateMealPlan', label:'Meal Plan'},
+      {key:'compRefundable', label:'Cancellation Policy'},
       {key:'myRate', label:'My Rate'},
       {key:'compRate', label:'Competitor Rate'},
+      {key:'marketAvg', label:'Market Avg'},
       {key:'diff', label:'Difference (₹)'},
       {key:'diffPct', label:'Difference (%)'},
+      {key:'onPromo', label:'Promo Status'},
+      {key:'rank', label:'Rank'},
       {key:'position', label:'Price Position'},
       {key:'lastUpdated', label:'Last Updated'},
     ];
@@ -253,11 +298,17 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const frozenRows = buildFrozenRows(channelFilter);
     const frozenHtml = frozenRows.map((r,i)=>`
       <tr class="rc-frozen-row">
-        <td class="fw-semibold">${i===0 ? '<i class="bi bi-star-fill me-1" style="color:var(--brand-500)"></i>My Property' : ''}</td>
-        <td>${r.roomName}</td>
+        <td class="fw-semibold"><i class="bi bi-star-fill me-1" style="color:var(--brand-500)"></i>${r.roomName}</td>
+        <td><span class="badge bg-light text-dark border" style="font-size:.68rem">${r.category||'—'}</span></td>
+        <td>${i===0 ? 'My Property' : ''}</td>
+        <td class="text-muted">—</td>
         <td>${PWIDGETS.channelChip(channelFilter || 'direct')}</td>
-        <td style="font-size:.78rem">${r.ratePlanName}</td>
+        <td style="font-size:.78rem">${r.mealPlan||'—'}</td>
+        <td class="text-muted">—</td>
         <td class="fw-bold">${APP.fmtCurrency(r.myRate)}</td>
+        <td class="text-muted">—</td>
+        <td class="text-muted">—</td>
+        <td class="text-muted">—</td>
         <td class="text-muted">—</td>
         <td class="text-muted">—</td>
         <td class="text-muted">—</td>
@@ -265,19 +316,50 @@ document.addEventListener('DOMContentLoaded', ()=>{
         <td class="text-muted" style="font-size:.72rem">Live</td>
       </tr>`).join('');
 
-    const body = pageRows.map(r=>`
+    const rowHtml = r=> `
       <tr>
+        <td style="font-size:.78rem">${r.myRoomName}</td>
+        <td><span class="badge bg-light text-dark border" style="font-size:.68rem">${r.roomCategory||'—'}</span></td>
         <td class="fw-semibold">${r.compName}</td>
         <td>${r.compRoomName}</td>
         <td>${PWIDGETS.channelChip(r.channelKey)}</td>
-        <td style="font-size:.78rem">${r.ratePlanName}</td>
+        <td style="font-size:.78rem">${r.myRateMealPlan||'—'}</td>
+        <td><span class="badge ${r.compRefundable?'bg-success-subtle text-success':'bg-light text-muted border'}" style="font-size:.68rem">${r.compRefundable?'Flexible':'Non-Refundable'}</span></td>
         <td class="fw-semibold">${APP.fmtCurrency(r.myRate)}</td>
         <td class="fw-semibold">${APP.fmtCurrency(r.compRate)}</td>
+        <td class="text-muted">${r.marketAvg!=null ? APP.fmtCurrency(r.marketAvg) : '—'}</td>
         <td class="${r.diff>=0?'text-danger':'text-success'}">${r.diff>=0?'+':''}${APP.fmtCurrency(r.diff)}</td>
         <td class="${r.diff>=0?'text-danger':'text-success'}">${r.diff>=0?'+':''}${r.diffPct.toFixed(1)}%</td>
+        <td>${promoBadge(r.onPromo)}</td>
+        <td>${rankBadge(r.rank, r.rankTotal)}</td>
         <td>${positionBadge(r.position)}</td>
         <td style="font-size:.72rem" class="text-muted">${r.lastUpdated}</td>
-      </tr>`).join('');
+      </tr>`;
+
+    // Grouping clusters the current page's rows under a header per My Room — a lightweight
+    // rollup (count + avg difference), not a separate query, so it always matches what's on
+    // screen. Only groups within the current page: acceptable since the group a row belongs to
+    // never changes, it just means a room's rows could span two pages at a boundary.
+    let body;
+    if(rcGroupByRoom){
+      const groups = {};
+      const order = [];
+      pageRows.forEach(r=>{
+        if(!groups[r.myRoomId]){ groups[r.myRoomId] = { name:r.myRoomName, category:r.roomCategory, rows:[] }; order.push(r.myRoomId); }
+        groups[r.myRoomId].rows.push(r);
+      });
+      body = order.map(id=>{
+        const g = groups[id];
+        const groupAvgDiff = avgOf(g.rows.map(r=>r.diffPct));
+        return `<tr class="rc-group-row"><td colspan="${cols.length}">
+          <i class="bi bi-folder2-open me-2 text-muted"></i><strong>${g.name}</strong>
+          <span class="badge bg-light text-dark border ms-2" style="font-size:.65rem">${g.category||'—'}</span>
+          <span class="text-muted ms-2" style="font-size:.72rem">${g.rows.length} comparison${g.rows.length===1?'':'s'} · Avg diff ${groupAvgDiff!=null ? (groupAvgDiff>=0?'+':'')+groupAvgDiff.toFixed(1)+'%' : '—'}</span>
+        </td></tr>` + g.rows.map(rowHtml).join('');
+      }).join('');
+    } else {
+      body = pageRows.map(rowHtml).join('');
+    }
 
     document.getElementById('rc_table').innerHTML = thead + `<tbody>${frozenHtml}${body || `<tr><td colspan="${cols.length}" class="text-center text-muted py-4">No matched room comparisons for these filters.</td></tr>`}</tbody>`;
     document.getElementById('rc_pageInfo').textContent = filtered.length ? `Showing ${start+1}-${Math.min(start+RC_PAGE_SIZE, filtered.length)} of ${filtered.length}` : 'No rows';
@@ -401,13 +483,33 @@ document.addEventListener('DOMContentLoaded', ()=>{
       }).join('') || `<tr><td colspan="5" class="text-center text-muted py-3">No data</td></tr>`}</tbody>`;
   }
 
+  // ---- Shared export dataset — mirrors the table's own 16 columns exactly, so what a user
+  // exports is always what they're currently looking at (respects search/room/channel filters
+  // and the current sort), never a stale or narrower snapshot. ----
+  const EXPORT_COLUMNS = [
+    { label:'My Room', value:r=>r.myRoomName },
+    { label:'Category', value:r=>r.roomCategory||'' },
+    { label:'Competitor Property', value:r=>r.compName },
+    { label:'Competitor Room', value:r=>r.compRoomName },
+    { label:'Channel', value:r=>r.channelKey },
+    { label:'Meal Plan', value:r=>r.myRateMealPlan||'' },
+    { label:'Cancellation Policy', value:r=>r.compRefundable?'Flexible':'Non-Refundable' },
+    { label:'My Rate', value:r=>r.myRate },
+    { label:'Competitor Rate', value:r=>r.compRate },
+    { label:'Market Avg', value:r=>r.marketAvg!=null?r.marketAvg:'' },
+    { label:'Difference', value:r=>r.diff },
+    { label:'Difference %', value:r=>r.diffPct.toFixed(1) },
+    { label:'Promo Status', value:r=>r.onPromo?'Promo':'' },
+    { label:'Rank', value:r=>`${r.rank} of ${r.rankTotal}` },
+    { label:'Price Position', value:r=>r.position },
+    { label:'Last Updated', value:r=>r.lastUpdated },
+  ];
+
   function exportCsv(){
     const filtered = sortRows(applyFilters(rcAllRows));
-    const headers = ['Competitor Property','Competitor Room','Channel','Rate Plan','My Rate','Competitor Rate','Difference (₹)','Difference (%)','Price Position','Last Updated'];
-    const lines = [headers.join(',')];
+    const lines = [EXPORT_COLUMNS.map(c=>c.label).join(',')];
     filtered.forEach(r=>{
-      lines.push([r.compName, r.compRoomName, r.channelKey, r.ratePlanName, r.myRate, r.compRate, r.diff, r.diffPct.toFixed(1), r.position, r.lastUpdated]
-        .map(v=>`"${String(v).replace(/"/g,'""')}"`).join(','));
+      lines.push(EXPORT_COLUMNS.map(c=>`"${String(c.value(r)).replace(/"/g,'""')}"`).join(','));
     });
     const blob = new Blob([lines.join('\n')], { type:'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -416,6 +518,23 @@ document.addEventListener('DOMContentLoaded', ()=>{
     document.body.appendChild(a); a.click(); a.remove();
     URL.revokeObjectURL(url);
     APP.toast('Export Complete', 'Your CSV file has been downloaded.', 'success');
+  }
+
+  // Excel export: a real HTML-table workbook (Excel/Sheets both open .xls saved this way as a
+  // genuine spreadsheet, not a renamed CSV) — same column set as the CSV/on-screen table.
+  function exportExcel(){
+    const filtered = sortRows(applyFilters(rcAllRows));
+    const escape = v=> String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    const headerHtml = `<tr>${EXPORT_COLUMNS.map(c=>`<th>${escape(c.label)}</th>`).join('')}</tr>`;
+    const rowsHtml = filtered.map(r=>`<tr>${EXPORT_COLUMNS.map(c=>`<td>${escape(c.value(r))}</td>`).join('')}</tr>`).join('');
+    const html = `<html><head><meta charset="UTF-8"></head><body><table border="1">${headerHtml}${rowsHtml}</table></body></html>`;
+    const blob = new Blob([html], { type:'application/vnd.ms-excel;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `room-rate-comparison-${PORTALDATA.dateKeyOffset(0)}.xls`;
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+    APP.toast('Export Complete', 'Your Excel workbook has been downloaded.', 'success');
   }
 
   function renderAll(){
@@ -434,8 +553,22 @@ document.addEventListener('DOMContentLoaded', ()=>{
   document.getElementById('rc_prevPage').addEventListener('click', ()=>{ rcPage--; renderTable(); });
   document.getElementById('rc_nextPage').addEventListener('click', ()=>{ rcPage++; renderTable(); });
   document.getElementById('rc_exportCsv').addEventListener('click', exportCsv);
-  document.getElementById('rc_exportExcel').addEventListener('click', ()=> APP.toast('Export Started', 'Your Excel workbook is being prepared for download.', 'success'));
+  document.getElementById('rc_exportExcel').addEventListener('click', exportExcel);
   document.getElementById('rc_print').addEventListener('click', ()=> window.print());
+
+  document.getElementById('rc_toggleGroup').addEventListener('click', function(){
+    rcGroupByRoom = !rcGroupByRoom;
+    this.classList.toggle('active', rcGroupByRoom);
+    this.classList.toggle('btn-primary', rcGroupByRoom);
+    this.classList.toggle('btn-soft', !rcGroupByRoom);
+    renderTable();
+  });
+  document.getElementById('rc_togglePin').addEventListener('click', function(){
+    const pinned = document.getElementById('rc_tableWrap').classList.toggle('tbl-pin-col');
+    this.classList.toggle('active', pinned);
+    this.classList.toggle('btn-primary', pinned);
+    this.classList.toggle('btn-soft', !pinned);
+  });
 
   // Edge hover-scroll — hover near an edge of the Room Comparison table and it scrolls smoothly
   // toward it for as long as the cursor stays there, same interaction as Rate Shopper's Rate
@@ -872,7 +1005,11 @@ function renderChannelAnalysis(propertyId){
       labels: channelMetrics.map(m=>m.channel.name),
       datasets:[{label:'Current Rate', data: channelMetrics.map(m=>m.current||0), backgroundColor: channelMetrics.map(m=>(DB.CHANNEL_TYPES[m.channel.type]||DB.CHANNEL_TYPES.custom).color), borderRadius:6}]
     },
-    options:{ responsive:true, plugins:{legend:{display:false}}, scales:{y:{ticks:{callback:v=>APP.fmtCurrency(v)}}} }
+    options:{
+      responsive:true, animation:chartAnim(true),
+      plugins:{ legend:{display:false}, tooltip:{callbacks:{label:ctx=>APP.fmtCurrency(ctx.parsed.y)}} },
+      scales:{y:{ticks:{callback:v=>APP.fmtCurrency(v)}}}
+    }
   });
 
   const otaChannelsAll = channels.filter(c=>c.id !== (master && master.id));

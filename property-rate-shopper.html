@@ -126,6 +126,10 @@
       <select class="form-select form-select-sm" id="mx_room"><option value="">All Rooms</option></select>
     </div>
     <div class="col-6 col-lg-3">
+      <label class="form-label mb-1" style="font-size:.72rem" for="mx_roomCategory">Room Category</label>
+      <select class="form-select form-select-sm" id="mx_roomCategory"><option value="">All Categories</option></select>
+    </div>
+    <div class="col-6 col-lg-3">
       <label class="form-label mb-1" style="font-size:.72rem" for="mx_occ">Occupancy</label>
       <select class="form-select form-select-sm" id="mx_occ">
         <option value="1">1 Guest</option>
@@ -134,22 +138,35 @@
         <option value="4">4 Guests</option>
       </select>
     </div>
+  </div>
+  <div class="row g-2 mb-2">
     <div class="col-6 col-lg-3">
       <label class="form-label mb-1" style="font-size:.72rem" for="mx_mealPlan">Meal Plan</label>
       <select class="form-select form-select-sm" id="mx_mealPlan"><option value="">All Meal Plans</option></select>
     </div>
-  </div>
-  <div class="row g-2">
-    <div class="col-6 col-lg-4">
+    <div class="col-6 col-lg-3">
       <label class="form-label mb-1" style="font-size:.72rem" for="mx_channel">Channel</label>
       <select class="form-select form-select-sm" id="mx_channel"></select>
     </div>
-    <div class="col-6 col-lg-4">
-      <label class="form-label mb-1" style="font-size:.72rem" for="mx_ratePlan">Rate Plan</label>
+    <div class="col-6 col-lg-3">
+      <label class="form-label mb-1" style="font-size:.72rem" for="mx_ratePlan">Cancellation Policy</label>
       <select class="form-select form-select-sm" id="mx_ratePlan">
-        <option value="">All Rate Plans</option>
+        <option value="">All Policies</option>
         <option value="refundable">Flexible</option>
         <option value="nonrefundable">Non-Refundable</option>
+      </select>
+    </div>
+    <div class="col-6 col-lg-3">
+      <label class="form-label mb-1" style="font-size:.72rem" for="mx_marketSegment">Market Segment</label>
+      <select class="form-select form-select-sm" id="mx_marketSegment"><option value="">All Segments</option></select>
+    </div>
+  </div>
+  <div class="row g-2">
+    <div class="col-12 col-lg-8">
+      <label class="form-label mb-1" style="font-size:.72rem" for="mx_comparisonType">Comparison Type</label>
+      <select class="form-select form-select-sm" id="mx_comparisonType">
+        <option value="matched">Room-to-Room (Matched)</option>
+        <option value="cheapest">Cheapest Room per Competitor</option>
       </select>
     </div>
     <div class="col-12 col-lg-4 d-flex align-items-end">

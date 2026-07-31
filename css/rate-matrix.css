@@ -131,9 +131,10 @@
 .mx-grid-card .grid-table-wrap{ max-height:640px; }
 
 /* Cross-fade on date-range change (7D/14D/30D/90D, Prev/Next) — softens the otherwise abrupt
-   jump when the number of date columns changes (e.g. 7D -> 14D roughly doubles them). */
-#mx_gridHost{ transition:opacity .15s ease; }
-#mx_gridHost.mx-grid-fade{ opacity:.35; }
+   jump when the number of date columns changes (e.g. 7D -> 14D roughly doubles them). Shared by
+   the Rate Matrix grid (#mx_gridHost) and the Rate Calendar grid (#gridHost). */
+#mx_gridHost, #gridHost{ transition:opacity .15s ease; }
+#mx_gridHost.mx-grid-fade, #gridHost.mx-grid-fade{ opacity:.35; }
 
 /* ---------- Edge hover-scroll — base .mx-edge-scroll styles live in css/portal.css (shared with
    Room Rate Comparison). Here, left/right are narrowed to the sticky date-header row instead of
@@ -153,17 +154,22 @@
 .parity-range-bar input[type="date"]{ min-width:150px; }
 
 /* ---------- Rate Parity grid — same edge hover-scroll as the main Rate Matrix grid (.mx-edge-*
-   classes, reused as-is): hover near the left/right edge to scroll toward it, instead of a
-   click arrow. ---------- */
+   classes, reused as-is): hover near the left/right edge to scroll toward it. Rate Calendar's
+   Rate Parity modal additionally keeps these zones faintly visible and clickable at rest (below,
+   scoped to #parityGridHost's wrap) so there's a discoverable click-arrow affordance too, on top
+   of the hover-to-scroll and the grid's own native scrollbar — all three coexist. ---------- */
 .parity-scroll-wrap{ position:relative; }
+.parity-scroll-wrap .mx-edge-scroll{ opacity:.55; cursor:pointer; }
+.parity-scroll-wrap .mx-edge-scroll.is-active{ opacity:1; }
 
 /* ---------- Rate Parity modal backdrop — a frosted glass scrim instead of Bootstrap's flat
    dark overlay, consistent with the rest of the app's glass-surface language. The rest of the
-   window (ticker, chart, the Rate Matrix grid behind it) stays visible-but-softened rather than
-   going fully black, which read as the whole page "freezing" rather than a modal opening on top
-   of it. Scoped to this page — there's only ever one modal open here (Rate Parity). ---------- */
-.page-rate-shopper .modal-backdrop{
+   window (ticker/chart/grid behind it) stays visible-but-softened rather than going fully black,
+   which read as the whole page "freezing" rather than a modal opening on top of it. Scoped to
+   Rate Shopper's page class and to Rate Calendar's own .cal-embed body class — both pages only
+   ever have one modal open at a time (Rate Parity, or Rate Calendar's Bulk Update). ---------- */
+.page-rate-shopper .modal-backdrop, .cal-embed .modal-backdrop{
   background:color-mix(in srgb, var(--bg-body) 45%, transparent);
   backdrop-filter:blur(7px); -webkit-backdrop-filter:blur(7px);
 }
-.page-rate-shopper .modal-backdrop.show{ opacity:1; }
+.page-rate-shopper .modal-backdrop.show, .cal-embed .modal-backdrop.show{ opacity:1; }

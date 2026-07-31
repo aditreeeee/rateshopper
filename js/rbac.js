@@ -85,6 +85,12 @@ const RBAC = (() => {
       case ROLES.PROPERTY_OWNER:
         // No company-wide settings, and nobody left below them in the hierarchy to manage.
         if(moduleName === MODULES.SETTINGS || moduleName === MODULES.USERS) return false;
+        // Deleting the property itself is deliberately excluded — it's the one thing a Property
+        // Owner is scoped to (their own account's parentPropertyId), so self-deleting it would
+        // leave their own account pointing at a property that no longer exists (broken dashboard,
+        // wrong redirect on next login). Editing the property is still fully allowed; removing it
+        // is reserved for the Company Admin who created it.
+        if(moduleName === MODULES.PROPERTIES && action === 'delete') return false;
         // Full CRUD on their Parent Property's Rooms, Rate Plans, Calendar, Channels.
         return true;
 

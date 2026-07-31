@@ -62,6 +62,14 @@ document.addEventListener('DOMContentLoaded', ()=>{
   document.getElementById('mx_room').innerHTML += ourRooms.map(r=>`<option value="${r.id}">${r.name}</option>`).join('');
   document.getElementById('mx_mealPlan').innerHTML += PORTALDATA.MEAL_PLANS.map(m=>`<option value="${m}">${m}</option>`).join('');
   document.getElementById('mx_channel').innerHTML = ourChannels.map(c=>`<option value="${c.id}" ${c.type==='master'?'selected':''}>${c.name}</option>`).join('');
+  // Room Category — only the categories actually present among your own rooms are offered, so the
+  // list is never longer than what could possibly match something.
+  const roomCategories = [...new Set(ourRooms.map(r=>r.category).filter(Boolean))].sort();
+  document.getElementById('mx_roomCategory').innerHTML += roomCategories.map(cat=>`<option value="${cat}">${cat}</option>`).join('');
+  // Market Segment — each tracked comparison property's own type (Resort/Business Hotel/Heritage
+  // Hotel/Boutique Hotel), the same classification used everywhere else a property is described.
+  const marketSegments = [...new Set(comps.map(c=>{ const cp = DB.properties.get(c.realPropertyId); return cp ? cp.type : null; }).filter(Boolean))].sort();
+  document.getElementById('mx_marketSegment').innerHTML += marketSegments.map(seg=>`<option value="${seg}">${seg}</option>`).join('');
 
   function renderCompetitorMenu(){
     const menu = document.getElementById('mx_competitorMenu');
@@ -132,9 +140,13 @@ document.addEventListener('DOMContentLoaded', ()=>{
   // ---- Build the visible column groups (My Property + each visible/mapped competitor) ----
   function buildGroups(){
     const roomFilter = document.getElementById('mx_room').value;
+    const categoryFilter = document.getElementById('mx_roomCategory').value;
+    const segmentFilter = document.getElementById('mx_marketSegment').value;
+    const comparisonType = document.getElementById('mx_comparisonType').value;
     const search = document.getElementById('mx_search').value.trim().toLowerCase();
 
     const myRooms = ourRooms.filter(r=> !roomFilter || r.id===roomFilter)
+      .filter(r=> !categoryFilter || r.category===categoryFilter)
       .filter(r=> !search || r.name.toLowerCase().includes(search) || property.name.toLowerCase().includes(search));
     const groups = [{ id:'me', name:`${property.name} (You)`, isMe:true, propertyIdForLookup:propertyId,
       rooms: myRooms.map(r=>({ roomName:r.name, ourRoomId:r.id })) }];
@@ -142,15 +154,27 @@ document.addEventListener('DOMContentLoaded', ()=>{
     comps.forEach(c=>{
       if(mxHiddenGroups.has(c.id)) return;
       if(!mxSelectedCompetitors.has(c.id)) return;
+      // Market Segment — the comparison property's own type (Resort/Business Hotel/etc.).
+      if(segmentFilter){
+        const cp = DB.properties.get(c.realPropertyId);
+        if(!cp || cp.type !== segmentFilter) return;
+      }
       MAPPING.ensureAutoMapped(propertyId, c.realPropertyId);
       const ev = MAPPING.evaluate(propertyId, c.realPropertyId);
       let mapped = ev.rooms.filter(r=>r.compRoom);
       if(roomFilter) mapped = mapped.filter(r=>r.ourRoom.id===roomFilter);
+      if(categoryFilter) mapped = mapped.filter(r=> r.compRoom.category===categoryFilter || r.ourRoom.category===categoryFilter);
       if(search){
         const nameMatch = c.name.toLowerCase().includes(search);
         mapped = mapped.filter(r=> nameMatch || r.compRoom.name.toLowerCase().includes(search));
       }
       if(!mapped.length) return;
+      // Comparison Type — "matched" (default) keeps one row per like-for-like mapped room;
+      // "cheapest" collapses each competitor down to just their single lowest base-priced room,
+      // for a quick "who's the cheapest option available" read instead of a full room-by-room grid.
+      if(comparisonType==='cheapest'){
+        mapped = [mapped.reduce((min,r)=> r.compRoom.basePrice < min.compRoom.basePrice ? r : min)];
+      }
       groups.push({
         id:c.id, name:c.name, isMe:false, propertyIdForLookup:c.realPropertyId,
         rooms: mapped.map(r=>({ roomName:r.compRoom.name, ourRoomId:r.ourRoom.id }))
@@ -399,10 +423,13 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
   function resetFilters(){
     document.getElementById('mx_room').value = '';
+    document.getElementById('mx_roomCategory').value = '';
     document.getElementById('mx_occ').value = '2';
     document.getElementById('mx_mealPlan').value = '';
     document.getElementById('mx_channel').value = ourMaster ? ourMaster.id : '';
     document.getElementById('mx_ratePlan').value = '';
+    document.getElementById('mx_marketSegment').value = '';
+    document.getElementById('mx_comparisonType').value = 'matched';
     document.getElementById('mx_search').value = '';
     mxSelectedCompetitors = new Set(comps.map(c=>c.id));
     mxHiddenGroups = new Set();
@@ -613,7 +640,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
   // ---- Wiring ----
 
-  ['mx_room','mx_occ','mx_mealPlan','mx_channel','mx_ratePlan'].forEach(id=>{
+  ['mx_room','mx_roomCategory','mx_occ','mx_mealPlan','mx_channel','mx_ratePlan','mx_marketSegment','mx_comparisonType'].forEach(id=>{
     document.getElementById(id).addEventListener('change', renderGrid);
   });
   document.getElementById('mx_search').addEventListener('input', renderGrid);
