@@ -44,6 +44,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   const me = PORTAL.mount({ title:'Comparison', subtitle:'Compare your rooms, rate plans, and channels against mapped competitors, all in one place.' });
   if(!me) return;
   const propertyId = PORTAL.activePropertyId(me);
+  PWIDGETS.initTabbar('cmp_tabs');
 
   const channels = DB.channels.byProperty(propertyId);
   const master = channels.find(c=>c.type==='master');
@@ -435,6 +436,38 @@ document.addEventListener('DOMContentLoaded', ()=>{
   document.getElementById('rc_exportCsv').addEventListener('click', exportCsv);
   document.getElementById('rc_exportExcel').addEventListener('click', ()=> APP.toast('Export Started', 'Your Excel workbook is being prepared for download.', 'success'));
   document.getElementById('rc_print').addEventListener('click', ()=> window.print());
+
+  // Edge hover-scroll — hover near an edge of the Room Comparison table and it scrolls smoothly
+  // toward it for as long as the cursor stays there, same interaction as Rate Shopper's Rate
+  // Matrix/Rate Parity grids. #rc_tableWrap itself is never rebuilt (only #rc_table's innerHTML
+  // is, on every renderTable()), so it's safe to grab once rather than re-querying per frame.
+  (function wireEdgeScroll(){
+    const wrap = document.getElementById('rc_tableWrap');
+    const zones = [
+      { el:document.getElementById('rc_edgeUp'),    dx:0,  dy:-9 },
+      { el:document.getElementById('rc_edgeDown'),  dx:0,  dy:9  },
+      { el:document.getElementById('rc_edgeLeft'),  dx:-9, dy:0  },
+      { el:document.getElementById('rc_edgeRight'), dx:9,  dy:0  },
+    ];
+    let raf = null;
+    function tick(dx, dy){
+      wrap.scrollBy({ left:dx, top:dy });
+      raf = requestAnimationFrame(()=> tick(dx, dy));
+    }
+    zones.forEach(z=>{
+      if(!z.el) return;
+      z.el.addEventListener('mouseenter', ()=>{
+        z.el.classList.add('is-active');
+        cancelAnimationFrame(raf);
+        tick(z.dx, z.dy);
+      });
+      z.el.addEventListener('mouseleave', ()=>{
+        z.el.classList.remove('is-active');
+        cancelAnimationFrame(raf);
+        raf = null;
+      });
+    });
+  })();
 
   /* ======================================================================
      Rate Plan Trend Analysis — meal-plan-scoped (All Plans/EP/CP/MAP/AP) rate

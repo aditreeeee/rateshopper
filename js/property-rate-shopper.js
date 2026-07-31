@@ -22,8 +22,6 @@ document.addEventListener('DOMContentLoaded', ()=>{
   if(!me) return;
   const propertyId = PORTAL.activePropertyId(me);
 
-  document.getElementById('rs_matrixFrame').src = 'property-rate-matrix.html?embed=1';
-
   // No comparison properties assigned yet — nothing to chart or ticker, so swap the whole
   // data area for an explanatory empty state instead of showing a lone "My Property" line.
   const hasComps = PORTALDATA.comparisonRealProperties().length > 0;
@@ -142,7 +140,15 @@ document.addEventListener('DOMContentLoaded', ()=>{
       };
     });
 
-    if(rsChart) rsChart.destroy();
+    // Update in place — the range toggle (7D/30D/90D) and the legend's show/hide-a-competitor
+    // toggles both land here; reassigning data/datasets and calling update() lets Chart.js tween
+    // between old and new values instead of the chart blinking away and redrawing from scratch.
+    if(rsChart){
+      rsChart.data.labels = labels;
+      rsChart.data.datasets = datasets;
+      rsChart.update();
+      return;
+    }
     rsChart = new Chart(document.getElementById('rs_chart'), {
       type:'line',
       data:{ labels, datasets },

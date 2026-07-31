@@ -37,21 +37,10 @@ function mxPresetRange(key){
 }
 
 document.addEventListener('DOMContentLoaded', ()=>{
-  // Embedded mode: mounted inline inside Rate Shopper's "Rate Matrix" section rather than as
-  // its own standalone sidebar page — skip the page chrome (sidebar/topbar/header) entirely,
-  // same pattern as js/rate-calendar.js's iframe embed.
-  const embed = APP.qs('embed') === '1';
-  let me;
-  if(embed){
-    me = PORTAL.guard();
-    if(!me) return;
-    APP.initTheme();
-    document.body.classList.add('cal-embed');
-    document.getElementById('app-shell').classList.add('p-0');
-    document.getElementById('mx_nextLink').classList.add('d-none');
-  } else {
-    me = PORTAL.mount({ title:'Rate Matrix', subtitle:'Your rate vs. every mapped competitor room, side by side across a date range.' });
-  }
+  // Rendered inline as part of Rate Shopper (not a standalone page) — the page chrome
+  // (sidebar/topbar/theme/breadcrumb) is already set up by property-rate-shopper.js's own
+  // PORTAL.mount() call, which runs first; this only needs the session/property check.
+  const me = PORTAL.guard();
   if(!me) return;
   const propertyId = PORTAL.activePropertyId(me);
   const property = DB.properties.get(propertyId);
@@ -355,27 +344,6 @@ document.addEventListener('DOMContentLoaded', ()=>{
       <thead><tr><th class="grid-sticky-col">Channel</th>${theadDates}</tr></thead>
       <tbody>${bodyRows}</tbody>
     </table></div>`;
-
-    wireParityScrollButtons();
-  }
-
-  // Arrow buttons alongside the native scrollbar — an easier click target than dragging a thin
-  // scrollbar, especially with many date columns. Re-wired on every render since the scroll
-  // container is rebuilt each time; buttons disable themselves at either end.
-  function wireParityScrollButtons(){
-    const wrap = document.querySelector('#parityGridHost .grid-table-wrap');
-    const leftBtn = document.getElementById('parity_scrollLeft');
-    const rightBtn = document.getElementById('parity_scrollRight');
-    if(!wrap) return;
-    const STEP = 220;
-    function updateArrows(){
-      leftBtn.disabled = wrap.scrollLeft <= 0;
-      rightBtn.disabled = wrap.scrollLeft >= wrap.scrollWidth - wrap.clientWidth - 1;
-    }
-    leftBtn.onclick = ()=> wrap.scrollBy({ left:-STEP, behavior:'smooth' });
-    rightBtn.onclick = ()=> wrap.scrollBy({ left:STEP, behavior:'smooth' });
-    wrap.addEventListener('scroll', updateArrows);
-    updateArrows();
   }
 
   function setParityActivePreset(days){
@@ -422,7 +390,11 @@ document.addEventListener('DOMContentLoaded', ()=>{
     setParityActivePreset(null);
 
     renderParityGrid();
-    new bootstrap.Modal(document.getElementById('parityModal')).show();
+    // getOrCreateInstance (not `new Modal(...)`) — this can be opened many times per page visit,
+    // and constructing a fresh instance every time leaves the previous one's event listeners
+    // attached to the same DOM element, which is what was causing the page to become unresponsive
+    // ("frozen") after the modal had been opened more than once.
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('parityModal')).show();
   }
 
   function resetFilters(){
@@ -493,7 +465,15 @@ document.addEventListener('DOMContentLoaded', ()=>{
     setActiveSeg(presetKey);
     document.getElementById('mx_dateRangeLabel').textContent = mxSameDay(mxRangeStart,mxRangeEnd)
       ? mxFmtShort(mxRangeStart) : `${mxFmtShort(mxRangeStart)} – ${mxFmtShort(mxRangeEnd)}`;
-    renderGrid();
+
+    // Cross-fade the grid instead of an instant column-count jump — going from 7D to 14D roughly
+    // doubles the date columns, which felt like a jarring, "choppy" jump when swapped in instantly.
+    const host = document.getElementById('mx_gridHost');
+    host.classList.add('mx-grid-fade');
+    requestAnimationFrame(()=>{
+      renderGrid();
+      requestAnimationFrame(()=> host.classList.remove('mx-grid-fade'));
+    });
   }
 
   // ---- Prev/Next range navigation — keyboard- and mouse-accessible way to step through time
@@ -592,17 +572,44 @@ document.addEventListener('DOMContentLoaded', ()=>{
   document.getElementById('mx_rangePrev').addEventListener('click', ()=> mxShiftRange(-1));
   document.getElementById('mx_rangeNext').addEventListener('click', ()=> mxShiftRange(1));
 
-  // Directional scroll pad — looks up the grid's scroll container fresh on every click since
-  // renderGrid() rebuilds #mx_gridHost's innerHTML (and therefore the .grid-table-wrap element
-  // itself) on every filter/range change, so a reference captured once would go stale.
-  function mxScrollBy(dx, dy){
-    const wrap = document.querySelector('#mx_gridHost .grid-table-wrap');
-    if(wrap) wrap.scrollBy({ left:dx, top:dy, behavior:'smooth' });
+  // Edge hover-scroll — hovering near an edge of a grid scrolls smoothly toward it for as long as
+  // the cursor stays there, instead of a click-to-scroll arrow/directional pad. Looks up the
+  // scroll container fresh on every frame since renderGrid()/renderParityGrid() rebuild their
+  // host's innerHTML (and therefore the .grid-table-wrap element itself) on every change, so a
+  // reference captured once would go stale. Shared between the main Rate Matrix grid (4
+  // directions) and the Rate Parity modal's grid (left/right only, it never scrolls vertically).
+  function wireEdgeScroll(wrapSelector, zoneSpecs){
+    let raf = null;
+    function tick(dx, dy){
+      const wrap = document.querySelector(wrapSelector);
+      if(wrap) wrap.scrollBy({ left:dx, top:dy });
+      raf = requestAnimationFrame(()=> tick(dx, dy));
+    }
+    zoneSpecs.forEach(z=>{
+      const el = document.getElementById(z.id);
+      if(!el) return;
+      el.addEventListener('mouseenter', ()=>{
+        el.classList.add('is-active');
+        cancelAnimationFrame(raf);
+        tick(z.dx, z.dy);
+      });
+      el.addEventListener('mouseleave', ()=>{
+        el.classList.remove('is-active');
+        cancelAnimationFrame(raf);
+        raf = null;
+      });
+    });
   }
-  document.getElementById('mx_scrollUp').addEventListener('click', ()=> mxScrollBy(0, -180));
-  document.getElementById('mx_scrollDown').addEventListener('click', ()=> mxScrollBy(0, 180));
-  document.getElementById('mx_scrollLeft').addEventListener('click', ()=> mxScrollBy(-240, 0));
-  document.getElementById('mx_scrollRight').addEventListener('click', ()=> mxScrollBy(240, 0));
+  wireEdgeScroll('#mx_gridHost .grid-table-wrap', [
+    { id:'mx_edgeUp',    dx:0,  dy:-9 },
+    { id:'mx_edgeDown',  dx:0,  dy:9  },
+    { id:'mx_edgeLeft',  dx:-9, dy:0  },
+    { id:'mx_edgeRight', dx:9,  dy:0  },
+  ]);
+  wireEdgeScroll('#parityGridHost .grid-table-wrap', [
+    { id:'parity_edgeLeft',  dx:-9, dy:0 },
+    { id:'parity_edgeRight', dx:9,  dy:0 },
+  ]);
 
   // ---- Wiring ----
 

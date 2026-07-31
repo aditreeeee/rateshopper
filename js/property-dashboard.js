@@ -102,7 +102,18 @@ document.addEventListener('DOMContentLoaded', ()=>{
       lowLine.push(min);
     }
     document.getElementById('rateTrendSubtitle').textContent = `Our rate vs. the market, trailing ${days} days.`;
-    if(rateTrendChart) rateTrendChart.destroy();
+    // Update the existing chart in place (labels/data only) rather than destroy+recreate — Chart.js
+    // animates the transition between the old and new values, so switching 7D/14D/30D reads as a
+    // smooth tween instead of the chart flashing away and redrawing from scratch.
+    if(rateTrendChart){
+      rateTrendChart.data.labels = labels;
+      rateTrendChart.data.datasets[0].data = myLine;
+      rateTrendChart.data.datasets[1].data = marketLine;
+      rateTrendChart.data.datasets[2].data = highLine;
+      rateTrendChart.data.datasets[3].data = lowLine;
+      rateTrendChart.update();
+      return;
+    }
     rateTrendChart = new Chart(document.getElementById('rateTrendChart'), {
       type:'line',
       data:{ labels, datasets:[
@@ -168,11 +179,21 @@ document.addEventListener('DOMContentLoaded', ()=>{
   // to change with it too instead of leaving the line unexplained.
   function renderTrend(range){
     const t = trendDatasets[range];
-    if(priceTrendChart) priceTrendChart.destroy();
     const ctx = document.getElementById('priceTrendChart').getContext('2d');
     const gradient = ctx.createLinearGradient(0, 0, 0, 220);
     gradient.addColorStop(0, t.color+'40');
     gradient.addColorStop(1, t.color+'02');
+    // Update in place — Daily/Weekly/Monthly still tween the line rather than blinking away and
+    // redrawing, even though the label meaning, color, and point count all change together.
+    if(priceTrendChart){
+      const ds = priceTrendChart.data.datasets[0];
+      priceTrendChart.data.labels = t.labels;
+      ds.data = t.data; ds.label = t.legendLabel;
+      ds.borderColor = t.color; ds.backgroundColor = gradient;
+      ds.pointHoverBackgroundColor = t.color;
+      priceTrendChart.update();
+      return;
+    }
     priceTrendChart = new Chart(ctx, {
       type:'line',
       data:{ labels:t.labels, datasets:[{

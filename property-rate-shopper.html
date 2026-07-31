@@ -10,8 +10,9 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link href="css/style.css" rel="stylesheet">
 <link href="css/portal.css" rel="stylesheet">
+<link href="css/rate-matrix.css" rel="stylesheet">
 </head>
-<body>
+<body class="page-rate-shopper">
 <div id="app-shell">
 
 <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
@@ -50,8 +51,128 @@
     <div class="text-muted small">Your rate vs. every mapped competitor room, side by side across a date range.</div>
   </div>
 </div>
-<div class="section-card p-0 rs-matrix-frame-card">
-  <iframe id="rs_matrixFrame" src="" scrolling="no" style="width:100%;height:1230px;border:none;display:block;overflow:hidden"></iframe>
+
+<div class="cal-toolbar">
+  <div class="d-flex align-items-center gap-2 flex-wrap">
+    <div class="d-flex align-items-center gap-2 flex-wrap">
+      <div class="mx-range-segmented" id="mx_rangeSegmented" role="group">
+        <button type="button" class="mx-seg-btn" data-preset="7">7D</button>
+        <button type="button" class="mx-seg-btn" data-preset="14">14D</button>
+        <button type="button" class="mx-seg-btn" data-preset="30">30D</button>
+        <button type="button" class="mx-seg-btn" data-preset="90">90D</button>
+        <div class="dropdown d-inline-block" id="mx_customDropdown">
+          <button type="button" class="mx-seg-btn dropdown-toggle" id="mx_customBtn" data-preset="custom" data-bs-toggle="dropdown" data-bs-auto-close="outside">Custom</button>
+          <div class="dropdown-menu p-0" id="mx_dateRangeMenu">
+            <div class="mx-drp-custom" id="mx_drpCustom">
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <button type="button" class="btn btn-sm-icon btn-soft" id="mx_drpPrevMonth"><i class="bi bi-chevron-left"></i></button>
+                <div class="d-flex gap-3">
+                  <div class="fw-semibold small text-center" style="width:200px" id="mx_drpMonthLabel1"></div>
+                  <div class="fw-semibold small text-center" style="width:200px" id="mx_drpMonthLabel2"></div>
+                </div>
+                <button type="button" class="btn btn-sm-icon btn-soft" id="mx_drpNextMonth"><i class="bi bi-chevron-right"></i></button>
+              </div>
+              <div class="d-flex gap-3">
+                <div class="mx-drp-cal" id="mx_drpCal1"></div>
+                <div class="mx-drp-cal" id="mx_drpCal2"></div>
+              </div>
+              <div class="d-flex justify-content-between align-items-center mt-2 pt-2 mx-drp-footer">
+                <div class="text-muted small" id="mx_drpSelectedLabel">Select a start and end date</div>
+                <div class="d-flex gap-2">
+                  <button type="button" class="btn btn-light btn-sm" id="mx_drpCancel">Cancel</button>
+                  <button type="button" class="btn btn-primary btn-sm" id="mx_drpApply" disabled>Apply</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="mx-range-nav" role="group" aria-label="Move date range">
+        <button type="button" class="btn btn-sm-icon btn-soft" id="mx_rangePrev" title="Previous period" aria-label="Show previous date range"><i class="bi bi-chevron-left"></i></button>
+        <span class="text-muted small" id="mx_dateRangeLabel">-</span>
+        <button type="button" class="btn btn-sm-icon btn-soft" id="mx_rangeNext" title="Next period" aria-label="Show next date range"><i class="bi bi-chevron-right"></i></button>
+      </div>
+    </div>
+  </div>
+  <div class="d-flex align-items-center gap-2 flex-wrap">
+    <input type="text" class="form-control form-control-sm" id="mx_search" placeholder="Search competitor or room..." style="width:200px">
+    <div class="dropdown">
+      <button class="btn btn-soft btn-sm dropdown-toggle" data-bs-toggle="dropdown" data-bs-auto-close="outside"><i class="bi bi-eye me-1"></i>Properties</button>
+      <div class="dropdown-menu p-2" id="mx_columnMenu" style="min-width:220px;max-height:280px;overflow-y:auto"></div>
+    </div>
+    <div class="dropdown">
+      <button class="btn btn-outline-primary btn-sm dropdown-toggle" data-bs-toggle="dropdown"><i class="bi bi-download me-1"></i>Export</button>
+      <ul class="dropdown-menu dropdown-menu-end">
+        <li><a class="dropdown-item" href="#" id="mx_exportCsv"><i class="bi bi-filetype-csv me-2"></i>Export CSV</a></li>
+        <li><a class="dropdown-item" href="#" id="mx_exportExcel"><i class="bi bi-file-earmark-excel me-2"></i>Export Excel</a></li>
+        <li><a class="dropdown-item" href="#" id="mx_exportPdf"><i class="bi bi-file-earmark-pdf me-2"></i>Export PDF</a></li>
+      </ul>
+    </div>
+    <button class="btn btn-soft btn-sm" id="mx_print" title="Print"><i class="bi bi-printer"></i></button>
+  </div>
+</div>
+
+<div class="filters-bar mx-filters">
+  <div class="row g-2 mb-2">
+    <div class="col-6 col-lg-3">
+      <label class="form-label mb-1" style="font-size:.72rem">Competitor</label>
+      <div class="dropdown w-100">
+        <button class="btn btn-light w-100 dropdown-toggle text-truncate" type="button" id="mx_competitorBtn" data-bs-toggle="dropdown" data-bs-auto-close="outside">All Competitors</button>
+        <div class="dropdown-menu p-2" id="mx_competitorMenu" style="min-width:240px;max-height:280px;overflow-y:auto"></div>
+      </div>
+    </div>
+    <div class="col-6 col-lg-3">
+      <label class="form-label mb-1" style="font-size:.72rem" for="mx_room">Room</label>
+      <select class="form-select form-select-sm" id="mx_room"><option value="">All Rooms</option></select>
+    </div>
+    <div class="col-6 col-lg-3">
+      <label class="form-label mb-1" style="font-size:.72rem" for="mx_occ">Occupancy</label>
+      <select class="form-select form-select-sm" id="mx_occ">
+        <option value="1">1 Guest</option>
+        <option value="2" selected>2 Guests</option>
+        <option value="3">3 Guests</option>
+        <option value="4">4 Guests</option>
+      </select>
+    </div>
+    <div class="col-6 col-lg-3">
+      <label class="form-label mb-1" style="font-size:.72rem" for="mx_mealPlan">Meal Plan</label>
+      <select class="form-select form-select-sm" id="mx_mealPlan"><option value="">All Meal Plans</option></select>
+    </div>
+  </div>
+  <div class="row g-2">
+    <div class="col-6 col-lg-4">
+      <label class="form-label mb-1" style="font-size:.72rem" for="mx_channel">Channel</label>
+      <select class="form-select form-select-sm" id="mx_channel"></select>
+    </div>
+    <div class="col-6 col-lg-4">
+      <label class="form-label mb-1" style="font-size:.72rem" for="mx_ratePlan">Rate Plan</label>
+      <select class="form-select form-select-sm" id="mx_ratePlan">
+        <option value="">All Rate Plans</option>
+        <option value="refundable">Flexible</option>
+        <option value="nonrefundable">Non-Refundable</option>
+      </select>
+    </div>
+    <div class="col-12 col-lg-4 d-flex align-items-end">
+      <button class="btn btn-soft btn-sm w-100" id="mx_reset"><i class="bi bi-arrow-counterclockwise me-1"></i>Reset Filters</button>
+    </div>
+  </div>
+</div>
+
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+  <div class="text-muted small" id="mx_summary">-</div>
+  <div class="text-muted small">
+    <span class="mx-legend-dot"></span> Your rate
+    &nbsp; <i class="bi bi-chevron-down"></i> Click a property to collapse/expand its rooms
+    &nbsp; <img src="https://www.eglobe-solutions.com/channelmanager/images/parity-view.png" alt="" style="width:12px;height:12px;vertical-align:-1px"> Compare that room across channels
+  </div>
+</div>
+
+<div class="section-card mx-grid-card" style="position:relative">
+  <div class="mx-edge-scroll mx-edge-top" id="mx_edgeUp" aria-hidden="true"><i class="bi bi-chevron-up"></i></div>
+  <div class="mx-edge-scroll mx-edge-bottom" id="mx_edgeDown" aria-hidden="true"><i class="bi bi-chevron-down"></i></div>
+  <div class="mx-edge-scroll mx-edge-left" id="mx_edgeLeft" aria-hidden="true"><i class="bi bi-chevron-left"></i></div>
+  <div class="mx-edge-scroll mx-edge-right" id="mx_edgeRight" aria-hidden="true"><i class="bi bi-chevron-right"></i></div>
+  <div id="mx_gridHost"></div>
 </div>
 </div>
 
@@ -62,6 +183,45 @@
 
 </div>
 
+<!-- Rate Parity Modal -->
+<div class="modal fade" id="parityModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered modal-xl">
+    <div class="modal-content" style="border-radius:18px;border:none">
+      <div class="modal-header border-0 pb-0">
+        <div>
+          <h5 class="modal-title fw-bold mb-1"><img src="https://www.eglobe-solutions.com/channelmanager/images/parity-view.png" alt="Rate Parity" class="parity-icon me-2" style="width:20px;height:20px">Rate Parity Comparison</h5>
+          <div class="text-muted small" id="parityMeta">-</div>
+        </div>
+        <button class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <!-- Its own date range — independent of whatever range the Rate Matrix behind it is set
+             to, so you can widen or narrow the parity comparison without changing the main grid.
+             Plain preset buttons + native date pickers so it's easy for anyone, no custom
+             calendar widget to figure out. -->
+        <div class="parity-range-bar mb-3">
+          <span class="parity-range-label"><i class="bi bi-calendar-range me-1"></i>Date Range</span>
+          <div class="btn-group btn-group-sm" id="parity_rangeGroup" role="group">
+            <button type="button" class="btn btn-soft" data-days="7">7 Days</button>
+            <button type="button" class="btn btn-soft" data-days="14">14 Days</button>
+            <button type="button" class="btn btn-soft" data-days="30">30 Days</button>
+          </div>
+          <span class="text-muted small d-none d-md-inline">or pick exact dates</span>
+          <input type="date" class="form-control form-control-sm" id="parity_startDate" style="width:auto">
+          <span class="text-muted small">to</span>
+          <input type="date" class="form-control form-control-sm" id="parity_endDate" style="width:auto">
+          <button type="button" class="btn btn-primary btn-sm" id="parity_apply"><i class="bi bi-check2 me-1"></i>Apply</button>
+        </div>
+        <div class="parity-scroll-wrap">
+          <div class="mx-edge-scroll mx-edge-left" id="parity_edgeLeft" aria-hidden="true"><i class="bi bi-chevron-left"></i></div>
+          <div class="mx-edge-scroll mx-edge-right" id="parity_edgeRight" aria-hidden="true"><i class="bi bi-chevron-right"></i></div>
+          <div id="parityGridHost"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 <script src="js/data.js"></script>
@@ -70,6 +230,8 @@
 <script src="js/portal-data.js"></script>
 <script src="js/portal-shell.js"></script>
 <script src="js/portal-widgets.js"></script>
+<script src="js/mapping-review.js"></script>
 <script src="js/property-rate-shopper.js"></script>
+<script src="js/property-rate-matrix.js"></script>
 </body>
 </html>

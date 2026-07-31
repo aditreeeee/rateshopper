@@ -14,10 +14,24 @@ function chartAnim(isBar){
 // Inter/system-ui stack as the surrounding UI instead of visibly mismatched axis/legend text.
 if(window.Chart) Chart.defaults.font.family = getComputedStyle(document.body).fontFamily;
 
+// Expandable analysis cards — one delegated listener covers every .insight-toggle button on the
+// page (Insight Generation and Forecast Opportunity cards alike), including any re-rendered after
+// this listener is attached, since it's bound on document rather than on the buttons themselves.
+document.addEventListener('click', (e)=>{
+  const toggle = e.target.closest('.insight-toggle');
+  if(!toggle) return;
+  const card = toggle.closest('.insight-card');
+  if(!card) return;
+  const expanded = card.classList.toggle('is-expanded');
+  const count = toggle.textContent.match(/\((\d+)\)/);
+  toggle.innerHTML = `<i class="bi bi-chevron-down"></i>${expanded?'Hide details':'Show details'}${count?` (${count[1]})`:''}`;
+});
+
 document.addEventListener('DOMContentLoaded', ()=>{
   const me = PORTAL.mount({ title:'Forecast & Actions', subtitle:'Forward-looking pricing forecasts, market insights, and an action center to apply them.' });
   if(!me) return;
   const propertyId = PORTAL.activePropertyId(me);
+  PWIDGETS.initTabbar('mi_tabs');
   // Only the competitors your Company Admin actually mapped to you — same set as Competitors/Rate Shopper.
   const comps = PORTALDATA.comparisonRealProperties();
   const today = PORTALDATA.dateKeyOffset(0);
@@ -42,9 +56,18 @@ document.addEventListener('DOMContentLoaded', ()=>{
   // assigned comparison set (`comps`) since only those have actual DB room/rate-plan data. ----
   const forecastComps = PORTALDATA.competitors(propertyId);
   const totalRooms = DB.rooms.byProperty(propertyId).reduce((s,r)=>s+(r.totalRooms||0), 0) || 20;
-  const forecastDays = buildForecastDays(propertyId, forecastComps);
-  renderForecastOpportunities(propertyId, comps, forecastComps, forecastDays, totalRooms);
-  initScenarioPlanner(forecastDays, totalRooms, forecastComps.length);
+
+  // Rebuildable on demand — buildForecastDays() reads "my rate" fresh from DB every time it's
+  // called, so re-running this after a rate change (Action Center's "Apply Rate Change", or a
+  // Rate Calendar edit elsewhere in the app) keeps the Forecast tab's Opportunities and Scenario
+  // Planner in sync with the actual current price instead of showing whatever it was on page load.
+  function refreshForecast(){
+    const freshDays = buildForecastDays(propertyId, forecastComps);
+    renderForecastOpportunities(propertyId, comps, forecastComps, freshDays, totalRooms);
+    initScenarioPlanner(freshDays, totalRooms, forecastComps.length);
+  }
+  refreshForecast();
+  window.__refreshForecast = refreshForecast;
 
   // Deep-link support (?tab=recommendations|action) — lets a link from elsewhere in
   // the app land directly on the right tab instead of always Forecast.
@@ -325,6 +348,7 @@ function renderForecastOpportunities(propertyId, realComps, forecastComps, days,
             <span class="insight-confidence-badge mt-1 d-inline-block">Confidence: ${c.confidence}%</span>
           </div>
         </div>
+        <button type="button" class="insight-toggle"><i class="bi bi-chevron-down"></i>Show details (${c.reasons.length})</button>
         <ul class="insight-supporting mb-2">${c.reasons.map(r=>`<li>${r}</li>`).join('')}</ul>
         ${c.impact != null ? `<div class="forecast-impact ${c.impact>=0?'pos':'neg'} mb-2"><i class="bi bi-${c.impact>=0?'plus':'dash'}-circle me-1"></i>Estimated impact: ${APP.fmtCurrency(Math.round(Math.abs(c.impact)))} over the forecast window</div>` : ''}
         <div class="insight-action"><i class="bi bi-lightbulb-fill"></i>${c.action}</div>
@@ -338,14 +362,18 @@ function renderForecastOpportunities(propertyId, realComps, forecastComps, days,
 function initScenarioPlanner(days, totalRooms, compCount){
   const slider = document.getElementById('fc_scenarioSlider');
   const avgMarket = Math.round(days.reduce((s,d)=>s+d.marketAvg,0)/days.length);
-  const avgLow = Math.round(days.reduce((s,d)=>s+d.lowRate,0)/days.length);
-  const avgHigh = Math.round(days.reduce((s,d)=>s+d.highRate,0)/days.length);
   const avgCurrentRate = Math.round(days.reduce((s,d)=>s+d.myRate,0)/days.length);
   const baselineRevenue = days.reduce((s,d)=> s + d.myRate*totalRooms, 0);
   const avgBaseConfidence = Math.round(days.reduce((s,d)=>s+d.confidence,0)/days.length);
 
+  // Same convention as Rate Position elsewhere in the app (Dashboard, Revenue Calendar) — a
+  // percentage gap from the market average, not the tracked pool's min/max extremes. With ~50
+  // competitors in the pool those extremes span a huge range (roughly ₹2,200-₹15,000), so almost
+  // no realistic rate — even at +/-20% — would ever cross them, making this read as stuck on
+  // "Within Market" no matter what the slider did.
   function marketPosition(rate){
-    return rate < avgLow ? 'Below Market' : rate > avgHigh ? 'Above Market' : 'Within Market';
+    const gapPct = ((rate-avgMarket)/avgMarket)*100;
+    return gapPct <= -4 ? 'Below Market' : gapPct >= 4 ? 'Above Market' : 'Within Market';
   }
 
   function render(pct){
@@ -397,8 +425,12 @@ function initScenarioPlanner(days, totalRooms, compCount){
     }
     document.getElementById('fc_scenarioRecommend').innerHTML = `<i class="bi bi-lightbulb-fill"></i><span>${summary}</span>`;
   }
+  // Reset to baseline and use .oninput (not addEventListener) — this function can be re-run after
+  // a real rate change elsewhere on the page (see refreshForecast/window.__refreshForecast), and
+  // assigning .oninput replaces any previous handler instead of stacking a duplicate one on top.
+  slider.value = 0;
   render(0);
-  slider.addEventListener('input', ()=> render(Number(slider.value)));
+  slider.oninput = ()=> render(Number(slider.value));
 }
 
 // ---- Pricing Recommendations (merged in from the standalone Pricing Recommendations page) ----
@@ -559,7 +591,8 @@ function renderMarketInsights(propertyId){
           </div>
         </div>
         <p class="text-muted small mb-2">${ins.detail}</p>
-        ${ins.supporting.length ? `<ul class="insight-supporting mb-2">${ins.supporting.map(s=>`<li>${s}</li>`).join('')}</ul>` : ''}
+        ${ins.supporting.length ? `<button type="button" class="insight-toggle"><i class="bi bi-chevron-down"></i>Show details (${ins.supporting.length})</button>
+        <ul class="insight-supporting mb-2">${ins.supporting.map(s=>`<li>${s}</li>`).join('')}</ul>` : ''}
         <div class="insight-action"><i class="bi bi-lightbulb-fill"></i>${ins.action}</div>
       </div>
     </div>`).join('') : `<div class="col-12">${PWIDGETS.emptyState('bi-stars','No standout insights right now','Your pricing looks well aligned with the market — nothing significant to flag today.')}</div>`;
@@ -828,4 +861,8 @@ function applyRecommendation(rec, meta){
   APP.toast('Rate Change Applied', `${meta.label} — new rate takes effect for ${APP.fmtDateReadable(date)}.`, 'success');
   PORTAL.refreshBell(me);
   renderActionCenter(propertyId);
+  // Keep the Forecast tab (Top Forecasted Opportunities + Scenario Planner) in sync with the
+  // price change that was just applied here in Action Center, rather than leaving it showing
+  // whatever the rate was when the page first loaded.
+  if(window.__refreshForecast) window.__refreshForecast();
 }

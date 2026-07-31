@@ -36,6 +36,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
   document.getElementById('coverImg').style.backgroundImage = `url('${p.logo}')`;
   document.getElementById('p_desc').textContent = p.description;
+  PWIDGETS.initTabbar('detailTabs');
 
   const canCreateChannel = RBAC.can(RBAC.MODULES.CHANNELS, 'create');
   const addChannelBtn = document.getElementById('addChannelBtn');

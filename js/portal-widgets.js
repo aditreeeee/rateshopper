@@ -83,5 +83,34 @@ const PWIDGETS = (() => {
     </span>`;
   }
 
-  return { kpiCard, trendIcon, channelChip, statusBadge, scoreRing, heatCellColor, skeletonRows, emptyState, timeAgoShort, staleBadge };
+  // Premium sticky tab bar (Room Rate Comparison, Forecast & Actions) — adds a sliding underline
+  // indicator beneath whichever .nav-link is .active and keeps it correctly positioned on every
+  // click and window resize. Purely visual: it doesn't touch whatever click handler the page
+  // already has wired up to show/hide the actual tab content, so it's safe to bolt on after the
+  // fact. Call once per tab bar after its buttons exist in the DOM.
+  function initTabbar(containerId){
+    const nav = document.getElementById(containerId);
+    if(!nav) return null;
+    nav.classList.add('rsiq-tabbar');
+    let indicator = nav.querySelector('.rsiq-tab-indicator');
+    if(!indicator){
+      indicator = document.createElement('span');
+      indicator.className = 'rsiq-tab-indicator';
+      nav.appendChild(indicator);
+    }
+    function reposition(){
+      const active = nav.querySelector('.nav-link.active');
+      if(!active) return;
+      indicator.style.width = active.offsetWidth + 'px';
+      indicator.style.transform = `translateX(${active.offsetLeft}px)`;
+    }
+    nav.querySelectorAll('.nav-link').forEach(btn=>{
+      btn.addEventListener('click', ()=> requestAnimationFrame(reposition));
+    });
+    window.addEventListener('resize', reposition);
+    requestAnimationFrame(reposition);
+    return { reposition };
+  }
+
+  return { kpiCard, trendIcon, channelChip, statusBadge, scoreRing, heatCellColor, skeletonRows, emptyState, timeAgoShort, staleBadge, initTabbar };
 })();

@@ -29,24 +29,70 @@
 
 .portal-logo-badge{ background:linear-gradient(135deg,#3861fb,#8c5cf7) !important; }
 
+/* ==========================================================================
+   Premium sticky tab bar (Room Rate Comparison's 4 tabs, Forecast & Actions' 2 tabs) — a single
+   shared component so the two pages' single-page-with-tabs structure reads identically. Sticks
+   just below the app's own sticky topbar (same top:var(--header-h)/z-index convention as
+   .cal-context-bar) so the active section is always reachable no matter how far the page has
+   scrolled. Separation from the content below comes from a hairline border + backdrop blur
+   (matches the topbar's own glass treatment) rather than a heavy drop shadow — present at rest,
+   not just something that appears on scroll, so there's never a jarring, wobbly threshold. The
+   active tab is marked by weight/color plus a thin underline that slides between tabs on click
+   (PWIDGETS.initTabbar), not by a filled pill background — keeps the whole bar visually light. ========================================================================== */
+.rsiq-tabbar-wrap{
+  position:sticky; top:var(--header-h); z-index:1015;
+  background:var(--glass-bg-strong); border-bottom:1px solid var(--border-1);
+  backdrop-filter:blur(var(--glass-blur)); -webkit-backdrop-filter:blur(var(--glass-blur));
+  margin:0 0 20px; padding:8px 2px 0;
+}
+.rsiq-tabbar{
+  display:flex; align-items:center; gap:2px; flex-wrap:wrap; position:relative;
+  list-style:none; margin:0; padding:0 0 10px; border:none;
+}
+.rsiq-tabbar .nav-item{ display:flex; }
+.rsiq-tabbar .nav-link{
+  border:none; background:transparent; border-radius:8px; color:var(--text-3);
+  font-weight:600; font-size:.83rem; letter-spacing:.005em; white-space:nowrap;
+  padding:8px 14px; transition:color .16s ease, background .16s ease;
+}
+.rsiq-tabbar .nav-link:hover{ color:var(--text-1); background:var(--bg-surface-2); }
+.rsiq-tabbar .nav-link.active{ color:var(--brand-600); }
+[data-theme="dark"] .rsiq-tabbar .nav-link.active{ color:#fff; }
+.rsiq-tab-indicator{
+  position:absolute; left:0; bottom:0; height:2.5px; border-radius:2px 2px 0 0;
+  background:linear-gradient(90deg, var(--brand-500), var(--accent));
+  transition:transform .28s cubic-bezier(.4,0,.2,1), width .28s cubic-bezier(.4,0,.2,1);
+}
+
 /* ---------- KPI grid (glass — overrides the Company Dashboard .kpi-card block flex layout in
    css/style.css since the Property Portal's KPI card is a stacked, not a row, layout) ---------- */
 .kpi-card{
   background:var(--glass-bg); border:1px solid var(--glass-border); border-radius:16px;
   padding:16px 18px; box-shadow:var(--shadow-sm); height:100%;
-  display:flex; flex-direction:column; gap:6px; position:relative; overflow:hidden;
+  display:flex; flex-direction:column; text-align:center;
+  gap:6px; position:relative; overflow:hidden;
   backdrop-filter:blur(var(--glass-blur)); -webkit-backdrop-filter:blur(var(--glass-blur));
 }
 .kpi-card:hover{ transform:translateY(-4px); box-shadow:var(--shadow-lg); border-color:var(--brand-200); }
 [data-theme="dark"] .kpi-card:hover{ border-color:rgba(92,134,255,.35); }
 .kpi-card .kpi-icon{
   width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;
-  font-size:1rem; margin-bottom:2px;
+  font-size:1rem; margin:0 auto 2px;
 }
-.kpi-card .kpi-desc, .channel-perf-card .kpi-desc{ font-size:.68rem; color:var(--text-3); line-height:1.35; margin-top:6px; padding-top:6px; border-top:1px dashed var(--border-1); }
+/* Hover-reveal: the "why this number" line stays reserved in the layout (so hovering never
+   shifts the card or its neighbors — the card's own height is already fixed to match its row)
+   but starts faded and settles in on hover/focus instead of being printed at full strength
+   all the time, which was a lot of always-on gray text across a whole KPI row at a glance. */
+.kpi-card .kpi-desc, .channel-perf-card .kpi-desc{
+  font-size:.68rem; color:var(--text-3); line-height:1.35; margin-top:6px; padding-top:6px;
+  border-top:1px dashed var(--border-1); opacity:0; transform:translateY(3px);
+  transition:opacity var(--dur-fast) ease, transform var(--dur-fast) ease;
+}
+.kpi-card:hover .kpi-desc, .kpi-card:focus-within .kpi-desc,
+.channel-perf-card:hover .kpi-desc, .channel-perf-card:focus-within .kpi-desc{ opacity:1; transform:none; }
 .kpi-card .kpi-label{ font-size:.72rem; color:var(--text-3); font-weight:600; text-transform:uppercase; letter-spacing:.3px; }
 .kpi-card .kpi-value{ font-size:1.35rem; font-weight:800; color:var(--text-1); line-height:1.2; }
-.kpi-card .kpi-sub{ font-size:.74rem; font-weight:600; display:flex; align-items:center; gap:4px; }
+.kpi-card .kpi-sub{ font-size:.74rem; font-weight:600; display:flex; align-items:center; justify-content:center; gap:4px; }
 .kpi-card .kpi-sub.up{ color:var(--success); }
 .kpi-card .kpi-sub.down{ color:var(--danger); }
 .kpi-card .kpi-sub.flat{ color:var(--text-3); }
@@ -162,7 +208,24 @@
 .insight-priority-badge.Medium{ background:var(--fa-tint-mod); color:var(--fa-text-mod); }
 .insight-priority-badge.Low{ background:var(--fa-tint-mild); color:var(--fa-text-mild); }
 .insight-confidence-badge{ font-size:.65rem; font-weight:700; padding:3px 9px; border-radius:20px; background:var(--bg-surface-2); color:var(--text-2); }
-.insight-supporting{ font-size:.74rem; color:var(--text-2); padding-left:16px; margin:0; }
+
+/* ---------- Expandable analysis cards — the supporting-reasons list is collapsed by default so
+   the card reads as a single scannable line (title + action) at a glance; click "Show details" to
+   expand it in place. Card height still isn't fixed here (these sit in a natural-height grid, not
+   a matched-height row like the KPI cards), so the expand only ever pushes content below it down,
+   never overlaps/clips anything. ---------- */
+.insight-toggle{
+  display:flex; align-items:center; gap:5px; border:none; background:none; padding:0;
+  font-size:.71rem; font-weight:700; color:var(--brand-600); margin-bottom:8px; cursor:pointer;
+}
+.insight-toggle .bi{ font-size:.62rem; transition:transform .18s ease; }
+.insight-card.is-expanded .insight-toggle .bi{ transform:rotate(180deg); }
+.insight-supporting{
+  font-size:.74rem; color:var(--text-2); padding-left:16px; margin:0;
+  max-height:0; overflow:hidden; opacity:0;
+  transition:max-height .25s ease, opacity .2s ease, margin .25s ease;
+}
+.insight-card.is-expanded .insight-supporting{ max-height:240px; opacity:1; margin-bottom:.5rem; }
 .insight-supporting li{ margin-bottom:2px; }
 .insight-action{
   display:flex; align-items:center; gap:6px; font-size:.78rem; font-weight:700; color:var(--fa-text-mod);
@@ -214,6 +277,25 @@
   position:sticky; top:0; z-index:2; background:var(--bg-surface-2); border-bottom:1px solid var(--border-1);
 }
 .rate-shopper-table-wrap td, .rate-shopper-table-wrap th{ white-space:nowrap; }
+
+/* ---------- Edge hover-scroll — hover near an edge of a scrollable table/grid and it scrolls
+   toward that edge for as long as the cursor stays there, instead of click arrows or a
+   directional pad. Shared by Rate Shopper's Rate Matrix/Rate Parity grids and the Room Rate
+   Comparison table. Must be placed on a POSITIONED ANCESTOR OF the actual overflow:auto element
+   (never on the scrolling element itself), so the zones stay pinned to the visible edges of the
+   card instead of scrolling away with the content. ---------- */
+.mx-edge-scroll{
+  position:absolute; z-index:6; display:flex; align-items:center; justify-content:center;
+  opacity:0; pointer-events:auto; color:var(--brand-600); font-size:1.05rem;
+  transition:opacity .18s ease;
+}
+.mx-edge-scroll.is-active{ opacity:1; }
+.mx-edge-top, .mx-edge-bottom{ left:16px; right:16px; height:34px; }
+.mx-edge-left, .mx-edge-right{ top:16px; bottom:16px; width:34px; }
+.mx-edge-top{ top:0; background:linear-gradient(to bottom, color-mix(in srgb, var(--bg-surface) 92%, transparent), transparent); }
+.mx-edge-bottom{ bottom:0; background:linear-gradient(to top, color-mix(in srgb, var(--bg-surface) 92%, transparent), transparent); }
+.mx-edge-left{ left:0; background:linear-gradient(to right, color-mix(in srgb, var(--bg-surface) 92%, transparent), transparent); }
+.mx-edge-right{ right:0; background:linear-gradient(to left, color-mix(in srgb, var(--bg-surface) 92%, transparent), transparent); }
 
 /* ---------- Skeleton shimmer (reuses .skeleton base if present, adds fallback) ---------- */
 .portal-skeleton{ background:linear-gradient(90deg,var(--bg-surface-2) 25%,var(--border-2) 37%,var(--bg-surface-2) 63%);
@@ -267,9 +349,6 @@
   box-shadow:var(--shadow-sm); backdrop-filter:blur(var(--glass-blur)); -webkit-backdrop-filter:blur(var(--glass-blur));
 }
 
-/* Rate Shopper's embedded Rate Matrix iframe sits directly inside a p-0 section-card — clip its
-   corners to the card's own radius instead of showing a sharp rectangle inset in a rounded card. */
-.rs-matrix-frame-card{ overflow:hidden; }
 .legend-toggle{
   display:inline-flex; align-items:center; gap:5px; padding:4px 10px; border-radius:20px; font-size:.7rem; font-weight:600;
   border:1px solid var(--border-1); background:var(--bg-surface-2); color:var(--text-2); cursor:pointer; user-select:none;

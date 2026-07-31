@@ -125,32 +125,21 @@
 .mx-drp-cal .mx-drp-day.mx-drp-today:not(.mx-drp-endpoint){ box-shadow:inset 0 0 0 1.5px var(--brand-400); font-weight:700; color:var(--brand-600); }
 .mx-drp-footer{ border-top:1px solid var(--border-1); padding-top:12px; }
 
-/* Embedded contexts (Rate Shopper's Rate Matrix iframe) size their own outer iframe to fit
-   exactly, so the grid's row-scroller can't be viewport-relative (100vh) like the standalone
-   page uses — that would create a circular growth/shrink loop against the iframe's own height.
-   A fixed max-height here keeps exactly one scroller (this one) instead of a second, outer one
-   on the iframe itself. */
-.cal-embed .grid-table-wrap{ max-height:820px; }
+/* Rate Matrix now lives inline inside Rate Shopper's own scrolling page rather than a standalone
+   page or iframe, so the grid can't use a 100vh-relative scroller (there's a chart + ticker + the
+   rest of the page above and below it) — a fixed, comfortable max-height instead. */
+.mx-grid-card .grid-table-wrap{ max-height:640px; }
 
-/* ---------- Scroll pad — a small directional-pad overlay pinned to the corner of the grid
-   card. The grid scrolls both ways behind sticky headers/columns, which can be awkward with a
-   trackpad/mouse wheel alone, so these give an explicit, always-reachable way to move in any
-   direction without hunting for the scrollbar edge. ---------- */
-.mx-scroll-pad{
-  position:absolute; top:14px; right:14px; z-index:6;
-  display:flex; flex-direction:column; align-items:center; gap:3px;
-  background:var(--glass-bg-strong); border:1px solid var(--glass-border); border-radius:14px;
-  padding:6px; box-shadow:var(--shadow-md);
-  backdrop-filter:blur(var(--glass-blur)); -webkit-backdrop-filter:blur(var(--glass-blur));
-}
-.mx-scroll-mid{ display:flex; align-items:center; gap:22px; }
-.mx-scroll-btn{
-  width:28px; height:28px; border-radius:8px; border:1px solid var(--border-1); background:var(--bg-surface);
-  color:var(--text-2); display:flex; align-items:center; justify-content:center; font-size:.8rem; cursor:pointer;
-  transition:transform var(--dur-fast) ease, background var(--dur-fast) ease, color var(--dur-fast) ease;
-}
-.mx-scroll-btn:hover{ background:var(--brand-500); color:#fff; transform:scale(1.08); }
-.mx-scroll-btn:active{ transform:scale(.94); }
+/* Cross-fade on date-range change (7D/14D/30D/90D, Prev/Next) — softens the otherwise abrupt
+   jump when the number of date columns changes (e.g. 7D -> 14D roughly doubles them). */
+#mx_gridHost{ transition:opacity .15s ease; }
+#mx_gridHost.mx-grid-fade{ opacity:.35; }
+
+/* ---------- Edge hover-scroll — base .mx-edge-scroll styles live in css/portal.css (shared with
+   Room Rate Comparison). Here, left/right are narrowed to the sticky date-header row instead of
+   spanning the full grid height, since dates (what they actually scroll through) live there —
+   floating mid-height over the price data left them with no clear space of their own. ---------- */
+.mx-edge-left, .mx-edge-right{ top:0; bottom:auto; height:46px; }
 
 /* ---------- Rate Parity modal's own date-range bar — a self-contained, plain-language control
    (preset pills + native date inputs) so picking a custom range for the parity comparison never
@@ -163,20 +152,18 @@
 .parity-range-bar .btn-group .btn{ font-weight:600; }
 .parity-range-bar input[type="date"]{ min-width:150px; }
 
-/* ---------- Rate Parity grid — internal scroll arrows alongside the native scrollbar. The
-   grid can have many date columns; clicking an arrow is a much easier target than grabbing a
-   thin scrollbar, especially for anyone less comfortable with click-and-drag scrolling. ---------- */
+/* ---------- Rate Parity grid — same edge hover-scroll as the main Rate Matrix grid (.mx-edge-*
+   classes, reused as-is): hover near the left/right edge to scroll toward it, instead of a
+   click arrow. ---------- */
 .parity-scroll-wrap{ position:relative; }
-.parity-scroll-btn{
-  position:absolute; top:50%; transform:translateY(-50%); z-index:5;
-  width:36px; height:36px; border-radius:50%; border:1px solid var(--border-1);
-  background:var(--bg-surface); color:var(--brand-600); box-shadow:var(--shadow-md);
-  display:flex; align-items:center; justify-content:center; font-size:1.05rem;
-  cursor:pointer; transition:background .15s ease, transform .15s ease, opacity .15s ease;
+
+/* ---------- Rate Parity modal backdrop — a frosted glass scrim instead of Bootstrap's flat
+   dark overlay, consistent with the rest of the app's glass-surface language. The rest of the
+   window (ticker, chart, the Rate Matrix grid behind it) stays visible-but-softened rather than
+   going fully black, which read as the whole page "freezing" rather than a modal opening on top
+   of it. Scoped to this page — there's only ever one modal open here (Rate Parity). ---------- */
+.page-rate-shopper .modal-backdrop{
+  background:color-mix(in srgb, var(--bg-body) 45%, transparent);
+  backdrop-filter:blur(7px); -webkit-backdrop-filter:blur(7px);
 }
-.parity-scroll-btn:hover{ background:var(--brand-50); }
-.parity-scroll-btn:active{ transform:translateY(-50%) scale(.92); }
-.parity-scroll-btn:disabled{ opacity:.3; cursor:default; }
-.parity-scroll-btn:disabled:hover{ background:var(--bg-surface); }
-.parity-scroll-left{ left:-14px; }
-.parity-scroll-right{ right:-14px; }
+.page-rate-shopper .modal-backdrop.show{ opacity:1; }
