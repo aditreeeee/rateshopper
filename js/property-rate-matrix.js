@@ -9,6 +9,26 @@
    ========================================================================== */
 let mxRangeStart = null, mxRangeEnd = null; // the matrix's active date range — drives the grid, CSV export, and Rate Parity alike
 let mxPreset = '14'; // longer default window than before, so a first-time visitor sees two weeks of rate movement instead of just one
+
+// The left/right edge-scroll zones must sit exactly over the date header row and nowhere else.
+// They're absolutely positioned against `card` (its position:relative ancestor), whose "top:0"
+// lines up with the padding EDGE (i.e. flush with the border) — not with where the card's own
+// padding lets its normal-flow content actually start. A hardcoded top:0 therefore sat card-padding
+// pixels above the real thead, not on top of it. Measuring both elements' real getBoundingClientRect
+// and taking the difference sidesteps that padding-box confusion entirely and is exact regardless
+// of the card's padding, border, or font-metric-driven thead height.
+function alignEdgeZonesToHeader(card, host, leftId, rightId){
+  const thead = host && host.querySelector('thead');
+  if(!thead || !card) return;
+  const cardRect = card.getBoundingClientRect();
+  const theadRect = thead.getBoundingClientRect();
+  const top = theadRect.top - cardRect.top;
+  const h = theadRect.height;
+  [leftId, rightId].forEach(id=>{
+    const el = document.getElementById(id);
+    if(el){ el.style.top = `${top}px`; el.style.height = `${h}px`; }
+  });
+}
 let mxSelectedCompetitors = null; // Set of competitor ids, null = not yet initialized (defaults to all)
 let mxHiddenGroups = new Set();   // competitor ids hidden via the Properties selector
 let mxCollapsedGroups = new Set(); // competitor ids collapsed (rows hidden, divider still shown)
@@ -217,7 +237,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const todayKey = DB.fmtDate(new Date());
     const theadDates = dates.map(d=>{
       const isToday = DB.fmtDate(d)===todayKey;
-      return `<th class="grid-date-col ${isToday?'today-col':''}">${d.toLocaleDateString('en-IN',{weekday:'short'})}<br>${d.getDate()} ${d.toLocaleDateString('en-IN',{month:'short'})}</th>`;
+      return `<th class="grid-date-col ${isToday?'today-col':''}" scope="col">${d.toLocaleDateString('en-IN',{weekday:'short'})}<br>${d.getDate()} ${d.toLocaleDateString('en-IN',{month:'short'})}</th>`;
     }).join('');
 
     const totalRooms = groups.reduce((s,g)=>s+g.rooms.length, 0);
@@ -233,7 +253,12 @@ document.addEventListener('DOMContentLoaded', ()=>{
         : `<i class="bi bi-chevron-${collapsed?'right':'down'} mx-collapse-chevron"></i>`;
       const propIcon = g.isMe ? '<i class="bi bi-star-fill"></i>' : '';
       const roomCount = !g.isMe ? `<span class="text-muted fw-normal" style="font-size:.72rem"> (${g.rooms.length} room${g.rooms.length===1?'':'s'})</span>` : '';
-      bodyRows += `<tr class="grid-room-row mx-group-toggle" data-group="${g.id}"><td class="grid-sticky-col ${g.isMe?'mx-mine':''}"><span class="mx-group-label">${chevron}${propIcon}<span class="mx-group-name">${g.name}</span>${roomCount}</span></td>${dates.map(()=>'<td></td>').join('')}</tr>`;
+      // Keyboard-accessible collapse/expand — not just a click target: role="button" + tabindex
+      // so it's Tab-reachable, aria-expanded so its state is announced, and Enter/Space wired
+      // below alongside the existing click handler (My Property's row never collapses, so it's
+      // left as a plain, non-interactive row).
+      const toggleAttrs = g.isMe ? '' : `role="button" tabindex="0" aria-expanded="${!collapsed}" aria-label="${collapsed?'Expand':'Collapse'} ${g.name} rooms"`;
+      bodyRows += `<tr class="grid-room-row mx-group-toggle" data-group="${g.id}" ${toggleAttrs}><td class="grid-sticky-col ${g.isMe?'mx-mine':''}"><span class="mx-group-label">${chevron}${propIcon}<span class="mx-group-name">${g.name}</span>${roomCount}</span></td>${dates.map(()=>'<td></td>').join('')}</tr>`;
       if(!g.rooms.length){
         bodyRows += `<tr><td class="grid-sticky-col"><div class="grid-plan-label text-muted small"><i class="bi bi-exclamation-circle me-1"></i>No mapped rooms</div></td>${dates.map(()=>'<td></td>').join('')}</tr>`;
         return;
@@ -273,17 +298,22 @@ document.addEventListener('DOMContentLoaded', ()=>{
       });
     });
 
-    host.innerHTML = `<div class="grid-table-wrap"><table class="grid-table">
-      <thead><tr><th class="grid-sticky-col">Property / Room</th>${theadDates}</tr></thead>
+    host.innerHTML = `<div class="grid-table-wrap" tabindex="0" role="group" aria-label="Rate Matrix, scrollable with arrow keys"><table class="grid-table">
+      <thead><tr><th class="grid-sticky-col" scope="col">Property / Room</th>${theadDates}</tr></thead>
       <tbody>${bodyRows}</tbody>
     </table></div>`;
+    alignEdgeZonesToHeader(document.querySelector('.mx-grid-card'), host, 'mx_edgeLeft', 'mx_edgeRight');
 
     document.querySelectorAll('.mx-group-toggle').forEach(tr=>{
       const groupId = tr.dataset.group;
       if(groupId==='me') return; // My Property is always expanded
-      tr.addEventListener('click', ()=>{
+      const toggle = ()=>{
         if(mxCollapsedGroups.has(groupId)) mxCollapsedGroups.delete(groupId); else mxCollapsedGroups.add(groupId);
         renderGrid();
+      };
+      tr.addEventListener('click', toggle);
+      tr.addEventListener('keydown', e=>{
+        if(e.key==='Enter' || e.key===' '){ e.preventDefault(); toggle(); }
       });
     });
 
@@ -345,7 +375,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const todayKey = DB.fmtDate(new Date());
     const theadDates = dates.map(d=>{
       const isToday = DB.fmtDate(d)===todayKey;
-      return `<th class="grid-date-col ${isToday?'today-col':''}">${d.toLocaleDateString('en-IN',{weekday:'short'})}<br>${d.getDate()} ${d.toLocaleDateString('en-IN',{month:'short'})}</th>`;
+      return `<th class="grid-date-col ${isToday?'today-col':''}" scope="col">${d.toLocaleDateString('en-IN',{weekday:'short'})}<br>${d.getDate()} ${d.toLocaleDateString('en-IN',{month:'short'})}</th>`;
     }).join('');
 
     const bodyRows = priceGrid.map(row=>{
@@ -364,16 +394,19 @@ document.addEventListener('DOMContentLoaded', ()=>{
       </tr>`;
     }).join('');
 
-    document.getElementById('parityGridHost').innerHTML = `<div class="grid-table-wrap"><table class="grid-table">
-      <thead><tr><th class="grid-sticky-col">Channel</th>${theadDates}</tr></thead>
+    const parityHost = document.getElementById('parityGridHost');
+    parityHost.innerHTML = `<div class="grid-table-wrap" tabindex="0" role="group" aria-label="Rate Parity, scrollable with arrow keys"><table class="grid-table">
+      <thead><tr><th class="grid-sticky-col" scope="col">Channel</th>${theadDates}</tr></thead>
       <tbody>${bodyRows}</tbody>
     </table></div>`;
+    alignEdgeZonesToHeader(document.querySelector('.parity-scroll-wrap'), parityHost, 'parity_edgeLeft', 'parity_edgeRight');
   }
 
   function setParityActivePreset(days){
     document.querySelectorAll('#parity_rangeGroup [data-days]').forEach(b=>{
       const active = Number(b.dataset.days)===days;
       b.classList.toggle('btn-outline-primary', active); b.classList.toggle('btn-soft', !active);
+      b.setAttribute('aria-pressed', String(active));
     });
     // Same rule as the main grid: range-shift arrows only for 30 Days or a manual/custom range
     // (days==null), never for the fixed 7/14 Day presets.
@@ -505,7 +538,11 @@ document.addEventListener('DOMContentLoaded', ()=>{
   let mxPickStart = null, mxPickEnd = null; // in-progress Custom Range selection, not yet applied
 
   function setActiveSeg(presetKey){
-    document.querySelectorAll('.mx-seg-btn[data-preset]').forEach(b=> b.classList.toggle('active', b.dataset.preset===presetKey));
+    document.querySelectorAll('.mx-seg-btn[data-preset]').forEach(b=>{
+      const active = b.dataset.preset===presetKey;
+      b.classList.toggle('active', active);
+      b.setAttribute('aria-pressed', String(active));
+    });
   }
 
   function applyRange(start, end, presetKey){
@@ -629,6 +666,24 @@ document.addEventListener('DOMContentLoaded', ()=>{
   // .mx-range-shiftable visibility toggle that hides these for 7D/14D.
   document.getElementById('mx_edgeLeft').addEventListener('click', ()=> mxShiftRange(-1));
   document.getElementById('mx_edgeRight').addEventListener('click', ()=> mxShiftRange(1));
+
+  // Keyboard access for the grids themselves — both .grid-table-wrap elements are focusable
+  // (tabindex="0", set where they're rendered) precisely so a keyboard-only user has a way to
+  // scroll a wide table that isn't just "hover near the edge with a mouse." Delegated on document
+  // since both wraps are rebuilt (innerHTML) on every render.
+  document.addEventListener('keydown', e=>{
+    const wrap = e.target.closest('.grid-table-wrap[tabindex]');
+    if(!wrap) return;
+    const step = 80;
+    const moves = {
+      ArrowLeft:[-step,0], ArrowRight:[step,0], ArrowUp:[0,-step], ArrowDown:[0,step],
+      PageUp:[0,-wrap.clientHeight*0.9], PageDown:[0,wrap.clientHeight*0.9],
+      Home:[-wrap.scrollWidth,0], End:[wrap.scrollWidth,0]
+    };
+    if(!moves[e.key]) return;
+    e.preventDefault();
+    wrap.scrollBy({ left:moves[e.key][0], top:moves[e.key][1], behavior:'smooth' });
+  });
 
   // Edge hover-scroll — hovering near an edge of a grid scrolls smoothly toward it for as long as
   // the cursor stays there, instead of a click-to-scroll arrow/directional pad. Looks up the

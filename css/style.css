@@ -439,6 +439,9 @@ body:not(.cal-embed) .cal-context-bar{top:var(--header-h)}
   scrollbar-gutter:stable both-edges;
   scrollbar-width:auto; /* Firefox — don't let "thin" hide it, this grid needs a grabbable bar */
 }
+/* Keyboard focus ring — the wrap itself is tabindex="0" so arrow keys/Page Up-Down/Home/End can
+   scroll a wide grid without a mouse; make that focus state actually visible. */
+.grid-table-wrap[tabindex]:focus-visible{ outline:2px solid var(--brand-400); outline-offset:-1px; }
 /* A wider, always-visible scrollbar (not just an on-hover overlay) — this grid scrolls in both
    directions behind sticky headers/columns, so the bar needs to stay easy to find and grab. */
 .grid-table-wrap::-webkit-scrollbar{ width:14px; height:14px; }

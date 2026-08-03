@@ -40,8 +40,10 @@ document.addEventListener('DOMContentLoaded', ()=>{
   document.querySelectorAll('#rs_rangeGroup button').forEach(btn=>{
     btn.addEventListener('click', function(){
       rsRangeDays = Number(this.dataset.days);
-      document.querySelectorAll('#rs_rangeGroup button').forEach(b=>{ b.classList.remove('btn-outline-primary'); b.classList.add('btn-soft'); });
-      this.classList.remove('btn-soft'); this.classList.add('btn-outline-primary');
+      document.querySelectorAll('#rs_rangeGroup button').forEach(b=>{
+        b.classList.remove('btn-outline-primary'); b.classList.add('btn-soft'); b.setAttribute('aria-pressed', 'false');
+      });
+      this.classList.remove('btn-soft'); this.classList.add('btn-outline-primary'); this.setAttribute('aria-pressed', 'true');
       renderChart();
     });
   });

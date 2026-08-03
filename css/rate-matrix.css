@@ -40,6 +40,10 @@
 [data-theme="dark"] .grid-table tbody tr:hover td.mx-mine{ background:rgba(56,97,251,.22); }
 .mx-group-toggle:hover td.grid-sticky-col{ background:var(--bg-surface-2); }
 .mx-group-toggle:hover td.grid-sticky-col.mx-mine{ background:var(--brand-50); }
+/* Keyboard focus — a <tr> with tabindex doesn't reliably get a visible default outline across
+   browsers, so give it the same highlight as :hover plus an explicit ring on the sticky cell. */
+.mx-group-toggle[tabindex]:focus-visible{ outline:none; }
+.mx-group-toggle[tabindex]:focus-visible td.grid-sticky-col{ background:var(--bg-surface-2); box-shadow:inset 0 0 0 2px var(--brand-400); }
 
 /* ---------- Competitor multi-select / Property visibility dropdowns ---------- */
 .mx-check-row{ display:flex; align-items:center; gap:8px; padding:5px 8px; border-radius:8px; cursor:pointer; font-size:.82rem; }
@@ -163,16 +167,22 @@
 .parity-scroll-wrap .mx-edge-left, .parity-scroll-wrap .mx-edge-right{ cursor:default; }
 .parity-scroll-wrap.mx-range-shiftable .mx-edge-left, .parity-scroll-wrap.mx-range-shiftable .mx-edge-right{ opacity:.4; cursor:pointer; }
 /* The left zone sits at the boundary of the first DATE column, not left:0 — left:0 would overlap
-   the sticky "Channel" column (.grid-sticky-col, 230px wide), which reads as if hovering over the
-   channel names themselves scrolls the grid. Pushed past that column's width instead, so it's
-   unambiguously anchored to the date columns it actually scrolls. */
-.parity-scroll-wrap .mx-edge-left{ left:230px; }
+   the sticky "Channel"/"Property / Room" column (.grid-sticky-col, 230px wide), which reads as if
+   hovering over the sticky column's labels themselves scrolls the grid. Pushed past that column's
+   width instead, so it's unambiguously anchored to the date columns it actually scrolls — same
+   positioning on the main Rate Matrix/Rate Calendar grids as on their Rate Parity modals. */
+.parity-scroll-wrap .mx-edge-left, .mx-grid-card .mx-edge-left, .cal-grid-card .mx-edge-left{ left:230px; }
 
 /* ---------- Edge hover-scroll — base .mx-edge-scroll styles live in css/portal.css (shared with
    Room Rate Comparison). Here, left/right are narrowed to the sticky date-header row instead of
    spanning the full grid height, since dates (what they actually scroll through) live there —
    floating mid-height over the price data left them with no clear space of their own. ---------- */
-.mx-edge-left, .mx-edge-right{ top:0; bottom:auto; height:46px; }
+/* Inset from the card's own top/left/right edges (not flush at 0) so the zone sits visibly
+   inside the header row's text band instead of straddling the card's rounded border — that
+   flush-to-the-edge positioning was what made the arrow read as "hanging off the border" rather
+   than living inside the table. */
+.mx-edge-left, .mx-edge-right{ top:8px; bottom:auto; height:32px; }
+.mx-edge-right{ right:8px; }
 
 /* ---------- Rate Parity modal's own date-range bar — a self-contained, plain-language control
    (preset pills + native date inputs) so picking a custom range for the parity comparison never

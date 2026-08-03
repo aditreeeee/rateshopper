@@ -33,10 +33,10 @@
       </div>
     </div>
     <div class="d-flex align-items-center gap-2 flex-wrap">
-      <div class="btn-group btn-group-sm" id="rs_rangeGroup" role="group">
-        <button type="button" class="btn btn-soft" data-days="7">7D</button>
-        <button type="button" class="btn btn-outline-primary" data-days="30">30D</button>
-        <button type="button" class="btn btn-soft" data-days="90">90D</button>
+      <div class="btn-group btn-group-sm" id="rs_rangeGroup" role="group" aria-label="Rate Comparison chart date range">
+        <button type="button" class="btn btn-soft" data-days="7" aria-pressed="false">7D</button>
+        <button type="button" class="btn btn-outline-primary" data-days="30" aria-pressed="true">30D</button>
+        <button type="button" class="btn btn-soft" data-days="90" aria-pressed="false">90D</button>
       </div>
       <div id="rs_legendToggles" class="d-flex flex-wrap gap-1"></div>
     </div>
@@ -55,22 +55,22 @@
 <div class="cal-toolbar">
   <div class="d-flex align-items-center gap-2 flex-wrap">
     <div class="d-flex align-items-center gap-2 flex-wrap">
-      <div class="mx-range-segmented" id="mx_rangeSegmented" role="group">
-        <button type="button" class="mx-seg-btn" data-preset="7">7D</button>
-        <button type="button" class="mx-seg-btn" data-preset="14">14D</button>
-        <button type="button" class="mx-seg-btn" data-preset="30">30D</button>
-        <button type="button" class="mx-seg-btn" data-preset="90">90D</button>
+      <div class="mx-range-segmented" id="mx_rangeSegmented" role="group" aria-label="Rate Matrix date range">
+        <button type="button" class="mx-seg-btn" data-preset="7" aria-pressed="false">7D</button>
+        <button type="button" class="mx-seg-btn" data-preset="14" aria-pressed="true">14D</button>
+        <button type="button" class="mx-seg-btn" data-preset="30" aria-pressed="false">30D</button>
+        <button type="button" class="mx-seg-btn" data-preset="90" aria-pressed="false">90D</button>
         <div class="dropdown d-inline-block" id="mx_customDropdown">
-          <button type="button" class="mx-seg-btn dropdown-toggle" id="mx_customBtn" data-preset="custom" data-bs-toggle="dropdown" data-bs-auto-close="outside">Custom</button>
+          <button type="button" class="mx-seg-btn dropdown-toggle" id="mx_customBtn" data-preset="custom" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-pressed="false">Custom</button>
           <div class="dropdown-menu p-0" id="mx_dateRangeMenu">
             <div class="mx-drp-custom" id="mx_drpCustom">
               <div class="d-flex justify-content-between align-items-center mb-2">
-                <button type="button" class="btn btn-sm-icon btn-soft" id="mx_drpPrevMonth"><i class="bi bi-chevron-left"></i></button>
+                <button type="button" class="btn btn-sm-icon btn-soft" id="mx_drpPrevMonth" aria-label="Previous month"><i class="bi bi-chevron-left"></i></button>
                 <div class="d-flex gap-3">
                   <div class="fw-semibold small text-center" style="width:200px" id="mx_drpMonthLabel1"></div>
                   <div class="fw-semibold small text-center" style="width:200px" id="mx_drpMonthLabel2"></div>
                 </div>
-                <button type="button" class="btn btn-sm-icon btn-soft" id="mx_drpNextMonth"><i class="bi bi-chevron-right"></i></button>
+                <button type="button" class="btn btn-sm-icon btn-soft" id="mx_drpNextMonth" aria-label="Next month"><i class="bi bi-chevron-right"></i></button>
               </div>
               <div class="d-flex gap-3">
                 <div class="mx-drp-cal" id="mx_drpCal1"></div>
@@ -93,6 +93,7 @@
     </div>
   </div>
   <div class="d-flex align-items-center gap-2 flex-wrap">
+    <label for="mx_search" class="visually-hidden">Search competitor or room</label>
     <input type="text" class="form-control form-control-sm" id="mx_search" placeholder="Search competitor or room..." style="width:200px">
     <div class="dropdown">
       <button class="btn btn-soft btn-sm dropdown-toggle" data-bs-toggle="dropdown" data-bs-auto-close="outside"><i class="bi bi-eye me-1"></i>Properties</button>
@@ -106,7 +107,7 @@
         <li><a class="dropdown-item" href="#" id="mx_exportPdf"><i class="bi bi-file-earmark-pdf me-2"></i>Export PDF</a></li>
       </ul>
     </div>
-    <button class="btn btn-soft btn-sm" id="mx_print" title="Print"><i class="bi bi-printer"></i></button>
+    <button class="btn btn-soft btn-sm" id="mx_print" title="Print" aria-label="Print Rate Matrix"><i class="bi bi-printer"></i></button>
   </div>
 </div>
 
@@ -216,10 +217,10 @@
              calendar widget to figure out. -->
         <div class="parity-range-bar mb-3">
           <span class="parity-range-label"><i class="bi bi-calendar-range me-1"></i>Date Range</span>
-          <div class="btn-group btn-group-sm" id="parity_rangeGroup" role="group">
-            <button type="button" class="btn btn-soft" data-days="7">7 Days</button>
-            <button type="button" class="btn btn-soft" data-days="14">14 Days</button>
-            <button type="button" class="btn btn-soft" data-days="30">30 Days</button>
+          <div class="btn-group btn-group-sm" id="parity_rangeGroup" role="group" aria-label="Rate Parity date range">
+            <button type="button" class="btn btn-soft" data-days="7" aria-pressed="false">7 Days</button>
+            <button type="button" class="btn btn-soft" data-days="14" aria-pressed="false">14 Days</button>
+            <button type="button" class="btn btn-soft" data-days="30" aria-pressed="false">30 Days</button>
           </div>
           <span class="text-muted small d-none d-md-inline">or pick exact dates</span>
           <input type="date" class="form-control form-control-sm" id="parity_startDate" style="width:auto">

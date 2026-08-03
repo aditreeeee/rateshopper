@@ -2,6 +2,26 @@
    Rate Calendar — Flagship feature: enterprise-grade grid pricing management
    Dates run across the top starting today; rooms > rate plans > occupancy run down the side.
    ========================================================================== */
+// The left/right edge-scroll zones must sit exactly over the date header row and nowhere else.
+// They're absolutely positioned against `card` (its position:relative ancestor), whose "top:0"
+// lines up with the padding EDGE (i.e. flush with the border) — not with where the card's own
+// padding lets its normal-flow content actually start. A hardcoded top:0 therefore sat card-padding
+// pixels above the real thead, not on top of it. Measuring both elements' real getBoundingClientRect
+// and taking the difference sidesteps that padding-box confusion entirely and is exact regardless
+// of the card's padding, border, or font-metric-driven thead height.
+function alignEdgeZonesToHeader(card, host, leftId, rightId){
+  const thead = host && host.querySelector('thead');
+  if(!thead || !card) return;
+  const cardRect = card.getBoundingClientRect();
+  const theadRect = thead.getBoundingClientRect();
+  const top = theadRect.top - cardRect.top;
+  const h = theadRect.height;
+  [leftId, rightId].forEach(id=>{
+    const el = document.getElementById(id);
+    if(el){ el.style.top = `${top}px`; el.style.height = `${h}px`; }
+  });
+}
+
 let calRangeStart = null, calRangeEnd = null; // the calendar's active date range — drives the grid, bulk-update scopes, and Rate Parity alike
 let calPreset = '14';
 let calApplyRange = null; // set inside setupDateRangePicker() — exposed at module scope so calShiftRange (called from the edge-scroll wiring, outside that closure) can reach it
@@ -350,6 +370,7 @@ function renderGrid(){
     <thead><tr><th class="grid-sticky-col">Room / Rate Plan / Occupancy</th>${theadDates}</tr></thead>
     <tbody>${bodyRows}</tbody>
   </table></div>`;
+  alignEdgeZonesToHeader(document.querySelector('.cal-grid-card'), host, 'cal_edgeLeft', 'cal_edgeRight');
 
   document.querySelectorAll('.parity-btn').forEach(btn=>{
     btn.addEventListener('click', function(e){
@@ -639,10 +660,12 @@ function renderParityGrid(){
     </tr>`;
   }).join('');
 
-  document.getElementById('parityGridHost').innerHTML = `<div class="grid-table-wrap"><table class="grid-table">
+  const parityHost = document.getElementById('parityGridHost');
+  parityHost.innerHTML = `<div class="grid-table-wrap"><table class="grid-table">
     <thead><tr><th class="grid-sticky-col">Channel</th>${theadDates}</tr></thead>
     <tbody>${bodyRows}</tbody>
   </table></div>`;
+  alignEdgeZonesToHeader(document.querySelector('.parity-scroll-wrap'), parityHost, 'parity_edgeLeft', 'parity_edgeRight');
 }
 
 // Edge hover-scroll — hovering near an edge of a grid scrolls smoothly toward it for as long as
