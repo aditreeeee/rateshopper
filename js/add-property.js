@@ -97,14 +97,17 @@ document.addEventListener('DOMContentLoaded', ()=>{
       const wrap = document.getElementById('channelsToAddWrap');
       wrap.classList.toggle('d-none', toAdd.length===0);
       document.getElementById('channelsToAddList').innerHTML = toAdd.map(c=>`
-        <div class="d-flex align-items-center gap-2 p-2 border rounded-3" data-code="${c.code}" style="border-color:var(--border-1) !important">
-          <i class="bi bi-globe2 text-muted"></i>
-          <span class="flex-grow-1" style="font-size:.85rem">${c.name}</span>
-          <select class="form-select form-select-sm to-add-status" data-code="${c.code}" style="width:112px">
-            <option value="active" ${c.status==='active'?'selected':''}>Active</option>
-            <option value="inactive" ${c.status==='inactive'?'selected':''}>Inactive</option>
-          </select>
-          <button type="button" class="btn btn-sm-icon btn-light-danger remove-to-add" data-code="${c.code}" title="Remove"><i class="bi bi-x-lg"></i></button>
+        <div class="border rounded-3 p-2" data-code="${c.code}" style="border-color:var(--border-1) !important">
+          <div class="d-flex align-items-center gap-2 mb-2">
+            <i class="bi bi-globe2 text-muted"></i>
+            <span class="flex-grow-1" style="font-size:.85rem">${c.name}</span>
+            <select class="form-select form-select-sm to-add-status" data-code="${c.code}" style="width:112px">
+              <option value="active" ${c.status==='active'?'selected':''}>Active</option>
+              <option value="inactive" ${c.status==='inactive'?'selected':''}>Inactive</option>
+            </select>
+            <button type="button" class="btn btn-sm-icon btn-light-danger remove-to-add" data-code="${c.code}" title="Remove"><i class="bi bi-x-lg"></i></button>
+          </div>
+          <input type="text" class="form-control form-control-sm to-add-website" data-code="${c.code}" placeholder="Website / booking link for ${c.name} (optional)" value="${c.website||''}">
         </div>`).join('');
     }
 
@@ -116,7 +119,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
       if(unavailableCodes().has(code)) return; // already connected or already staged — no-op
       const entry = DB.channelCatalogEntry(code);
       if(!entry) return;
-      toAdd.push({ code, name:entry.name, status:'active' });
+      toAdd.push({ code, name:entry.name, status:'active', website:'' });
       refreshAll();
     }
 
@@ -134,6 +137,11 @@ document.addEventListener('DOMContentLoaded', ()=>{
       if(!e.target.classList.contains('to-add-status')) return;
       const row = toAdd.find(c=>c.code===Number(e.target.dataset.code));
       if(row) row.status = e.target.value;
+    });
+    document.getElementById('channelsToAddList').addEventListener('input', e=>{
+      if(!e.target.classList.contains('to-add-website')) return;
+      const row = toAdd.find(c=>c.code===Number(e.target.dataset.code));
+      if(row) row.website = e.target.value;
     });
     document.getElementById('channelsToAddList').addEventListener('click', e=>{
       const btn = e.target.closest('.remove-to-add');
@@ -221,7 +229,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     if(canManageChannels && toAdd.length){
       toAdd.forEach(c=>{
         const legacyType = Object.keys(DB.CHANNEL_TYPE_CODES).find(k=> DB.CHANNEL_TYPE_CODES[k]===c.code && k!=='master');
-        DB.channels.save({ propertyId: saved.id, channelCode:c.code, type: legacyType || 'custom', name:c.name, status:c.status });
+        DB.channels.save({ propertyId: saved.id, channelCode:c.code, type: legacyType || 'custom', name:c.name, status:c.status, website:c.website.trim() });
       });
     }
 

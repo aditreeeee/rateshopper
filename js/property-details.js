@@ -177,6 +177,7 @@ function renderChannels(){
             <span class="badge-status ${c.status==='active'?'badge-active':'badge-inactive'}">${c.status}</span>
           </div>
           ${c.type==='master' ? '<div class="text-muted mt-1" style="font-size:.7rem"><i class="bi bi-shield-check me-1"></i>Default direct channel</div>' : ''}
+          ${c.website ? `<div class="mt-1" style="font-size:.7rem"><i class="bi bi-link-45deg me-1"></i><a href="${/^https?:\/\//.test(c.website)?c.website:'https://'+c.website}" target="_blank" rel="noopener">${c.website}</a></div>` : ''}
           <div class="d-flex gap-1 mt-2">
             ${canEdit ? `<a href="add-channel.html?id=${c.id}" class="btn btn-sm btn-soft">Edit</a>` : ''}
             ${canDelete && c.type!=='master' ? `<button class="btn btn-sm btn-light-danger" onclick="deletePropertyChannel('${c.id}')">Delete</button>` : ''}

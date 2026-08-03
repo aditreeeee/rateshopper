@@ -78,6 +78,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     propertySelect.value = existing.propertyId;
     propertySelect.disabled = true;
     document.getElementById('f_status').value = existing.status;
+    document.getElementById('f_website').value = existing.website || '';
   } else if(preselectProperty){
     propertySelect.value = preselectProperty;
   }
@@ -115,7 +116,8 @@ document.addEventListener('DOMContentLoaded', ()=>{
       channelCode,
       type,
       name: catalogEntry.name,
-      status: document.getElementById('f_status').value
+      status: document.getElementById('f_status').value,
+      website: document.getElementById('f_website').value.trim()
     };
     const saved = DB.channels.save(payload);
     APP.toast(existing?'Channel Updated':'Channel Created', `${saved.name} has been ${existing?'updated':'added'}.`, 'success');
