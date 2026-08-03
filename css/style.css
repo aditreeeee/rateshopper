@@ -442,13 +442,17 @@ body:not(.cal-embed) .cal-context-bar{top:var(--header-h)}
 /* Keyboard focus ring — the wrap itself is tabindex="0" so arrow keys/Page Up-Down/Home/End can
    scroll a wide grid without a mouse; make that focus state actually visible. */
 .grid-table-wrap[tabindex]:focus-visible{ outline:2px solid var(--brand-400); outline-offset:-1px; }
-/* A wider, always-visible scrollbar (not just an on-hover overlay) — this grid scrolls in both
-   directions behind sticky headers/columns, so the bar needs to stay easy to find and grab. */
+/* A wide, easy-to-grab scrollbar — but only actually visible on hover, so it doesn't sit there
+   permanently as visual clutter on a grid that's mostly viewed without needing to scroll. The
+   track/thumb reserve their full size at all times (no layout shift when they fade in); only
+   their color fades to transparent at rest. */
 .grid-table-wrap::-webkit-scrollbar{ width:14px; height:14px; }
-.grid-table-wrap::-webkit-scrollbar-track{ background:var(--bg-surface-2); border-radius:16px; }
-.grid-table-wrap::-webkit-scrollbar-thumb{ background:var(--border-1); border-radius:16px; border:3px solid var(--bg-surface-2); }
-.grid-table-wrap::-webkit-scrollbar-thumb:hover{ background:var(--brand-300); }
-.grid-table-wrap::-webkit-scrollbar-corner{ background:var(--bg-surface-2); }
+.grid-table-wrap::-webkit-scrollbar-track{ background:transparent; border-radius:16px; transition:background .15s ease; }
+.grid-table-wrap::-webkit-scrollbar-thumb{ background:transparent; border-radius:16px; border:3px solid transparent; background-clip:padding-box; transition:background .15s ease; }
+.grid-table-wrap:hover::-webkit-scrollbar-track{ background:var(--bg-surface-2); }
+.grid-table-wrap:hover::-webkit-scrollbar-thumb{ background:var(--border-1); border-color:var(--bg-surface-2); }
+.grid-table-wrap:hover::-webkit-scrollbar-thumb:hover{ background:var(--brand-300); }
+.grid-table-wrap::-webkit-scrollbar-corner{ background:transparent; }
 /* Auto layout (not fixed): the sticky first column is pinned to an exact width (see
    .grid-sticky-col's width+max-width below), but date columns only get a MINIMUM width
    (.grid-date-col/.grid-price-cell) — with width:100% on the table, that leftover space is

@@ -2,24 +2,46 @@
    Rate Calendar — Flagship feature: enterprise-grade grid pricing management
    Dates run across the top starting today; rooms > rate plans > occupancy run down the side.
    ========================================================================== */
-// The left/right edge-scroll zones must sit exactly over the date header row and nowhere else.
-// They're absolutely positioned against `card` (its position:relative ancestor), whose "top:0"
-// lines up with the padding EDGE (i.e. flush with the border) — not with where the card's own
-// padding lets its normal-flow content actually start. A hardcoded top:0 therefore sat card-padding
-// pixels above the real thead, not on top of it. Measuring both elements' real getBoundingClientRect
-// and taking the difference sidesteps that padding-box confusion entirely and is exact regardless
-// of the card's padding, border, or font-metric-driven thead height.
+// The left/right edge-scroll zones must sit exactly over the date header row and nowhere else —
+// and, now that they render as a visible glass button rather than an invisible hover zone, they
+// need to land exactly at the table's own visible edges (overlaying the first/last visible date
+// column), not just somewhere near the card's edge. Both `top` (via thead) AND `left`/`right`
+// (via the wrap's own rect) are measured directly rather than assumed from CSS positioning:
+// absolutely-positioned children of `card` measure their offsets from card's padding EDGE (flush
+// with its border), not from where card's own padding lets its content actually start — a
+// hardcoded `right:8px`, for instance, would sit ~14px past the table's real right edge, "hovering
+// outside" it in the card's own padding gutter. Measuring both elements' real
+// getBoundingClientRect and taking the difference sidesteps that padding-box confusion entirely.
 function alignEdgeZonesToHeader(card, host, leftId, rightId){
+  const wrap = host && (host.querySelector('.grid-table-wrap') || host.querySelector('.grid-header-scroll'));
   const thead = host && host.querySelector('thead');
-  if(!thead || !card) return;
+  if(!thead || !wrap || !card) return;
   const cardRect = card.getBoundingClientRect();
   const theadRect = thead.getBoundingClientRect();
+  const wrapRect = wrap.getBoundingClientRect();
   const top = theadRect.top - cardRect.top;
   const h = theadRect.height;
-  [leftId, rightId].forEach(id=>{
-    const el = document.getElementById(id);
-    if(el){ el.style.top = `${top}px`; el.style.height = `${h}px`; }
-  });
+  const stickyEl = wrap.querySelector('.grid-sticky-col');
+  const stickyWidth = stickyEl ? stickyEl.getBoundingClientRect().width : 230;
+
+  const leftEl = document.getElementById(leftId);
+  if(leftEl){
+    leftEl.style.top = `${top}px`; leftEl.style.height = `${h}px`;
+    // Sits INSIDE the end of the sticky column, not spilling over into the first date column, so
+    // the first date column starts exactly where it should. A small gap (not flush/touching)
+    // keeps it visually connected to the Property/Room column it belongs to, rather than reading
+    // as glued directly onto the date header next to it.
+    const leftElWidth = leftEl.getBoundingClientRect().width || 34;
+    const gap = 6;
+    leftEl.style.left = `${(wrapRect.left - cardRect.left) + stickyWidth - leftElWidth - gap}px`;
+    leftEl.style.right = 'auto';
+  }
+  const rightEl = document.getElementById(rightId);
+  if(rightEl){
+    rightEl.style.top = `${top}px`; rightEl.style.height = `${h}px`;
+    rightEl.style.right = `${cardRect.right - wrapRect.right}px`;
+    rightEl.style.left = 'auto';
+  }
 }
 
 // Same padding-edge quirk as alignEdgeZonesToHeader, but for the top/bottom vertical hover-scroll

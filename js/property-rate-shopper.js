@@ -13,9 +13,55 @@ function chartAnim(isBar){
   };
 }
 
-// Muted/pastel palette for benchmark properties — each gets its own distinguishable color so
-// lines don't blur together, but all are visually secondary to My Property's bold solid blue.
-const OTHER_LINE_COLORS = ['#a9b0c9','#9fd6ca','#c3aee8','#f2c194','#e6a8c4','#a6d9a6','#e3a6a6','#a9c6e8'];
+// Bright/saturated palette for benchmark properties — each gets its own vivid, distinguishable
+// color so lines pop against the chart's light background instead of blurring into muted pastel
+// gray-ish tones. My Property's solid brand blue is still the boldest line (thicker + filled),
+// so it stays the visual anchor even against these more saturated competitor lines.
+const OTHER_LINE_COLORS = ['#00c2a8','#a855f7','#ff8a00','#ff2d78','#00b2ef','#22c55e','#ff4d4d','#6366f1'];
+
+// A ticker/stock-index style callout — a solid pill at the end of the "My Property" line
+// showing its latest value, same idea as a live market index chart's current-price tag. Drawn
+// as a Chart.js plugin (not a fixed DOM element) so it always lands exactly on the last point's
+// real pixel position, however the chart is currently zoomed/ranged/resized.
+const rsEndValuePlugin = {
+  id: 'rsEndValueLabel',
+  afterDatasetsDraw(chart){
+    const dsIndex = chart.data.datasets.findIndex(d=>d.isMe);
+    if(dsIndex===-1 || chart.getDatasetMeta(dsIndex).hidden) return;
+    const points = chart.getDatasetMeta(dsIndex).data;
+    if(!points || !points.length) return;
+    const last = points[points.length-1];
+    const rawValue = chart.data.datasets[dsIndex].data[chart.data.datasets[dsIndex].data.length-1];
+    if(last==null || rawValue==null) return;
+
+    const { ctx } = chart;
+    const text = APP.fmtCurrency(rawValue);
+    const font = `700 11px ${getComputedStyle(document.body).fontFamily}`;
+    ctx.save();
+    ctx.font = font;
+    const padX = 7, h = 19, textW = ctx.measureText(text).width;
+    const w = textW + padX*2;
+    // Anchored so it hangs mostly to the left of the last point (only a small overhang past the
+    // plot's right edge), matching how a live ticker's price tag sits right at the line's tip.
+    const x = Math.min(last.x - w + 6, chart.chartArea.right - w + 10);
+    const y = Math.max(chart.chartArea.top + h/2, Math.min(last.y, chart.chartArea.bottom - h/2));
+
+    const r = 5;
+    ctx.beginPath();
+    ctx.moveTo(x+r, y-h/2);
+    ctx.arcTo(x+w, y-h/2, x+w, y+h/2, r);
+    ctx.arcTo(x+w, y+h/2, x, y+h/2, r);
+    ctx.arcTo(x, y+h/2, x, y-h/2, r);
+    ctx.arcTo(x, y-h/2, x+w, y-h/2, r);
+    ctx.closePath();
+    ctx.fillStyle = '#3861fb';
+    ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, x+padX, y+0.5);
+    ctx.restore();
+  }
+};
 
 document.addEventListener('DOMContentLoaded', ()=>{
   const me = PORTAL.mount({ title:'Rate Shopper', subtitle:'Compare your rate against the properties selected by your Company Admin, channel by channel.' });
@@ -135,10 +181,22 @@ document.addEventListener('DOMContentLoaded', ()=>{
       const data = [];
       for(let d=-rsRangeDays; d<=0; d++){ data.push(rateFor(s, PORTALDATA.dateKeyOffset(d))); }
       return {
-        label: s.label, data, borderColor: color,
-        backgroundColor: s.isMe ? 'rgba(56,97,251,.12)' : 'transparent',
-        borderWidth: s.isMe ? 3.5 : 1.25, fill: s.isMe,
-        pointRadius: 0, pointHoverRadius: s.isMe ? 5 : 3, tension: .3
+        label: s.label, isMe: !!s.isMe, data, borderColor: color,
+        // Soft gradient fade under My Property's line (top color -> transparent), stock-index
+        // style, instead of a flat semi-transparent fill — needs a scriptable function since the
+        // gradient has to be built from the chart's own rendered area, which isn't known until
+        // Chart.js actually lays the canvas out.
+        backgroundColor: s.isMe ? (context)=>{
+          const { ctx, chartArea } = context.chart;
+          if(!chartArea) return 'rgba(56,97,251,.14)';
+          const gradient = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+          gradient.addColorStop(0, 'rgba(56,97,251,.16)');
+          gradient.addColorStop(1, 'rgba(56,97,251,0)');
+          return gradient;
+        } : 'transparent',
+        borderWidth: s.isMe ? 2.25 : 1.25, fill: s.isMe,
+        pointRadius: 0, pointHoverRadius: s.isMe ? 5 : 3, pointHoverBorderWidth:2, pointHoverBackgroundColor:color, pointHoverBorderColor:'#fff',
+        tension: .35
       };
     });
 
@@ -154,10 +212,28 @@ document.addEventListener('DOMContentLoaded', ()=>{
     rsChart = new Chart(document.getElementById('rs_chart'), {
       type:'line',
       data:{ labels, datasets },
+      plugins:[rsEndValuePlugin],
       options:{
         responsive:true, interaction:{mode:'index', intersect:false}, animation:chartAnim(false),
+        // A little extra room on the right/top so the end-value pill (drawn past the last point,
+        // and possibly near the plot's top edge) never gets clipped by the canvas bounds.
+        layout:{ padding:{ top:22, right:14 } },
         plugins:{ legend:{display:false}, tooltip:{callbacks:{label:ctx=>`${ctx.dataset.label}: ${APP.fmtCurrency(ctx.parsed.y)}`}} },
-        scales:{ y:{ticks:{callback:v=>APP.fmtCurrency(v)}} }
+        scales:{
+          // Right-aligned axis + minimal, borderless grid — the "live market index" look from the
+          // reference chart, instead of a boxed-in, left-axis financial-report style.
+          y:{
+            position:'right', border:{display:false},
+            grid:{ color:'rgba(120,130,160,.08)' },
+            ticks:{ callback:v=>APP.fmtCurrency(v), maxTicksLimit:6 }
+          },
+          x:{
+            border:{display:false}, grid:{display:false},
+            // Canvas fillStyle can't resolve a raw `var(--text-3)` string — read the theme's
+            // actual computed color once, at chart-build time, same trick used for the font family.
+            ticks:{ color:getComputedStyle(document.body).getPropertyValue('--text-3').trim() || '#8a90a6', maxRotation:0, autoSkip:true, maxTicksLimit:8 }
+          }
+        }
       }
     });
   }

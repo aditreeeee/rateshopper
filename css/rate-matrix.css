@@ -6,6 +6,29 @@
    Rate Calendar itself. Only the bits unique to this page live here.
    ========================================================================== */
 
+/* ---------- Header/body split — the vertical scrollbar used to belong to a single container
+   that held thead+tbody together, so its track visually ran through the sticky header too
+   (the header just "floated" on top of it via position:sticky). Splitting into a separate,
+   non-scrolling header strip + its own vertically-scrolling body means the real vertical
+   scrollbar now only ever spans the body rows, starting right below the header — the header
+   itself is simply always visible above it, nothing to fake with sticky. Horizontal scroll is
+   kept in sync between the two (property-rate-matrix.js) since they're now independent
+   scroll containers sharing identical column widths. ---------- */
+.grid-header-scroll{
+  overflow-x:hidden; overflow-y:hidden;
+  border:1px solid var(--border-1); border-bottom:none; border-radius:16px 16px 0 0;
+  background:var(--bg-surface);
+  /* .grid-table-wrap reserves a symmetric scrollbar gutter (both-edges) so a vertical scrollbar
+     appearing/disappearing never shifts its content horizontally — but that also means its
+     table content starts 14px further right than a plain container's would. scrollbar-gutter
+     itself has no effect here (this element's overflow is hidden, not auto/scroll), so the same
+     14px is added back as literal padding instead, keeping both tables' columns starting at the
+     exact same x position regardless of column-width syncing. */
+  padding-left:14px;
+}
+.grid-header-scroll table{ border-collapse:separate; border-spacing:0; }
+.grid-split-wrap .grid-table-wrap{ border-radius:0 0 16px 16px; border-top:none; }
+
 /* ---------- "My Property" row highlight (label cell + every price cell in its rows) ---------- */
 .grid-sticky-col.mx-mine{ background:var(--brand-50) !important; color:var(--brand-600); font-weight:700; }
 [data-theme="dark"] .grid-sticky-col.mx-mine{ background:rgba(56,97,251,.16) !important; }
@@ -138,8 +161,45 @@
 .cal-grid-card:not(.mx-range-shiftable) .mx-edge-right{
   display:none;
 }
-.mx-range-shiftable .mx-edge-left, .mx-range-shiftable .mx-edge-right{ opacity:.4; cursor:pointer; }
-.mx-range-shiftable .mx-edge-left.is-active, .mx-range-shiftable .mx-edge-right.is-active{ opacity:1; }
+/* Full opacity, rectangular — matching the table's own cell/border language instead of a
+   circular chip that read as a foreign UI element dropped on top of it. A frosted-glass panel
+   (70% opaque surface color + blur) sits directly over the date it overlaps, so that date stays
+   faintly legible underneath rather than being fully hidden — the arrow reads as integrated into
+   the table rather than floating separately above it. The outer zone itself stays the full
+   header-height hit-area (for easy hover-to-scroll); the glass panel is the visible button.
+   Rate Parity gets this same always-visible glass look regardless of preset (its hover-scroll
+   works at every range, 7D/14D included, unlike the main grids' click-to-jump which only applies
+   at 30D/Custom — see .parity-scroll-wrap's own `cursor:default` below, only overridden to
+   `pointer` once `.mx-range-shiftable` is also present). */
+.mx-range-shiftable .mx-edge-left, .mx-range-shiftable .mx-edge-right,
+.parity-scroll-wrap .mx-edge-left, .parity-scroll-wrap .mx-edge-right{
+  opacity:1; background:none !important;
+}
+/* Base cursor for Parity's zones (equal specificity to the shiftable rule below, so it must come
+   FIRST in source order — otherwise it'd win the cascade tie and Parity would never show a
+   pointer cursor even once shiftable). */
+.parity-scroll-wrap .mx-edge-left, .parity-scroll-wrap .mx-edge-right{ cursor:default; }
+.mx-range-shiftable .mx-edge-left, .mx-range-shiftable .mx-edge-right{ cursor:pointer; }
+.mx-range-shiftable .mx-edge-left .bi, .mx-range-shiftable .mx-edge-right .bi,
+.parity-scroll-wrap .mx-edge-left .bi, .parity-scroll-wrap .mx-edge-right .bi{
+  display:flex; align-items:center; justify-content:center;
+  width:100%; height:100%; border-radius:8px;
+  background:color-mix(in srgb, var(--bg-surface) 70%, transparent);
+  backdrop-filter:blur(6px) saturate(140%); -webkit-backdrop-filter:blur(6px) saturate(140%);
+  border:1px solid var(--border-1); box-shadow:var(--shadow-sm);
+  color:var(--brand-600); font-size:.8rem;
+  transition:background var(--dur-fast) ease, border-color var(--dur-fast) ease;
+}
+.mx-range-shiftable .mx-edge-left:hover .bi, .mx-range-shiftable .mx-edge-right:hover .bi,
+.mx-range-shiftable .mx-edge-left.is-active .bi, .mx-range-shiftable .mx-edge-right.is-active .bi,
+.parity-scroll-wrap .mx-edge-left:hover .bi, .parity-scroll-wrap .mx-edge-right:hover .bi,
+.parity-scroll-wrap .mx-edge-left.is-active .bi, .parity-scroll-wrap .mx-edge-right.is-active .bi{
+  background:color-mix(in srgb, var(--brand-50) 85%, transparent); border-color:var(--brand-300); color:var(--brand-700);
+}
+[data-theme="dark"] .mx-range-shiftable .mx-edge-left .bi, [data-theme="dark"] .mx-range-shiftable .mx-edge-right .bi,
+[data-theme="dark"] .parity-scroll-wrap .mx-edge-left .bi, [data-theme="dark"] .parity-scroll-wrap .mx-edge-right .bi{
+  background:color-mix(in srgb, var(--bg-surface-2) 70%, transparent);
+}
 
 /* The bottom hover-scroll zone (.mx-edge-bottom) was physically overlapping the grid-table-wrap's
    own horizontal scrollbar (14px tall) — with pointer-events:auto and a higher z-index, it
@@ -150,25 +210,19 @@
    rate-calendar.js, called on every render. */
 /* Parity's zones stay present at every preset (hover-scroll always works) but only look/act like
    a clickable page-jump arrow once shiftable — otherwise they're the plain hover-reveal chevron
-   the main grids use everywhere. */
-.parity-scroll-wrap .mx-edge-left, .parity-scroll-wrap .mx-edge-right{ cursor:default; }
-.parity-scroll-wrap.mx-range-shiftable .mx-edge-left, .parity-scroll-wrap.mx-range-shiftable .mx-edge-right{ opacity:.4; cursor:pointer; }
-/* The left zone sits at the boundary of the first DATE column, not left:0 — left:0 would overlap
-   the sticky "Channel"/"Property / Room" column (.grid-sticky-col, 230px wide), which reads as if
-   hovering over the sticky column's labels themselves scrolls the grid. Pushed past that column's
-   width instead, so it's unambiguously anchored to the date columns it actually scrolls — same
-   positioning on the main Rate Matrix/Rate Calendar grids as on their Rate Parity modals. */
-.parity-scroll-wrap .mx-edge-left, .mx-grid-card .mx-edge-left, .cal-grid-card .mx-edge-left{ left:230px; }
+   the main grids use everywhere. The shiftable button styling itself (glass panel, rectangular),
+   and the base/override cursor rules, live in the shared block above. */
 
 /* ---------- Edge hover-scroll — base .mx-edge-scroll styles live in css/portal.css (shared with
    Room Rate Comparison). Here, left/right are narrowed to the sticky date-header row instead of
    spanning the full grid height, since dates (what they actually scroll through) live there —
-   floating mid-height over the price data left them with no clear space of their own. ---------- */
-/* Inset from the card's own top/left/right edges (not flush at 0) so the zone sits visibly
-   inside the header row's text band instead of straddling the card's rounded border — that
-   flush-to-the-edge positioning was what made the arrow read as "hanging off the border" rather
-   than living inside the table. */
+   floating mid-height over the price data left them with no clear space of their own. The
+   `left`/`right`/`top`/`height` values below are just an initial fallback before JS runs —
+   alignEdgeZonesToHeader() (property-rate-matrix.js / rate-calendar.js) overrides all four with
+   exact geometry on every render, since a fixed px guess here would sit past the table's own
+   edges (in the card's padding gutter) rather than flush with them. ---------- */
 .mx-edge-left, .mx-edge-right{ top:8px; bottom:auto; height:32px; }
+.mx-edge-left{ left:230px; }
 .mx-edge-right{ right:8px; }
 
 /* ---------- Rate Parity modal's own date-range bar — a self-contained, plain-language control

@@ -7,6 +7,45 @@
    first column instead of across the header. View-only: no inline editing,
    no occupancy/ADR/RevPAR/booking data — rate comparison only.
    ========================================================================== */
+// The header (thead) and body (tbody) now live in two separate scroll containers — see
+// css/rate-matrix.css's ".grid-header-scroll" comment for why — so their horizontal scroll
+// position has to be kept in sync manually. The header itself is never dragged directly (its
+// own overflow is hidden, no visible scrollbar there); it only ever follows the body.
+function syncHeaderScroll(headerEl, bodyEl){
+  if(!headerEl || !bodyEl) return;
+  headerEl.scrollLeft = bodyEl.scrollLeft;
+  bodyEl.onscroll = ()=>{ headerEl.scrollLeft = bodyEl.scrollLeft; };
+}
+
+// Header and body are two independent <table>s (see above), each running its own auto-layout —
+// so even though both use the same min/max-width CSS constraints per column, the browser can
+// still resolve each table's "stretch to fill 100%" remainder differently, since that
+// distribution is influenced by each column's own *content* (date text like "Mon 3 Aug" in the
+// header table vs. price text like "₹11,760" in the body table) — the two tables were only ever
+// coincidentally matching in earlier testing, not guaranteed to. Forcing every header <th> to the
+// body's own actual rendered column width removes that ambiguity entirely: the header no longer
+// runs its own layout math at all, it just mirrors whatever the body (the real data) decided.
+function syncHeaderColumnWidths(host){
+  const headerTable = host && host.querySelector('.grid-header-scroll table');
+  const bodyWrap = host && host.querySelector('.grid-table-wrap');
+  if(!headerTable || !bodyWrap) return;
+  const bodyRow = bodyWrap.querySelector('tbody tr');
+  const headerCells = headerTable.querySelectorAll('thead th');
+  if(!bodyRow){
+    // No rows to measure against (e.g. an empty room group) — still lock the sticky column's
+    // width so at least that stays aligned; date columns fall back to their own CSS constraints.
+    if(headerCells[0]) headerCells[0].style.width = `${headerCells[0].getBoundingClientRect().width}px`;
+    return;
+  }
+  const bodyCells = bodyRow.children;
+  for(let i=0; i<headerCells.length && i<bodyCells.length; i++){
+    const w = bodyCells[i].getBoundingClientRect().width;
+    headerCells[i].style.width = `${w}px`;
+    headerCells[i].style.minWidth = `${w}px`;
+    headerCells[i].style.maxWidth = `${w}px`;
+  }
+}
+
 let mxRangeStart = null, mxRangeEnd = null; // the matrix's active date range — drives the grid, CSV export, and Rate Parity alike
 let mxPreset = '14'; // longer default window than before, so a first-time visitor sees two weeks of rate movement instead of just one
 
@@ -25,24 +64,48 @@ function fadeAndRerender(host, renderFn){
   }, GRID_FADE_MS);
 }
 
-// The left/right edge-scroll zones must sit exactly over the date header row and nowhere else.
-// They're absolutely positioned against `card` (its position:relative ancestor), whose "top:0"
-// lines up with the padding EDGE (i.e. flush with the border) — not with where the card's own
-// padding lets its normal-flow content actually start. A hardcoded top:0 therefore sat card-padding
-// pixels above the real thead, not on top of it. Measuring both elements' real getBoundingClientRect
-// and taking the difference sidesteps that padding-box confusion entirely and is exact regardless
-// of the card's padding, border, or font-metric-driven thead height.
+// The left/right edge-scroll zones must sit exactly over the date header row and nowhere else —
+// and, now that they render as a visible glass button rather than an invisible hover zone, they
+// need to land exactly at the table's own visible edges (overlaying the first/last visible date
+// column), not just somewhere near the card's edge. Both `top` (via thead) AND `left`/`right`
+// (via the wrap's own rect) are measured directly rather than assumed from CSS positioning:
+// absolutely-positioned children of `card` measure their offsets from card's padding EDGE (flush
+// with its border), not from where card's own padding lets its content actually start — a
+// hardcoded `right:8px`, for instance, would sit ~14px past the table's real right edge, "hovering
+// outside" it in the card's own padding gutter. Measuring both elements' real
+// getBoundingClientRect and taking the difference sidesteps that padding-box confusion entirely.
 function alignEdgeZonesToHeader(card, host, leftId, rightId){
+  const wrap = host && (host.querySelector('.grid-table-wrap') || host.querySelector('.grid-header-scroll'));
   const thead = host && host.querySelector('thead');
-  if(!thead || !card) return;
+  if(!thead || !wrap || !card) return;
   const cardRect = card.getBoundingClientRect();
   const theadRect = thead.getBoundingClientRect();
+  const wrapRect = wrap.getBoundingClientRect();
   const top = theadRect.top - cardRect.top;
   const h = theadRect.height;
-  [leftId, rightId].forEach(id=>{
-    const el = document.getElementById(id);
-    if(el){ el.style.top = `${top}px`; el.style.height = `${h}px`; }
-  });
+  const stickyEl = wrap.querySelector('.grid-sticky-col');
+  const stickyWidth = stickyEl ? stickyEl.getBoundingClientRect().width : 230;
+
+  const leftEl = document.getElementById(leftId);
+  if(leftEl){
+    leftEl.style.top = `${top}px`; leftEl.style.height = `${h}px`;
+    // Sits INSIDE the end of the sticky "Property / Room" column, not spilling over into the
+    // first date column, so the first date (e.g. Monday) starts exactly where it should. A small
+    // gap (not flush/touching) keeps it visually connected to the Property/Room column it
+    // belongs to, rather than reading as glued directly onto the date header next to it.
+    const leftElWidth = leftEl.getBoundingClientRect().width || 34;
+    const gap = 6;
+    leftEl.style.left = `${(wrapRect.left - cardRect.left) + stickyWidth - leftElWidth - gap}px`;
+    leftEl.style.right = 'auto';
+  }
+  const rightEl = document.getElementById(rightId);
+  if(rightEl){
+    rightEl.style.top = `${top}px`; rightEl.style.height = `${h}px`;
+    // Flush with the table's own real right edge — overlaying the last visible date column,
+    // instead of a fixed px guess that could land past it in the card's padding.
+    rightEl.style.right = `${cardRect.right - wrapRect.right}px`;
+    rightEl.style.left = 'auto';
+  }
 }
 
 // Same padding-edge quirk as alignEdgeZonesToHeader, but for the top/bottom vertical hover-scroll
@@ -284,13 +347,12 @@ document.addEventListener('DOMContentLoaded', ()=>{
         ? `<i class="bi bi-chevron-down mx-collapse-chevron" style="visibility:hidden"></i>`
         : `<i class="bi bi-chevron-${collapsed?'right':'down'} mx-collapse-chevron"></i>`;
       const propIcon = g.isMe ? '<i class="bi bi-star-fill"></i>' : '';
-      const roomCount = !g.isMe ? `<span class="text-muted fw-normal" style="font-size:.72rem"> (${g.rooms.length} room${g.rooms.length===1?'':'s'})</span>` : '';
       // Keyboard-accessible collapse/expand — not just a click target: role="button" + tabindex
       // so it's Tab-reachable, aria-expanded so its state is announced, and Enter/Space wired
       // below alongside the existing click handler (My Property's row never collapses, so it's
       // left as a plain, non-interactive row).
       const toggleAttrs = g.isMe ? '' : `role="button" tabindex="0" aria-expanded="${!collapsed}" aria-label="${collapsed?'Expand':'Collapse'} ${g.name} rooms"`;
-      bodyRows += `<tr class="grid-room-row mx-group-toggle" data-group="${g.id}" ${toggleAttrs}><td class="grid-sticky-col ${g.isMe?'mx-mine':''}"><span class="mx-group-label">${chevron}${propIcon}<span class="mx-group-name">${g.name}</span>${roomCount}</span></td>${dates.map(()=>'<td></td>').join('')}</tr>`;
+      bodyRows += `<tr class="grid-room-row mx-group-toggle" data-group="${g.id}" ${toggleAttrs}><td class="grid-sticky-col ${g.isMe?'mx-mine':''}"><span class="mx-group-label">${chevron}${propIcon}<span class="mx-group-name">${g.name}</span></span></td>${dates.map(()=>'<td></td>').join('')}</tr>`;
       if(!g.rooms.length){
         bodyRows += `<tr><td class="grid-sticky-col"><div class="grid-plan-label text-muted small"><i class="bi bi-exclamation-circle me-1"></i>No mapped rooms</div></td>${dates.map(()=>'<td></td>').join('')}</tr>`;
         return;
@@ -330,12 +392,16 @@ document.addEventListener('DOMContentLoaded', ()=>{
       });
     });
 
-    host.innerHTML = `<div class="grid-table-wrap" tabindex="0" role="group" aria-label="Rate Matrix, scrollable with arrow keys"><table class="grid-table">
-      <thead><tr><th class="grid-sticky-col" scope="col">Property / Room</th>${theadDates}</tr></thead>
-      <tbody>${bodyRows}</tbody>
-    </table></div>`;
+    host.innerHTML = `<div class="grid-split-wrap">
+      <div class="grid-header-scroll"><table class="grid-table"><thead><tr><th class="grid-sticky-col" scope="col">Property / Room</th>${theadDates}</tr></thead></table></div>
+      <div class="grid-table-wrap" tabindex="0" role="group" aria-label="Rate Matrix, scrollable with arrow keys"><table class="grid-table">
+        <tbody>${bodyRows}</tbody>
+      </table></div>
+    </div>`;
+    syncHeaderColumnWidths(host);
     alignEdgeZonesToHeader(document.querySelector('.mx-grid-card'), host, 'mx_edgeLeft', 'mx_edgeRight');
     alignVerticalEdgeZones(document.querySelector('.mx-grid-card'), host.querySelector('.grid-table-wrap'), 'mx_edgeUp', 'mx_edgeDown', 14);
+    syncHeaderScroll(host.querySelector('.grid-header-scroll'), host.querySelector('.grid-table-wrap'));
 
     document.querySelectorAll('.mx-group-toggle').forEach(tr=>{
       const groupId = tr.dataset.group;
@@ -771,4 +837,18 @@ document.addEventListener('DOMContentLoaded', ()=>{
   renderCompetitorMenu();
   renderColumnMenu();
   { const { start, end } = mxPresetRange(mxPreset); applyRange(start, end, mxPreset); }
+
+  // Re-sync the header/body column widths and the arrow positions on resize — both are computed
+  // from live measurements, so a viewport-width change (which shifts the auto-layout stretch
+  // math) needs to redo that math rather than leaving stale inline widths from the old size.
+  let mxResizeRaf = null;
+  window.addEventListener('resize', ()=>{
+    cancelAnimationFrame(mxResizeRaf);
+    mxResizeRaf = requestAnimationFrame(()=>{
+      const gridHost = document.getElementById('mx_gridHost');
+      syncHeaderColumnWidths(gridHost);
+      alignEdgeZonesToHeader(document.querySelector('.mx-grid-card'), gridHost, 'mx_edgeLeft', 'mx_edgeRight');
+      alignVerticalEdgeZones(document.querySelector('.mx-grid-card'), gridHost.querySelector('.grid-table-wrap'), 'mx_edgeUp', 'mx_edgeDown', 14);
+    });
+  });
 });
