@@ -22,6 +22,46 @@ function alignEdgeZonesToHeader(card, host, leftId, rightId){
   });
 }
 
+// Same padding-edge quirk as alignEdgeZonesToHeader, but for the top/bottom vertical hover-scroll
+// zones: a CSS `bottom:0` on .mx-edge-bottom sits flush with `card`'s own border, not with where
+// `wrap` (the actual scrollable table) ends — which left it overlapping wrap's own horizontal
+// scrollbar and silently swallowing every mouse-down meant for the scrollbar thumb (dragging it
+// did nothing). Pin the zone's `bottom` offset to (card.bottom - wrap.bottom) + scrollbarHeight so
+// its bottom edge lands exactly above the scrollbar strip, computed fresh since the wrap is
+// rebuilt on every render.
+function alignVerticalEdgeZones(card, wrap, topId, bottomId, scrollbarHeight){
+  if(!card || !wrap) return;
+  const cardRect = card.getBoundingClientRect();
+  const wrapRect = wrap.getBoundingClientRect();
+  const bottomEl = document.getElementById(bottomId);
+  if(bottomEl) bottomEl.style.bottom = `${Math.max(0, (cardRect.bottom - wrapRect.bottom) + scrollbarHeight)}px`;
+  const topEl = document.getElementById(topId);
+  if(topEl) topEl.style.top = `${Math.max(0, wrapRect.top - cardRect.top)}px`;
+}
+
+// Shrink date columns to divide the wrap's actual available width evenly when there are few
+// enough of them (7D/14D) that doing so keeps every column comfortably readable — this is what
+// actually removes the horizontal scrollbar for those ranges instead of just hoping the CSS
+// min-width floor (92px) happens to fit. Wider ranges (30D/90D) would only become unreadably
+// thin if forced to fit one screen, so they keep the normal min-width+scroll behavior instead
+// (inline sizing is cleared back to stylesheet-driven defaults in that case).
+const FIT_TO_WIDTH_MAX_DAYS = 14;
+function fitDateColumnsToWidth(host, dayCount){
+  const wrap = host && host.querySelector('.grid-table-wrap');
+  if(!wrap) return;
+  const cols = wrap.querySelectorAll('.grid-date-col, .grid-price-cell');
+  if(dayCount > FIT_TO_WIDTH_MAX_DAYS){
+    cols.forEach(el=>{ el.style.width = ''; el.style.minWidth = ''; el.style.maxWidth = ''; });
+    return;
+  }
+  const stickyEl = wrap.querySelector('.grid-sticky-col');
+  const stickyWidth = stickyEl ? stickyEl.getBoundingClientRect().width : 230;
+  const perCol = Math.floor((wrap.clientWidth - stickyWidth) / dayCount);
+  cols.forEach(el=>{
+    el.style.width = `${perCol}px`; el.style.minWidth = `${perCol}px`; el.style.maxWidth = `${perCol}px`;
+  });
+}
+
 // Cross-fade a grid re-render instead of swapping its content instantly. Swapping content after
 // a single requestAnimationFrame (~16ms after the fade-out class was added) is nowhere near
 // enough time for the opacity transition (220ms, matching #gridHost/#parityGridHost's CSS
@@ -148,6 +188,21 @@ document.addEventListener('DOMContentLoaded', ()=>{
   setupDateRangePicker();
   buildWeekdayButtons();
   loadGrid();
+
+  // Keep 7D/14D exactly filling the available width if the window (or the iframe it's embedded
+  // in) is resized — re-measuring is cheap and doesn't touch gridWorking/undo state, unlike a
+  // full renderGrid().
+  let resizeRaf = null;
+  window.addEventListener('resize', ()=>{
+    cancelAnimationFrame(resizeRaf);
+    resizeRaf = requestAnimationFrame(()=>{
+      const host = document.getElementById('gridHost');
+      fitDateColumnsToWidth(host, currentDates().length);
+      const card = document.querySelector('.cal-grid-card');
+      alignEdgeZonesToHeader(card, host, 'cal_edgeLeft', 'cal_edgeRight');
+      alignVerticalEdgeZones(card, host.querySelector('.grid-table-wrap'), 'cal_edgeUp', 'cal_edgeDown', 14);
+    });
+  });
 });
 
 function buildWeekdayButtons(){
@@ -380,7 +435,9 @@ function renderGrid(){
     <thead><tr><th class="grid-sticky-col">Room / Rate Plan / Occupancy</th>${theadDates}</tr></thead>
     <tbody>${bodyRows}</tbody>
   </table></div>`;
+  fitDateColumnsToWidth(host, dates.length);
   alignEdgeZonesToHeader(document.querySelector('.cal-grid-card'), host, 'cal_edgeLeft', 'cal_edgeRight');
+  alignVerticalEdgeZones(document.querySelector('.cal-grid-card'), host.querySelector('.grid-table-wrap'), 'cal_edgeUp', 'cal_edgeDown', 14);
 
   document.querySelectorAll('.parity-btn').forEach(btn=>{
     btn.addEventListener('click', function(e){

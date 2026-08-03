@@ -376,6 +376,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
       });
     });
 
+    alignRcVerticalEdgeZones();
     return filtered;
   }
 
@@ -601,6 +602,27 @@ document.addEventListener('DOMContentLoaded', ()=>{
       });
     });
   })();
+
+  // The bottom hover-scroll zone (rc_edgeDown) sits flush at bottom:0 of its wrapping card by
+  // CSS default, which overlaps rc_tableWrap's own horizontal scrollbar — with pointer-events:auto
+  // it silently absorbs every mouse-down meant for the scrollbar thumb, so dragging it does
+  // nothing. A fixed CSS offset can't reliably clear it (the containing block's padding-edge
+  // sits at the card's border, not at the wrap's actual edge), so it's positioned exactly here
+  // instead — using the edge zone's own parent as "the card" since this wrapper has no unique
+  // class to select by. Re-run after every renderTable() since content height (and therefore
+  // whether the wrap's own scrollbar is even present) can change.
+  function alignRcVerticalEdgeZones(){
+    const bottomEl = document.getElementById('rc_edgeDown');
+    const topEl = document.getElementById('rc_edgeUp');
+    const wrap = document.getElementById('rc_tableWrap');
+    const card = bottomEl && bottomEl.parentElement;
+    if(!bottomEl || !topEl || !wrap || !card) return;
+    const cardRect = card.getBoundingClientRect();
+    const wrapRect = wrap.getBoundingClientRect();
+    bottomEl.style.bottom = `${Math.max(0, (cardRect.bottom - wrapRect.bottom) + 8)}px`;
+    topEl.style.top = `${Math.max(0, wrapRect.top - cardRect.top)}px`;
+  }
+  alignRcVerticalEdgeZones();
 
   /* ======================================================================
      Rate Plan Trend Analysis — meal-plan-scoped (All Plans/EP/CP/MAP/AP) rate

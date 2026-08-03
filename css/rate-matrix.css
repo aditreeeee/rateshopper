@@ -140,6 +140,14 @@
 }
 .mx-range-shiftable .mx-edge-left, .mx-range-shiftable .mx-edge-right{ opacity:.4; cursor:pointer; }
 .mx-range-shiftable .mx-edge-left.is-active, .mx-range-shiftable .mx-edge-right.is-active{ opacity:1; }
+
+/* The bottom hover-scroll zone (.mx-edge-bottom) was physically overlapping the grid-table-wrap's
+   own horizontal scrollbar (14px tall) — with pointer-events:auto and a higher z-index, it
+   silently absorbed every mouse-down meant for the scrollbar thumb, so dragging the visible
+   scrollbar did nothing. A fixed px offset here can't reliably clear it (same containing-block
+   padding-edge quirk that affected the top zones — see alignEdgeZonesToHeader), so this is
+   positioned exactly via JS instead: see alignVerticalEdgeZones() in property-rate-matrix.js /
+   rate-calendar.js, called on every render. */
 /* Parity's zones stay present at every preset (hover-scroll always works) but only look/act like
    a clickable page-jump arrow once shiftable — otherwise they're the plain hover-reveal chevron
    the main grids use everywhere. */

@@ -325,6 +325,11 @@
 .mx-edge-bottom{ bottom:0; background:linear-gradient(to top, color-mix(in srgb, var(--bg-surface) 92%, transparent), transparent); }
 .mx-edge-left{ left:0; background:linear-gradient(to right, color-mix(in srgb, var(--bg-surface) 92%, transparent), transparent); }
 .mx-edge-right{ right:0; background:linear-gradient(to left, color-mix(in srgb, var(--bg-surface) 92%, transparent), transparent); }
+/* Room Rate Comparison's bottom hover zone sits flush at bottom:0 by default, which overlaps
+   .rate-shopper-table-wrap's own horizontal scrollbar and silently steals every mouse-down meant
+   for the scrollbar thumb (same bug as the Rate Matrix/Rate Calendar grids). A fixed px offset
+   can't reliably clear it (containing-block padding-edge quirk), so it's positioned exactly via
+   JS instead — see alignVerticalEdgeZones() in js/property-room-comparison.js. */
 
 /* ---------- Skeleton shimmer (reuses .skeleton base if present, adds fallback) ---------- */
 .portal-skeleton{ background:linear-gradient(90deg,var(--bg-surface-2) 25%,var(--border-2) 37%,var(--bg-surface-2) 63%);

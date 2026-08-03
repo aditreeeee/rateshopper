@@ -44,6 +44,23 @@ function alignEdgeZonesToHeader(card, host, leftId, rightId){
     if(el){ el.style.top = `${top}px`; el.style.height = `${h}px`; }
   });
 }
+
+// Same padding-edge quirk as alignEdgeZonesToHeader, but for the top/bottom vertical hover-scroll
+// zones: a CSS `bottom:0` on .mx-edge-bottom sits flush with `card`'s own border, not with where
+// `wrap` (the actual scrollable table) ends — which left it overlapping wrap's own horizontal
+// scrollbar and silently swallowing every mouse-down meant for the scrollbar thumb (dragging it
+// did nothing). Pin the zone's `bottom` offset to (card.bottom - wrap.bottom) + scrollbarHeight so
+// its bottom edge lands exactly above the scrollbar strip, computed fresh since the wrap is
+// rebuilt on every render.
+function alignVerticalEdgeZones(card, wrap, topId, bottomId, scrollbarHeight){
+  if(!card || !wrap) return;
+  const cardRect = card.getBoundingClientRect();
+  const wrapRect = wrap.getBoundingClientRect();
+  const bottomEl = document.getElementById(bottomId);
+  if(bottomEl) bottomEl.style.bottom = `${Math.max(0, (cardRect.bottom - wrapRect.bottom) + scrollbarHeight)}px`;
+  const topEl = document.getElementById(topId);
+  if(topEl) topEl.style.top = `${Math.max(0, wrapRect.top - cardRect.top)}px`;
+}
 let mxSelectedCompetitors = null; // Set of competitor ids, null = not yet initialized (defaults to all)
 let mxHiddenGroups = new Set();   // competitor ids hidden via the Properties selector
 let mxCollapsedGroups = new Set(); // competitor ids collapsed (rows hidden, divider still shown)
@@ -318,6 +335,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
       <tbody>${bodyRows}</tbody>
     </table></div>`;
     alignEdgeZonesToHeader(document.querySelector('.mx-grid-card'), host, 'mx_edgeLeft', 'mx_edgeRight');
+    alignVerticalEdgeZones(document.querySelector('.mx-grid-card'), host.querySelector('.grid-table-wrap'), 'mx_edgeUp', 'mx_edgeDown', 14);
 
     document.querySelectorAll('.mx-group-toggle').forEach(tr=>{
       const groupId = tr.dataset.group;
