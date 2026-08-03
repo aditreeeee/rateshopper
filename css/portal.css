@@ -5,7 +5,7 @@
 
 /* ---------- Forecast & Actions brand palette — a fixed monochromatic blue scale used across
    every card, badge, chip, and chart on that page (Insight Generation, Action Center, Forecast
-   opportunity cards, Scenario Planner). Booking/priority/impact direction is differentiated
+   opportunity cards). Booking/priority/impact direction is differentiated
    purely by POSITION on this scale (lighter = calmer/positive, darker = more emphasis/urgent)
    plus opacity/border/fill weight — never red, green, or yellow. Dark theme reuses the exact same
    five hex values, just flipping which end reads as "emphasis" for legibility. ---------- */
@@ -380,6 +380,42 @@
   box-shadow:var(--shadow-sm); backdrop-filter:blur(var(--glass-blur)); -webkit-backdrop-filter:blur(var(--glass-blur));
 }
 
+/* ---------- Rate Comparison chart — High/Low/Avg quick-read strip above the canvas, stock-index
+   style (same idea as a ticker's day-range summary), computed from "My Property"'s currently
+   visible range so it always matches whatever 7D/30D/90D window is active. ---------- */
+.rs-stat-strip{ display:flex; flex-wrap:wrap; gap:8px; margin:2px 0 14px; }
+.rs-stat-chip{
+  display:flex; align-items:center; gap:6px; padding:5px 12px; border-radius:20px;
+  background:var(--bg-surface-2); border:1px solid var(--border-1); font-size:.72rem;
+}
+.rs-stat-chip .k{ color:var(--text-3); font-weight:600; text-transform:uppercase; letter-spacing:.02em; font-size:.64rem; }
+.rs-stat-chip .v{ font-weight:800; color:var(--text-1); font-variant-numeric:tabular-nums; }
+.rs-stat-chip .v.pos{ color:#12b76a; }
+.rs-stat-chip .v.neg{ color:#ff4d5e; }
+.rs-stat-chip.is-high .v{ color:#12b76a; }
+.rs-stat-chip.is-low .v{ color:#ff4d5e; }
+
+/* ---------- Chart hover polish — a positioned wrapper so the custom tooltip can float above the
+   canvas at an exact pixel anchor (computed in JS from the hovered point's real position), instead
+   of Chart.js's default boxy tooltip. The tooltip fades/scales in from the hovered point rather
+   than just appearing, and gets the same frosted-glass treatment as the rest of the page. ---------- */
+.rs-chart-wrap{ position:relative; }
+.rs-chart-tooltip{
+  position:absolute; top:0; left:0; pointer-events:none; z-index:20;
+  min-width:150px; padding:10px 12px; border-radius:12px;
+  background:var(--glass-bg-strong); border:1px solid var(--glass-border);
+  box-shadow:var(--shadow-lg); backdrop-filter:blur(var(--glass-blur)); -webkit-backdrop-filter:blur(var(--glass-blur));
+  opacity:0; transform:translateY(4px) scale(.97); will-change:transform,opacity,left,top;
+  transition:opacity .12s ease, transform .12s ease;
+}
+.rs-chart-tooltip.is-visible{ opacity:1; transform:none; }
+.rs-chart-tooltip .rs-tt-date{ font-size:.68rem; font-weight:700; color:var(--text-3); text-transform:uppercase; letter-spacing:.03em; margin-bottom:6px; }
+.rs-chart-tooltip .rs-tt-row{ display:flex; align-items:center; justify-content:space-between; gap:14px; padding:2px 0; font-size:.78rem; }
+.rs-chart-tooltip .rs-tt-row.is-me{ font-weight:800; }
+.rs-chart-tooltip .rs-tt-label{ display:flex; align-items:center; gap:6px; color:var(--text-2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:130px; }
+.rs-chart-tooltip .rs-tt-dot{ width:8px; height:8px; border-radius:50%; flex:0 0 auto; }
+.rs-chart-tooltip .rs-tt-value{ font-variant-numeric:tabular-nums; color:var(--text-1); font-weight:700; }
+
 .legend-toggle{
   display:inline-flex; align-items:center; gap:5px; padding:4px 10px; border-radius:20px; font-size:.7rem; font-weight:600;
   border:1px solid var(--border-1); background:var(--bg-surface-2); color:var(--text-2); cursor:pointer; user-select:none;
@@ -689,29 +725,10 @@
 .forecast-card.impact-caution .insight-icon{ background:var(--fa-tint-mod); color:var(--fa-text-mod); }
 .forecast-card.impact-risk .insight-icon{ background:var(--fa-tint-strong); color:var(--fa-text-strong); }
 /* ---- Per-card forecast meta (date range / stay dates affected / revenue lift / highest-
-   opportunity date) — reuses .fc-scenario-stat's tile look (Scenario Planner) so both places
-   that show a "stat + label" read as the same component. ---- */
+   opportunity date) — reuses .fc-scenario-stat's tile look so both places that show a
+   "stat + label" read as the same component. ---- */
 .forecast-meta-grid{ display:grid; grid-template-columns:1fr 1fr; gap:6px; margin:2px 0 10px; }
 
-/* ---------- Scenario Planner — same .section-card chrome as every other card on this page
-   (Top Forecasted Opportunities, Insight Generation), just a little more compact since it's
-   control-heavy rather than a grid of cards. ---------- */
-.sp-card{ padding:16px 18px; }
-.fc-scenario-value{ font-size:.9rem; font-weight:800; color:var(--fa-text-mod); background:var(--fa-tint-mod); border-radius:12px; padding:3px 11px; }
-.fc-slider{
-  -webkit-appearance:none; appearance:none; width:100%; height:5px; border-radius:6px;
-  background:linear-gradient(90deg, var(--fa-4) 0%, var(--border-1) 35%, var(--border-1) 65%, var(--fa-2) 100%);
-  outline:none; margin:8px 0 2px;
-}
-.fc-slider::-webkit-slider-thumb{
-  -webkit-appearance:none; appearance:none; width:16px; height:16px; border-radius:50%;
-  background:#fff; border:3px solid var(--fa-3); box-shadow:var(--shadow-sm); cursor:pointer;
-}
-.fc-slider::-moz-range-thumb{
-  width:16px; height:16px; border-radius:50%; background:#fff; border:3px solid var(--fa-3);
-  box-shadow:var(--shadow-sm); cursor:pointer;
-}
-.fc-slider-scale{ display:flex; justify-content:space-between; font-size:.62rem; color:var(--text-3); }
 .fc-scenario-stat{
   background:var(--bg-surface-2); border-radius:10px; padding:7px 8px; text-align:center;
 }
@@ -719,19 +736,6 @@
 .fc-scenario-stat .v{ font-size:.86rem; font-weight:800; color:var(--text-1); margin-top:1px; }
 .fc-scenario-stat .v.pos{ color:var(--fa-text-mild); }
 .fc-scenario-stat .v.neg{ color:var(--fa-text-strong); }
-
-/* ---- Compact Current/Projected/Market Avg. trend bars — differentiated purely by position on
-   the blue scale (current = neutral gray baseline, projected = primary blue, market = lightest
-   blue) rather than a hue change. ---- */
-.sp-trend{ margin-top:10px; display:flex; flex-direction:column; gap:5px; }
-.sp-trend-row{ display:flex; align-items:center; gap:8px; }
-.sp-trend-label{ flex:0 0 68px; font-size:.66rem; color:var(--text-3); font-weight:600; }
-.sp-trend-track{ flex:1; height:7px; border-radius:6px; background:var(--bg-surface-2); overflow:hidden; }
-.sp-trend-fill{ height:100%; border-radius:6px; transition:width var(--dur-fast) ease; }
-.sp-trend-fill.bar-current{ background:color-mix(in srgb, var(--fa-5) 30%, var(--border-1)); }
-.sp-trend-fill.bar-projected{ background:var(--fa-3); }
-.sp-trend-fill.bar-market{ background:var(--fa-1); }
-.sp-trend-value{ flex:0 0 72px; text-align:right; font-size:.7rem; font-weight:700; color:var(--text-1); font-variant-numeric:tabular-nums; }
 
 /* ---- Recommendation summary ---- */
 .sp-recommend{

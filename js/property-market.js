@@ -40,7 +40,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     document.querySelector('#mi_tabs [data-tab="action"]').click();
   });
 
-  // ---- Forecast — Top Forecasted Opportunities + Scenario Planner (moved in from the standalone
+  // ---- Forecast — Top Forecasted Opportunities (moved in from the standalone
   // Forecast page). Uses the full tracked competitor pool (assigned comparisons + the Competitors
   // page's synthetic pool) so it always has real market data to project against, even for an
   // owner with nothing assigned yet — the room-level insight below still scopes to the real,
@@ -49,9 +49,9 @@ document.addEventListener('DOMContentLoaded', ()=>{
   const totalRooms = DB.rooms.byProperty(propertyId).reduce((s,r)=>s+(r.totalRooms||0), 0) || 20;
 
   // ---- Forecast Period — 7/14/30 Days presets or a manual custom range, applied via
-  // fcStartOffset (days from today the window begins) + fcHorizonDays (its length). Both
-  // Scenario Planner and Top Forecasted Opportunities read whatever these are currently set to
-  // every time refreshForecast() runs. ----
+  // fcStartOffset (days from today the window begins) + fcHorizonDays (its length).
+  // Top Forecasted Opportunities reads whatever these are currently set to every time
+  // refreshForecast() runs. ----
   let fcStartOffset = 0;
   let fcHorizonDays = 14;
 
@@ -62,7 +62,6 @@ document.addEventListener('DOMContentLoaded', ()=>{
   function refreshForecast(){
     const freshDays = buildForecastDays(propertyId, forecastComps, fcStartOffset, fcHorizonDays);
     renderForecastOpportunities(propertyId, comps, forecastComps, freshDays, totalRooms);
-    initScenarioPlanner(freshDays, totalRooms, forecastComps.length);
   }
   refreshForecast();
   window.__refreshForecast = refreshForecast;
@@ -101,7 +100,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
 });
 
 /* ==========================================================================
-   Forecast — Top Forecasted Opportunities + Scenario Planner (moved in from the standalone
+   Forecast — Top Forecasted Opportunities (moved in from the standalone
    Forecast page, which has been retired). A rolling rate/demand projection over whatever window
    the Forecast Period control is currently set to (7/14/30 Days, or a manual custom range):
    demand index and booking pace are the only two signals with no real-data source elsewhere in
@@ -383,91 +382,6 @@ function renderForecastOpportunities(propertyId, realComps, forecastComps, days,
       </div>
     </div>`;
   }).join('') : `<div class="col-12">${PWIDGETS.emptyState('bi-stars','No standout forecast signals right now','Your projected pricing and demand are well aligned — check back as new competitor data comes in.')}</div>`;
-}
-
-// Scenario Planner — compact "what if" card. Purely rate-driven (no occupancy modeled): every
-// projection multiplies the adjusted rate straight through the full room inventory. No chart
-// library involved — a lightweight CSS bar comparison redraws instantly on every slider tick.
-function initScenarioPlanner(days, totalRooms, compCount){
-  const slider = document.getElementById('fc_scenarioSlider');
-
-  // Prominently show the active forecast window above the projection metrics, so it's always
-  // clear exactly which dates "Projected Revenue" etc. below are being computed over.
-  const windowLabel = days.length>1
-    ? `${APP.fmtDateReadable(days[0].dateKey)} – ${APP.fmtDateReadable(days[days.length-1].dateKey)}`
-    : APP.fmtDateReadable(days[0].dateKey);
-  document.getElementById('fc_scenarioWindow').innerHTML = `<i class="bi bi-calendar-range me-1"></i>Forecast window: ${windowLabel} (${days.length} day${days.length===1?'':'s'})`;
-
-  const avgMarket = Math.round(days.reduce((s,d)=>s+d.marketAvg,0)/days.length);
-  const avgCurrentRate = Math.round(days.reduce((s,d)=>s+d.myRate,0)/days.length);
-  const baselineRevenue = days.reduce((s,d)=> s + d.myRate*totalRooms, 0);
-  const avgBaseConfidence = Math.round(days.reduce((s,d)=>s+d.confidence,0)/days.length);
-
-  // Same convention as Rate Position elsewhere in the app (Dashboard, Revenue Calendar) — a
-  // percentage gap from the market average, not the tracked pool's min/max extremes. With ~50
-  // competitors in the pool those extremes span a huge range (roughly ₹2,200-₹15,000), so almost
-  // no realistic rate — even at +/-20% — would ever cross them, making this read as stuck on
-  // "Within Market" no matter what the slider did.
-  function marketPosition(rate){
-    const gapPct = ((rate-avgMarket)/avgMarket)*100;
-    return gapPct <= -4 ? 'Below Market' : gapPct >= 4 ? 'Above Market' : 'Within Market';
-  }
-
-  function render(pct){
-    const avgProjectedRate = Math.round(avgCurrentRate * (1+pct/100));
-    const totalRevenue = days.reduce((s,d)=> s + Math.round(d.myRate*(1+pct/100))*totalRooms, 0);
-    const deltaRevenue = totalRevenue - baselineRevenue;
-    const priceIndex = Math.round((avgProjectedRate/avgMarket)*100);
-    const position = marketPosition(avgProjectedRate);
-    // A scenario further from today's actual rate leans more on the flat rate-driven assumption
-    // (no occupancy/elasticity data to confirm it), so confidence tapers off with |pct|.
-    const confidence = Math.max(35, Math.round(avgBaseConfidence - Math.abs(pct)*1.1));
-
-    document.getElementById('fc_scenarioPct').textContent = `${pct>=0?'+':''}${pct}%`;
-
-    document.getElementById('fc_scenarioStats').innerHTML = [
-      { k:'Projected Revenue', v:`${deltaRevenue>=0?'+':''}${APP.fmtCurrency(Math.round(deltaRevenue))}`, cls: deltaRevenue>0?'pos':deltaRevenue<0?'neg':'' },
-      { k:'Market Position', v:position },
-      { k:'Price Index', v:priceIndex },
-      { k:'Confidence', v:`${confidence}%` },
-    ].map(s=>`<div class="col-6 col-md-3"><div class="fc-scenario-stat"><div class="k">${s.k}</div><div class="v ${s.cls||''}">${s.v}</div></div></div>`).join('');
-
-    const maxVal = Math.max(avgCurrentRate, avgProjectedRate, avgMarket) || 1;
-    const bars = [
-      { label:'Current', val:avgCurrentRate, cls:'bar-current' },
-      { label:'Projected', val:avgProjectedRate, cls:'bar-projected' },
-      { label:'Market Avg.', val:avgMarket, cls:'bar-market' },
-    ];
-    document.getElementById('fc_scenarioTrend').innerHTML = bars.map(b=>`
-      <div class="sp-trend-row">
-        <span class="sp-trend-label">${b.label}</span>
-        <div class="sp-trend-track"><div class="sp-trend-fill ${b.cls}" style="width:${Math.max(4,Math.round(b.val/maxVal*100))}%"></div></div>
-        <span class="sp-trend-value">${APP.fmtCurrency(b.val)}</span>
-      </div>`).join('');
-
-    // ---- 2-3 line recommendation: expected impact, risk, and a suggested pricing move ----
-    let summary;
-    if(pct === 0){
-      summary = `This is your current baseline — ${APP.fmtCurrency(avgCurrentRate)} average rate, ${position.toLowerCase()} vs. the ${compCount}-property comparison set. Move the slider to model a rate change.`;
-    } else {
-      const up = pct > 0;
-      const impactLine = `A ${Math.abs(pct)}% ${up?'increase':'decrease'} projects ${APP.fmtCurrency(avgProjectedRate)} ADR (Price Index ${priceIndex}), landing ${position.toLowerCase()} at ${confidence}% confidence.`;
-      const revenueLine = `Estimated ${deltaRevenue>=0?'gain':'loss'} of ${APP.fmtCurrency(Math.abs(Math.round(deltaRevenue)))} over ${days.length} days if held across your full inventory.`;
-      let riskLine;
-      if(up && Math.abs(pct)>=12) riskLine = 'Risk: a jump this large may soften demand — this model has no occupancy data to confirm it. Consider phasing the increase.';
-      else if(up) riskLine = 'Suggested strategy: a measured increase, monitored against competitor response over the next few days.';
-      else if(Math.abs(pct)>=12) riskLine = 'Risk: a cut this steep erodes ADR without a guaranteed booking-volume gain. Reserve for a clear soft-demand window.';
-      else riskLine = 'Suggested strategy: use selectively on lower-demand dates rather than as a blanket rate change.';
-      summary = `${impactLine} ${revenueLine} ${riskLine}`;
-    }
-    document.getElementById('fc_scenarioRecommend').innerHTML = `<i class="bi bi-lightbulb-fill"></i><span>${summary}</span>`;
-  }
-  // Reset to baseline and use .oninput (not addEventListener) — this function can be re-run after
-  // a real rate change elsewhere on the page (see refreshForecast/window.__refreshForecast), and
-  // assigning .oninput replaces any previous handler instead of stacking a duplicate one on top.
-  slider.value = 0;
-  render(0);
-  slider.oninput = ()=> render(Number(slider.value));
 }
 
 // ---- Pricing Recommendations (merged in from the standalone Pricing Recommendations page) ----
@@ -1008,7 +922,7 @@ function applyRecommendation(rec){
   APP.toast('Rate Change Applied', `${rec.title} — new rate takes effect for ${effectiveLabel}.`, 'success');
   PORTAL.refreshBell(me);
   renderActionCenter(propertyId);
-  // Keep the Forecast tab (Top Forecasted Opportunities + Scenario Planner) in sync with the
+  // Keep the Forecast tab (Top Forecasted Opportunities) in sync with the
   // price change that was just applied here in Action Center, rather than leaving it showing
   // whatever the rate was when the page first loaded.
   if(window.__refreshForecast) window.__refreshForecast();

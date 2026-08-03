@@ -63,6 +63,92 @@ const rsEndValuePlugin = {
   }
 };
 
+// Full "MMM D, YYYY"-style date per chart point, keyed by index — the x-axis labels themselves
+// are trimmed to "MM-DD" for space, so the custom tooltip needs its own lookup to show a real,
+// unambiguous date in its header.
+let rsFullDates = [];
+
+// Crosshair + highlighted point markers, stock/trading-chart style: a dashed vertical guide at
+// the hovered index plus a small ring around "My Property"'s point there, drawn straight on the
+// canvas so it always lines up exactly with Chart.js's own hit-testing (chart.getActiveElements())
+// regardless of zoom/range/resize.
+const rsCrosshairPlugin = {
+  id: 'rsCrosshair',
+  afterDraw(chart){
+    const active = chart.getActiveElements();
+    if(!active || !active.length) return;
+    const { ctx, chartArea } = chart;
+    const x = active[0].element.x;
+    const dataIndex = active[0].index;
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.setLineDash([4,4]);
+    ctx.moveTo(x, chartArea.top);
+    ctx.lineTo(x, chartArea.bottom);
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = 'rgba(120,130,160,.4)';
+    ctx.stroke();
+    ctx.restore();
+
+    chart.data.datasets.forEach((ds, i)=>{
+      const meta = chart.getDatasetMeta(i);
+      if(meta.hidden) return;
+      const pt = meta.data[dataIndex];
+      if(!pt) return;
+      ctx.save();
+      if(ds.isMe){
+        ctx.beginPath();
+        ctx.arc(pt.x, pt.y, 9, 0, Math.PI*2);
+        ctx.strokeStyle = 'rgba(56,97,251,.22)';
+        ctx.lineWidth = 4;
+        ctx.stroke();
+      }
+      ctx.beginPath();
+      ctx.arc(pt.x, pt.y, ds.isMe?5:3.5, 0, Math.PI*2);
+      ctx.fillStyle = '#fff';
+      ctx.fill();
+      ctx.lineWidth = ds.isMe?2.5:2;
+      ctx.strokeStyle = ds.borderColor;
+      ctx.stroke();
+      ctx.restore();
+    });
+  }
+};
+
+// Custom glass tooltip (Chart.js's built-in `enabled:false` + `external` hook) instead of the
+// default boxy tooltip — positioned at the hovered point's exact pixel, sorted highest-to-lowest
+// rate so the ranking is legible at a glance, with "My Property" bolded to stay the visual anchor.
+function rsExternalTooltip(context){
+  const el = document.getElementById('rs_tooltip');
+  if(!el) return;
+  const { tooltip } = context;
+  if(!tooltip || tooltip.opacity === 0){ el.classList.remove('is-visible'); return; }
+
+  const points = (tooltip.dataPoints||[]).slice().sort((a,b)=>b.parsed.y - a.parsed.y);
+  if(!points.length){ el.classList.remove('is-visible'); return; }
+
+  const dateLabel = rsFullDates[points[0].dataIndex] || tooltip.title[0] || '';
+  el.innerHTML = `<div class="rs-tt-date">${dateLabel}</div>` + points.map(dp=>{
+    const ds = dp.dataset;
+    return `<div class="rs-tt-row ${ds.isMe?'is-me':''}">
+      <span class="rs-tt-label"><span class="rs-tt-dot" style="background:${ds.borderColor}"></span>${ds.label}</span>
+      <span class="rs-tt-value">${APP.fmtCurrency(dp.parsed.y)}</span>
+    </div>`;
+  }).join('');
+
+  const wrap = context.chart.canvas.parentElement;
+  const wrapWidth = wrap.clientWidth;
+  const point = points[0].element;
+  el.classList.add('is-visible');
+  const ttWidth = el.offsetWidth || 160;
+  let left = point.x + 16;
+  if(left + ttWidth > wrapWidth) left = point.x - ttWidth - 16;
+  const top = Math.max(4, point.y - 18);
+  el.style.left = `${left}px`;
+  el.style.top = `${top}px`;
+}
+
 document.addEventListener('DOMContentLoaded', ()=>{
   const me = PORTAL.mount({ title:'Rate Shopper', subtitle:'Compare your rate against the properties selected by your Company Admin, channel by channel.' });
   if(!me) return;
@@ -167,6 +253,26 @@ document.addEventListener('DOMContentLoaded', ()=>{
     renderChart();
   };
 
+  // High / Low / Avg quick-read chips for "My Property" over the currently selected range —
+  // gives the chart an at-a-glance summary the way a stock ticker's day-range does, without
+  // having to eyeball the line against the axis.
+  function renderStatStrip(myData){
+    const valid = myData.filter(v=>v!=null);
+    const strip = document.getElementById('rs_statStrip');
+    if(!strip || !valid.length){ if(strip) strip.innerHTML = ''; return; }
+    const high = Math.max(...valid), low = Math.min(...valid);
+    const avg = Math.round(valid.reduce((s,v)=>s+v,0)/valid.length);
+    const first = valid[0], last = valid[valid.length-1];
+    const chg = last - first;
+    const chgPct = first ? (chg/first*100) : 0;
+    strip.innerHTML = `
+      <span class="rs-stat-chip is-high"><span class="k">High</span><span class="v">${APP.fmtCurrency(high)}</span></span>
+      <span class="rs-stat-chip is-low"><span class="k">Low</span><span class="v">${APP.fmtCurrency(low)}</span></span>
+      <span class="rs-stat-chip"><span class="k">Avg</span><span class="v">${APP.fmtCurrency(avg)}</span></span>
+      <span class="rs-stat-chip"><span class="k">Change</span><span class="v ${chg>=0?'pos':'neg'}">${chg>=0?'+':''}${APP.fmtCurrency(chg)} (${chgPct>=0?'+':''}${chgPct.toFixed(1)}%)</span></span>
+    `;
+  }
+
   function renderChart(){
     // My Property is the "index" line — bold, solid brand blue, drawn last (on top). Every
     // benchmark property still gets its own line and its own muted color (never hidden by
@@ -174,7 +280,12 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const list = seriesList().filter(s=>!rsHidden.has(s.key));
     list.sort((a,b)=> (a.isMe?1:0) - (b.isMe?1:0)); // isMe last => drawn on top
     const labels = [];
-    for(let d=-rsRangeDays; d<=0; d++){ labels.push(PORTALDATA.dateKeyOffset(d).slice(5)); }
+    rsFullDates = [];
+    for(let d=-rsRangeDays; d<=0; d++){
+      const dk = PORTALDATA.dateKeyOffset(d);
+      labels.push(dk.slice(5));
+      rsFullDates.push(APP.fmtDateReadable(dk));
+    }
 
     const datasets = list.map((s)=>{
       const color = seriesColor(s);
@@ -200,6 +311,9 @@ document.addEventListener('DOMContentLoaded', ()=>{
       };
     });
 
+    const myDs = datasets.find(d=>d.isMe);
+    renderStatStrip(myDs ? myDs.data : []);
+
     // Update in place — the range toggle (7D/30D/90D) and the legend's show/hide-a-competitor
     // toggles both land here; reassigning data/datasets and calling update() lets Chart.js tween
     // between old and new values instead of the chart blinking away and redrawing from scratch.
@@ -212,13 +326,13 @@ document.addEventListener('DOMContentLoaded', ()=>{
     rsChart = new Chart(document.getElementById('rs_chart'), {
       type:'line',
       data:{ labels, datasets },
-      plugins:[rsEndValuePlugin],
+      plugins:[rsEndValuePlugin, rsCrosshairPlugin],
       options:{
         responsive:true, interaction:{mode:'index', intersect:false}, animation:chartAnim(false),
         // A little extra room on the right/top so the end-value pill (drawn past the last point,
         // and possibly near the plot's top edge) never gets clipped by the canvas bounds.
         layout:{ padding:{ top:22, right:14 } },
-        plugins:{ legend:{display:false}, tooltip:{callbacks:{label:ctx=>`${ctx.dataset.label}: ${APP.fmtCurrency(ctx.parsed.y)}`}} },
+        plugins:{ legend:{display:false}, tooltip:{enabled:false, external:rsExternalTooltip} },
         scales:{
           // Right-aligned axis + minimal, borderless grid — the "live market index" look from the
           // reference chart, instead of a boxed-in, left-axis financial-report style.
