@@ -189,13 +189,9 @@
     color-mix(in srgb, var(--bg-surface) 62%, transparent);
   backdrop-filter:blur(10px) saturate(180%); -webkit-backdrop-filter:blur(10px) saturate(180%);
   border:1px solid color-mix(in srgb, var(--border-1) 70%, transparent);
-  box-shadow:
-    0 1px 0 0 color-mix(in srgb, #fff 35%, transparent) inset,
-    0 6px 16px -6px rgba(20,30,60,.22),
-    var(--shadow-sm);
+  box-shadow:0 1px 0 0 color-mix(in srgb, #fff 35%, transparent) inset;
   color:var(--brand-600); font-size:.8rem;
-  transition:background var(--dur-fast) ease, border-color var(--dur-fast) ease,
-    box-shadow var(--dur-fast) ease, transform var(--dur-fast) ease, color var(--dur-fast) ease;
+  transition:background var(--dur-fast) ease, border-color var(--dur-fast) ease, color var(--dur-fast) ease;
 }
 .mx-range-shiftable .mx-edge-left:hover .bi, .mx-range-shiftable .mx-edge-right:hover .bi,
 .mx-range-shiftable .mx-edge-left.is-active .bi, .mx-range-shiftable .mx-edge-right.is-active .bi,
@@ -205,25 +201,14 @@
     linear-gradient(155deg, color-mix(in srgb, #fff 30%, transparent), transparent 55%),
     color-mix(in srgb, var(--brand-50) 82%, transparent);
   border-color:var(--brand-300); color:var(--brand-700);
-  box-shadow:
-    0 1px 0 0 color-mix(in srgb, #fff 45%, transparent) inset,
-    0 8px 20px -6px color-mix(in srgb, var(--brand-500) 30%, transparent),
-    var(--shadow-sm);
-  transform:translateY(-1px) scale(1.04);
-}
-.mx-range-shiftable .mx-edge-left:active .bi, .mx-range-shiftable .mx-edge-right:active .bi,
-.parity-scroll-wrap .mx-edge-left:active .bi, .parity-scroll-wrap .mx-edge-right:active .bi{
-  transform:translateY(0) scale(.97);
+  box-shadow:0 1px 0 0 color-mix(in srgb, #fff 45%, transparent) inset;
 }
 [data-theme="dark"] .mx-range-shiftable .mx-edge-left .bi, [data-theme="dark"] .mx-range-shiftable .mx-edge-right .bi,
 [data-theme="dark"] .parity-scroll-wrap .mx-edge-left .bi, [data-theme="dark"] .parity-scroll-wrap .mx-edge-right .bi{
   background:
     linear-gradient(155deg, color-mix(in srgb, #fff 10%, transparent), transparent 55%),
     color-mix(in srgb, var(--bg-surface-2) 62%, transparent);
-  box-shadow:
-    0 1px 0 0 color-mix(in srgb, #fff 12%, transparent) inset,
-    0 6px 16px -6px rgba(0,0,0,.4),
-    var(--shadow-sm);
+  box-shadow:0 1px 0 0 color-mix(in srgb, #fff 12%, transparent) inset;
 }
 [data-theme="dark"] .mx-range-shiftable .mx-edge-left:hover .bi, [data-theme="dark"] .mx-range-shiftable .mx-edge-right:hover .bi,
 [data-theme="dark"] .mx-range-shiftable .mx-edge-left.is-active .bi, [data-theme="dark"] .mx-range-shiftable .mx-edge-right.is-active .bi,
