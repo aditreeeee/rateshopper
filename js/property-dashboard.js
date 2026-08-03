@@ -407,7 +407,17 @@ function initRevenueCalendar(propertyId, comps){
     }
     if(violation) actionIcon = 'bi-exclamation-octagon-fill';
 
-    return { dk, date, myR, compRates, mktAvg, gapPct, tone, violation, upCount, downCount, avgMovePct, action, actionIcon, confidence, suggested };
+    // ---- Market Position — where "you" rank among every mapped competitor on this date, plus a
+    // Price Index (100 = exactly at market average) — same convention as the Dashboard KPIs. ----
+    const property = DB.properties.get(propertyId);
+    const ranked = [...compRates.map(c=>({ name:c.name, rate:c.rate, isMe:false })),
+      { name:`${property ? property.name : 'Your Property'} (You)`, rate:myR, isMe:true }]
+      .sort((a,b)=>a.rate-b.rate);
+    const rank = ranked.findIndex(r=>r.isMe)+1;
+    const priceIndex = mktAvg ? Math.round((myR/mktAvg)*100) : 100;
+
+    return { dk, date, myR, compRates, mktAvg, gapPct, tone, violation, upCount, downCount, avgMovePct, action, actionIcon, confidence, suggested,
+      ranked, rank, priceIndex };
   }
 
   const TONE_META = {
@@ -420,39 +430,67 @@ function initRevenueCalendar(propertyId, comps){
     const tm = TONE_META[info.tone];
     const actionLabel = info.action==='Increase' ? 'Raise Rate' : info.action==='Decrease' ? 'Lower Rate' : 'Hold Rate';
 
-    // ---- Compact chip row — every glanceable status/signal as a short 1-3 word pill instead of
-    // sentence-style text, so the panel reads at a glance without growing taller. ----
-    const chips = [];
-    chips.push(`<span class="ric-chip ${info.gapPct>=0?'chip-risk':'chip-opp'}">${info.gapPct>=0?'+':''}${info.gapPct.toFixed(1)}% vs Market</span>`);
-    chips.push(`<span class="ric-chip ${info.violation?'chip-alert':'chip-soft'}">Parity ${info.violation?'Undercut':'On Track'}</span>`);
-    if(comps.length){
-      chips.push(`<span class="ric-chip chip-soft">${info.upCount} Up</span>`);
-      chips.push(`<span class="ric-chip chip-soft">${info.downCount} Down</span>`);
-      if(Math.abs(info.avgMovePct) >= 1){
-        chips.push(`<span class="ric-chip chip-soft">Market ${info.avgMovePct>=0?'↑':'↓'}${Math.abs(Math.round(info.avgMovePct))}%</span>`);
-      }
+    // ---- Recommendation rationale — market position and rate-parity only, never a revenue or
+    // booking-volume claim (this app models rates, not occupancy/bookings). ----
+    let rationale;
+    if(info.violation){
+      rationale = `${info.violation.channel.name} is undercutting your Direct rate — resolving this parity gap takes priority over any rate move above.`;
+    } else if(info.action==='Increase'){
+      rationale = `Market average is running ${Math.abs(info.gapPct).toFixed(1)}% above your rate — room to raise while staying competitively positioned.`;
+    } else if(info.action==='Decrease'){
+      rationale = `You're priced ${Math.abs(info.gapPct).toFixed(1)}% above the market average — a measured pullback keeps you from losing competitive ground.`;
+    } else {
+      rationale = `Your rate is well aligned with the ${info.compRates.length}-property market average — no change needed.`;
     }
 
     return `
       <div class="ric-detail-head">
         <div>
-          <div class="ric-detail-date">${info.date.toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'short'})}</div>
+          <div class="ric-detail-date">${info.date.toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'short',year:'numeric'})}</div>
           <span class="ric-detail-tone"><span class="dot ${tm.dotClass}"></span>${tm.label}</span>
         </div>
         ${isPinned ? `<span class="ric-detail-pin"><i class="bi bi-pin-angle-fill me-1"></i>Selected</span>` : ''}
       </div>
-      <div class="ric-detail-grid">
-        <div><span class="k">Our Rate</span><span class="v">${APP.fmtCurrency(info.myR)}</span></div>
-        <div><span class="k">Market Avg</span><span class="v">${APP.fmtCurrency(info.mktAvg)}</span></div>
+
+      <div class="ric-detail-label mb-2">Market Position</div>
+      <div class="ric-position-grid cols-4 mb-3">
+        <div class="fc-scenario-stat"><div class="k">Rank</div><div class="v">${info.rank} / ${info.ranked.length}</div></div>
+        <div class="fc-scenario-stat"><div class="k">Your Rate</div><div class="v">${APP.fmtCurrency(info.myR)}</div></div>
+        <div class="fc-scenario-stat"><div class="k">Market Avg</div><div class="v">${APP.fmtCurrency(info.mktAvg)}</div></div>
+        <div class="fc-scenario-stat"><div class="k">Price Index</div><div class="v">${info.priceIndex}</div></div>
       </div>
-      <div class="ric-chip-row">${chips.join('')}</div>
-      ${info.compRates.length ? `<div class="ric-detail-section">
-        <div class="ric-detail-label">Mapped Competitors</div>
-        <div class="ric-detail-comp-list">
-          ${info.compRates.slice(0,4).map(c=>`<div class="ric-detail-row"><span>${c.name}</span><span>${APP.fmtCurrency(c.rate)}</span></div>`).join('')}
+
+      <div class="ric-detail-grid mb-1">
+        <div>
+          <span class="k">Rate vs Market</span>
+          <span class="v" style="${info.gapPct>=0?'color:var(--ric-risk)':'color:var(--ric-opp)'}">${info.gapPct>=0?'+':''}${info.gapPct.toFixed(1)}%</span>
+        </div>
+        <div>
+          <span class="k">Parity Status</span>
+          <span class="v" style="${info.violation?'color:var(--ric-alert)':'color:var(--ric-opp)'}">${info.violation?'Undercut':'On Track'}</span>
+        </div>
+      </div>
+      <div class="ric-detail-grid mb-3">
+        <div class="text-muted" style="font-size:.66rem;line-height:1.4">Your rate is ${Math.abs(info.gapPct).toFixed(1)}% ${info.gapPct>=0?'above':'below'} the mapped-competitor average.</div>
+        <div class="text-muted" style="font-size:.66rem;line-height:1.4">${info.violation ? `${info.violation.channel.name} undercutting Direct by ${Math.round((info.violation.directPrice-info.violation.otaPrice)/info.violation.directPrice*100)}%.` : 'No parity issues detected on this date.'}</div>
+      </div>
+
+      ${info.ranked.length>1 ? `<div class="ric-detail-section">
+        <div class="ric-detail-label">Competitor Rates</div>
+        <div class="ric-comp-table">
+          ${info.ranked.map((r,i)=>{
+            const diffPct = info.mktAvg ? ((r.rate-info.mktAvg)/info.mktAvg*100) : 0;
+            return `<div class="ric-comp-row ${r.isMe?'is-me':''}">
+              <span class="ric-comp-rank">${i+1}</span>
+              <span class="ric-comp-name">${r.name}</span>
+              <span class="ric-comp-rate">${APP.fmtCurrency(r.rate)}</span>
+              <span class="ric-comp-diff ${diffPct>=0?'up':'down'}">${diffPct>=0?'+':''}${diffPct.toFixed(1)}%</span>
+            </div>`;
+          }).join('')}
+          ${Array.from({length:Math.max(0, 5-info.ranked.length)}).map(()=>`<div class="ric-comp-row ric-comp-row-filler"></div>`).join('')}
         </div>
       </div>` : `<div class="ric-detail-section"><div class="text-muted" style="font-size:.71rem">No comparison properties assigned yet.</div></div>`}
-      ${info.violation ? `<div class="ric-detail-alert"><i class="bi bi-exclamation-octagon-fill"></i><span>${info.violation.channel.name} undercutting Direct by ${Math.round((info.violation.directPrice-info.violation.otaPrice)/info.violation.directPrice*100)}%</span></div>` : ''}
+
       <div class="ric-detail-section">
         <div class="d-flex align-items-center justify-content-between mb-2">
           <div class="ric-detail-label mb-0">Recommendation</div>
@@ -465,10 +503,21 @@ function initRevenueCalendar(propertyId, comps){
               <span class="ric-detail-rec-title">${actionLabel}</span>
               <span class="ric-detail-confidence">${info.confidence}% Confidence</span>
             </div>
-            ${info.action!=='Hold' ? `<div class="ric-detail-rec-sub">Suggested: <b>${APP.fmtCurrency(info.suggested)}</b></div>` : `<div class="ric-detail-rec-sub">Well positioned — no change needed</div>`}
+            <div class="ric-confidence-track"><div class="ric-confidence-fill" style="width:${info.confidence}%"></div></div>
+            <div class="ric-detail-rec-sub">${rationale}</div>
+            ${info.action!=='Hold' ? `<div class="ric-detail-rec-sub">Suggested: <b>${APP.fmtCurrency(info.suggested)}</b></div>` : ''}
           </div>
         </div>
       </div>
+
+      ${comps.length ? `<div class="ric-detail-section">
+        <div class="ric-detail-label">Market Signals</div>
+        <div class="ric-position-grid cols-3">
+          <div class="fc-scenario-stat"><div class="k">Moving Up</div><div class="v">${info.upCount}</div></div>
+          <div class="fc-scenario-stat"><div class="k">Moving Down</div><div class="v">${info.downCount}</div></div>
+          <div class="fc-scenario-stat"><div class="k">Momentum</div><div class="v" style="font-size:.74rem">${Math.abs(info.avgMovePct)<1 ? 'Stable' : (info.avgMovePct>=0?'Rising':'Falling')}</div></div>
+        </div>
+      </div>` : ''}
     `;
   }
 
@@ -517,6 +566,13 @@ function initRevenueCalendar(propertyId, comps){
         <span class="ric-action-dot"></span>
       </button>`;
     }
+    // Always render at least 5 full weeks (35 cells) — some months (e.g. a 28-day February
+    // starting on Sunday) only need 4 rows of real dates, which made the grid visibly shorter
+    // and shifted layout when navigating between months. Trailing filler cells make up the
+    // difference; months that already need 5 or 6 rows are untouched.
+    const cellsSoFar = firstDow + daysInMonth;
+    const minCells = 35;
+    for(let i=cellsSoFar; i<minCells; i++) html += `<div class="ric-cell ric-empty"></div>`;
     grid.innerHTML = html;
 
     // Whatever date was pinned/hovered before a re-render (e.g. month navigation) may no longer

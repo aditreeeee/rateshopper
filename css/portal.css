@@ -617,7 +617,7 @@
 .ric-detail{
   background:var(--ric-glass-bg); border:1px solid var(--ric-glass-border); border-radius:16px; padding:14px 15px;
   box-shadow:var(--ric-glass-shadow); backdrop-filter:blur(10px) saturate(140%); -webkit-backdrop-filter:blur(10px) saturate(140%);
-  height:100%; transition:opacity var(--dur-med) var(--ease-premium);
+  transition:opacity var(--dur-med) var(--ease-premium);
 }
 .ric-detail-empty{ display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; gap:8px; padding:30px 12px; color:var(--ric-text-muted); }
 .ric-detail-empty .bi{ font-size:1.3rem; opacity:.5; }
@@ -686,6 +686,36 @@
 [data-theme="dark"] .ric-chip.chip-alert{ color:var(--ric-5); }
 .ric-chip.chip-ai{ background:color-mix(in srgb, var(--ric-3) 12%, var(--ric-chip-bg)); color:var(--ric-3); border:1px solid color-mix(in srgb, var(--ric-3) 30%, transparent); }
 [data-theme="dark"] .ric-chip.chip-ai{ color:var(--ric-1); }
+
+/* ---- Market Position / Market Signals — small stat tiles, reusing Forecast's .fc-scenario-stat
+   tile look (same k/v pattern) so a "stat + label" reads as one consistent component across the
+   whole property portal rather than a page-specific one-off. ---- */
+.ric-position-grid{ display:grid; gap:6px; margin-bottom:2px; }
+.ric-position-grid.cols-4{ grid-template-columns:repeat(4, 1fr); }
+.ric-position-grid.cols-3{ grid-template-columns:repeat(3, 1fr); }
+.ric-position-grid .fc-scenario-stat{ background:var(--ric-chip-bg); padding:6px 6px; }
+.ric-position-grid .fc-scenario-stat .k{ color:var(--ric-text-muted); }
+.ric-position-grid .fc-scenario-stat .v{ color:var(--ric-text); font-size:.8rem; }
+
+/* ---- Competitor Rates — a compact ranked table (rank / property / rate / vs market), "you"
+   row picked out so your own position in the ranking is immediate. ---- */
+.ric-comp-table{ display:flex; flex-direction:column; gap:1px; }
+.ric-comp-row-filler{ visibility:hidden; min-height:22px; }
+.ric-comp-row{
+  display:grid; grid-template-columns:18px 1fr auto auto; align-items:center; gap:8px;
+  font-size:.72rem; padding:4px 6px; border-radius:7px; color:var(--ric-text-muted);
+}
+.ric-comp-row.is-me{ background:color-mix(in srgb, var(--ric-2) 20%, var(--ric-surface)); color:var(--ric-text); font-weight:700; }
+.ric-comp-rank{ font-variant-numeric:tabular-nums; opacity:.7; }
+.ric-comp-name{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.ric-comp-rate{ font-variant-numeric:tabular-nums; font-weight:700; color:var(--ric-text); }
+.ric-comp-diff{ font-size:.66rem; font-weight:700; font-variant-numeric:tabular-nums; min-width:44px; text-align:right; }
+.ric-comp-diff.up{ color:var(--ric-risk); }
+.ric-comp-diff.down{ color:var(--ric-opp); }
+
+/* ---- Confidence bar under the Recommendation card's title row ---- */
+.ric-confidence-track{ height:4px; border-radius:4px; background:var(--ric-border); margin:6px 0 4px; overflow:hidden; }
+.ric-confidence-fill{ height:100%; border-radius:4px; background:var(--ric-3); }
 
 /* ==========================================================================
    Forecast (Forecast & Actions tab) — opportunity cards + scenario slider.

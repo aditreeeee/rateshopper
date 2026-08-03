@@ -49,6 +49,13 @@ document.addEventListener('DOMContentLoaded', ()=>{
   renderActionCenter(propertyId);
   document.getElementById('mi_staleBadge').innerHTML = PWIDGETS.staleBadge(PORTALDATA.lastScrapedAt(propertyId));
 
+  // "Ready to apply these pricing decisions?" CTA — jumps straight to the Action Center tab
+  // (same pattern as Comparison's "Next: Forecast & Actions" banner), no page reload needed
+  // since Action Center is just another tab on this same page.
+  document.getElementById('fc_goToAction').addEventListener('click', ()=>{
+    document.querySelector('#mi_tabs [data-tab="action"]').click();
+  });
+
   // ---- Forecast — Top Forecasted Opportunities + Scenario Planner (moved in from the standalone
   // Forecast page). Uses the full tracked competitor pool (assigned comparisons + the Competitors
   // page's synthetic pool) so it always has real market data to project against, even for an
