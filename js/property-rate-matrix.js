@@ -89,13 +89,14 @@ function alignEdgeZonesToHeader(card, host, leftId, rightId){
   const leftEl = document.getElementById(leftId);
   if(leftEl){
     leftEl.style.top = `${top}px`; leftEl.style.height = `${h}px`;
-    // Sits INSIDE the end of the sticky "Property / Room" column, not spilling over into the
-    // first date column, so the first date (e.g. Monday) starts exactly where it should. A small
-    // gap (not flush/touching) keeps it visually connected to the Property/Room column it
-    // belongs to, rather than reading as glued directly onto the date header next to it.
+    // Sits flush with the end of the sticky "Property / Room" column, not spilling over into the
+    // first date column, so the first date (e.g. Monday) starts exactly where it should.
+    // Measured from the sticky column's own right edge (not wrap.left + stickyWidth) since the
+    // wrap can carry its own left inset (e.g. the scrollbar-gutter offset), which would otherwise
+    // throw this off by that same amount.
     const leftElWidth = leftEl.getBoundingClientRect().width || 34;
-    const gap = 6;
-    leftEl.style.left = `${(wrapRect.left - cardRect.left) + stickyWidth - leftElWidth - gap}px`;
+    const stickyRight = stickyEl ? stickyEl.getBoundingClientRect().right : (wrapRect.left + stickyWidth);
+    leftEl.style.left = `${(stickyRight - cardRect.left) - leftElWidth}px`;
     leftEl.style.right = 'auto';
   }
   const rightEl = document.getElementById(rightId);
