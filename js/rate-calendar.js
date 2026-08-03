@@ -4,6 +4,7 @@
    ========================================================================== */
 let calRangeStart = null, calRangeEnd = null; // the calendar's active date range — drives the grid, bulk-update scopes, and Rate Parity alike
 let calPreset = '14';
+let calApplyRange = null; // set inside setupDateRangePicker() — exposed at module scope so calShiftRange (called from the edge-scroll wiring, outside that closure) can reach it
 let gridWorking = {};             // { ratePlanId: { dateKey: {price, occPrices:{occ:price}} } }
 let gridHistory = [];             // undo stack of gridWorking snapshots
 let gridDirty = false;
@@ -123,6 +124,16 @@ function buildWeekdayButtons(){
 
 function keyOf(d){ return DB.fmtDate(d); }
 
+// Shift the calendar's currently-active range backward/forward by its own span — keyed off
+// calPreset so it keeps the same length. Only reachable by clicking the grid header's edge
+// zones, which are only visible/enabled once the range is shiftable (see applyRange()).
+function calShiftRange(direction){
+  const spanDays = Math.round((calRangeEnd - calRangeStart) / 86400000) + 1;
+  const newStart = calAddDays(calRangeStart, direction*spanDays);
+  const newEnd = calAddDays(calRangeEnd, direction*spanDays);
+  calApplyRange(newStart, newEnd, calPreset==='custom' ? 'custom' : calPreset);
+}
+
 /* ==========================================================================
    Date Range Picker — presets (Today/Yesterday/7/14/30 Days/Last Month) plus a
    Google Analytics / Power BI-style dual month calendar for Custom Range. Same
@@ -143,6 +154,12 @@ function setupDateRangePicker(){
     setActiveSeg(presetKey);
     document.getElementById('mx_dateRangeLabel').textContent = calSameDay(calRangeStart,calRangeEnd)
       ? calFmtShort(calRangeStart) : `${calFmtShort(calRangeStart)} – ${calFmtShort(calRangeEnd)}`;
+
+    // Range-shift arrows live embedded in the grid's own date header row (the .mx-edge-left/right
+    // zones) and only make sense once the window is wide enough that paging by a whole period is
+    // actually useful — 30D/Custom, never 7D/14D (rate-matrix.css hides them entirely otherwise).
+    document.querySelector('.cal-grid-card').classList.toggle('mx-range-shiftable', presetKey!=='7' && presetKey!=='14');
+
     // Cross-fade the grid instead of an instant column-count jump — going from 7D to 14D/30D
     // roughly doubles the date columns, which felt like a jarring, "choppy" jump when swapped in
     // instantly.
@@ -153,6 +170,7 @@ function setupDateRangePicker(){
       requestAnimationFrame(()=> host.classList.remove('mx-grid-fade'));
     });
   }
+  calApplyRange = applyRange;
 
   function calDaysInMonthGrid(monthDate){
     const first = new Date(monthDate.getFullYear(), monthDate.getMonth(), 1);
@@ -273,7 +291,7 @@ function renderGrid(){
 
   const theadDates = dates.map(d=>{
     const isToday = keyOf(d)===todayKey;
-    return `<th class="${isToday?'today-col':''}">${d.toLocaleDateString('en-IN',{weekday:'short'})}<br>${d.getDate()} ${d.toLocaleDateString('en-IN',{month:'short'})}</th>`;
+    return `<th class="grid-date-col ${isToday?'today-col':''}">${d.toLocaleDateString('en-IN',{weekday:'short'})}<br>${d.getDate()} ${d.toLocaleDateString('en-IN',{month:'short'})}</th>`;
   }).join('');
 
   let bodyRows = '';
@@ -602,7 +620,7 @@ function renderParityGrid(){
   const todayKey = keyOf(new Date());
   const theadDates = dates.map(d=>{
     const isToday = keyOf(d)===todayKey;
-    return `<th class="${isToday?'today-col':''}">${d.toLocaleDateString('en-IN',{weekday:'short'})}<br>${d.getDate()} ${d.toLocaleDateString('en-IN',{month:'short'})}</th>`;
+    return `<th class="grid-date-col ${isToday?'today-col':''}">${d.toLocaleDateString('en-IN',{weekday:'short'})}<br>${d.getDate()} ${d.toLocaleDateString('en-IN',{month:'short'})}</th>`;
   }).join('');
 
   const bodyRows = priceGrid.map(row=>{
@@ -653,9 +671,12 @@ function wireEdgeScroll(wrapSelector, zoneSpecs){
       cancelAnimationFrame(raf);
       raf = null;
     });
-    // Click still jumps a fixed step in the same direction, for users who prefer a tap over a
-    // hover-hold — coexists with the hover-scroll above and the wrap's native scrollbar.
+    // Click either jumps a fixed step in the same direction (default — for users who prefer a
+    // tap over a hover-hold, coexisting with the hover-scroll above and the wrap's native
+    // scrollbar), or, when a zone provides its own onClick (the horizontal range-shift zones),
+    // that runs instead — hover still pans within the loaded columns either way.
     el.addEventListener('click', ()=>{
+      if(z.onClick){ z.onClick(); return; }
       const wrap = document.querySelector(wrapSelector);
       if(wrap) wrap.scrollBy({ left:z.dx*24, top:z.dy*24, behavior:'smooth' });
     });
@@ -665,12 +686,14 @@ document.addEventListener('DOMContentLoaded', ()=>{
   wireEdgeScroll('#gridHost .grid-table-wrap', [
     { id:'cal_edgeUp',    dx:0,  dy:-9 },
     { id:'cal_edgeDown',  dx:0,  dy:9  },
-    { id:'cal_edgeLeft',  dx:-9, dy:0  },
-    { id:'cal_edgeRight', dx:9,  dy:0  },
+    { id:'cal_edgeLeft',  dx:-9, dy:0, onClick:()=> calShiftRange(-1) },
+    { id:'cal_edgeRight', dx:9,  dy:0, onClick:()=> calShiftRange(1)  },
   ]);
   wireEdgeScroll('#parityGridHost .grid-table-wrap', [
-    { id:'parity_edgeLeft',  dx:-9, dy:0 },
-    { id:'parity_edgeRight', dx:9,  dy:0 },
+    // These stay hoverable (panning within loaded columns) at every preset — only the
+    // click-to-jump-a-period behavior is gated to when a 30 Days/Custom range makes it useful.
+    { id:'parity_edgeLeft',  dx:-9, dy:0, onClick:()=>{ if(document.querySelector('.parity-scroll-wrap').classList.contains('mx-range-shiftable')) parityShiftRange(-1); } },
+    { id:'parity_edgeRight', dx:9,  dy:0, onClick:()=>{ if(document.querySelector('.parity-scroll-wrap').classList.contains('mx-range-shiftable')) parityShiftRange(1); } },
   ]);
 });
 
@@ -679,13 +702,35 @@ function setParityActivePreset(days){
     const active = Number(b.dataset.days)===days;
     b.classList.toggle('btn-outline-primary', active); b.classList.toggle('btn-soft', !active);
   });
+  // Range-shift arrows only for 30 Days or a manual/custom range (days==null), never for the
+  // fixed 7/14 Day presets — same rule as the main grid.
+  const shiftable = days === 30 || days == null;
+  const wrap = document.querySelector('.parity-scroll-wrap');
+  if(wrap) wrap.classList.toggle('mx-range-shiftable', shiftable);
 }
 function applyParityRange(start, end, presetDays){
   parityRangeStart = calStartOfDay(start); parityRangeEnd = calStartOfDay(end);
   document.getElementById('parity_startDate').value = keyOf(parityRangeStart);
   document.getElementById('parity_endDate').value = keyOf(parityRangeEnd);
   setParityActivePreset(presetDays || null);
-  renderParityGrid();
+
+  // Same cross-fade treatment as the main grid — softens the column-count jump when the parity
+  // range changes instead of an instant swap.
+  const host = document.getElementById('parityGridHost');
+  host.classList.add('mx-grid-fade');
+  requestAnimationFrame(()=>{
+    renderParityGrid();
+    requestAnimationFrame(()=> host.classList.remove('mx-grid-fade'));
+  });
+}
+// Shift the parity range backward/forward by its own current span — mirrors calShiftRange, kept
+// separate since the parity range is independent of the main grid's.
+function parityShiftRange(direction){
+  const spanDays = Math.round((parityRangeEnd - parityRangeStart) / 86400000) + 1;
+  const newStart = calAddDays(parityRangeStart, direction*spanDays);
+  const newEnd = calAddDays(parityRangeEnd, direction*spanDays);
+  const activeBtn = document.querySelector('#parity_rangeGroup [data-days].btn-outline-primary');
+  applyParityRange(newStart, newEnd, activeBtn ? Number(activeBtn.dataset.days) : null);
 }
 document.addEventListener('DOMContentLoaded', ()=>{
   document.querySelectorAll('#parity_rangeGroup [data-days]').forEach(btn=>{

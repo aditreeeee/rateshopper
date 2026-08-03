@@ -57,17 +57,48 @@ document.addEventListener('DOMContentLoaded', ()=>{
   const forecastComps = PORTALDATA.competitors(propertyId);
   const totalRooms = DB.rooms.byProperty(propertyId).reduce((s,r)=>s+(r.totalRooms||0), 0) || 20;
 
+  // ---- Forecast Period — 7/14/30 Days presets or a manual custom range, applied via
+  // fcStartOffset (days from today the window begins) + fcHorizonDays (its length). Both
+  // Scenario Planner and Top Forecasted Opportunities read whatever these are currently set to
+  // every time refreshForecast() runs. ----
+  let fcStartOffset = 0;
+  let fcHorizonDays = 14;
+
   // Rebuildable on demand — buildForecastDays() reads "my rate" fresh from DB every time it's
   // called, so re-running this after a rate change (Action Center's "Apply Rate Change", or a
   // Rate Calendar edit elsewhere in the app) keeps the Forecast tab's Opportunities and Scenario
   // Planner in sync with the actual current price instead of showing whatever it was on page load.
   function refreshForecast(){
-    const freshDays = buildForecastDays(propertyId, forecastComps);
+    const freshDays = buildForecastDays(propertyId, forecastComps, fcStartOffset, fcHorizonDays);
     renderForecastOpportunities(propertyId, comps, forecastComps, freshDays, totalRooms);
     initScenarioPlanner(freshDays, totalRooms, forecastComps.length);
   }
   refreshForecast();
   window.__refreshForecast = refreshForecast;
+
+  // ---- Forecast Period controls ----
+  function applyForecastPeriod(startOffset, horizonDays, activeDaysBtn){
+    fcStartOffset = startOffset; fcHorizonDays = horizonDays;
+    document.querySelectorAll('#fc_rangeGroup [data-days]').forEach(b=>{
+      const active = b===activeDaysBtn;
+      b.classList.toggle('btn-outline-primary', active); b.classList.toggle('btn-soft', !active);
+    });
+    refreshForecast();
+  }
+  document.querySelectorAll('#fc_rangeGroup [data-days]').forEach(btn=>{
+    btn.addEventListener('click', ()=> applyForecastPeriod(0, Number(btn.dataset.days), btn));
+  });
+  document.getElementById('fc_applyRange').addEventListener('click', ()=>{
+    const startVal = document.getElementById('fc_startDate').value;
+    const endVal = document.getElementById('fc_endDate').value;
+    if(!startVal || !endVal){ APP.toast('Missing Dates', 'Please pick both a start and end date.', 'danger'); return; }
+    const start = new Date(startVal+'T00:00:00'), end = new Date(endVal+'T00:00:00');
+    if(start > end){ APP.toast('Invalid Range', 'The start date must be before the end date.', 'danger'); return; }
+    const todayMidnight = new Date(); todayMidnight.setHours(0,0,0,0);
+    const startOffset = Math.round((start-todayMidnight)/86400000);
+    const horizonDays = Math.round((end-start)/86400000)+1;
+    applyForecastPeriod(startOffset, horizonDays, null);
+  });
 
   // Deep-link support (?tab=recommendations|action) — lets a link from elsewhere in
   // the app land directly on the right tab instead of always Forecast.
@@ -80,13 +111,14 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
 /* ==========================================================================
    Forecast — Top Forecasted Opportunities + Scenario Planner (moved in from the standalone
-   Forecast page, which has been retired). A rolling HORIZON-day rate/demand projection: demand
-   index and booking pace are the only two signals with no real-data source elsewhere in the app
-   (this app models rates, not occupancy/bookings), so they're kept deliberately synthetic-but-
-   deterministic, seeded off (propertyId + dateKey) so they're stable across reloads without their
-   own persisted store. Every projection is rate-driven only — occupancy is not modeled.
+   Forecast page, which has been retired). A rolling rate/demand projection over whatever window
+   the Forecast Period control is currently set to (7/14/30 Days, or a manual custom range):
+   demand index and booking pace are the only two signals with no real-data source elsewhere in
+   the app (this app models rates, not occupancy/bookings), so they're kept deliberately
+   synthetic-but-deterministic, seeded off (propertyId + dateKey) so they're stable across reloads
+   without their own persisted store. Every projection is rate-driven only — occupancy is not
+   modeled.
    ========================================================================== */
-const FORECAST_HORIZON = 14; // days forward, including today — matches the rest of the app's 14-day default window
 
 function fcHash(str){ let h=0; for(let i=0;i<str.length;i++){ h=(h*31+str.charCodeAt(i))|0; } return Math.abs(h); }
 function fcSeededFloat(seed){ return (fcHash(seed) % 10000) / 10000; }
@@ -95,7 +127,6 @@ function fcDemandIndex(propertyId, dateKey){
   let score = 50;
   if(PORTALDATA.isWeekend(dateKey)) score += 18;
   if(PORTALDATA.isHoliday(dateKey)) score += 25;
-  if(PORTALDATA.localEventOn(dateKey)) score += 20;
   score += (fcSeededFloat(propertyId+dateKey+'demand') - 0.5) * 24;
   return Math.max(5, Math.min(98, Math.round(score)));
 }
@@ -109,10 +140,13 @@ function fcConfidenceFor(dayOffset, compCount){
   return Math.round(Math.min(97, base+bonus));
 }
 
-function buildForecastDays(propertyId, forecastComps){
+// startOffset: days from today the window begins (0 for the 7/14/30 Day presets, any integer
+// for a manual custom range). horizonDays: length of the window in days.
+function buildForecastDays(propertyId, forecastComps, startOffset, horizonDays){
   const days = [];
-  for(let d=0; d<FORECAST_HORIZON; d++){
-    const dateKey = PORTALDATA.dateKeyOffset(d);
+  for(let d=0; d<horizonDays; d++){
+    const dayOffset = startOffset+d;
+    const dateKey = PORTALDATA.dateKeyOffset(dayOffset);
     const myRate = PORTALDATA.myRateOnDate(propertyId, dateKey);
     const compRates = forecastComps.map(c=>PORTALDATA.competitorRateOnDate(c, dateKey));
     const marketAvg = compRates.length ? Math.round(compRates.reduce((a,b)=>a+b,0)/compRates.length) : myRate;
@@ -120,14 +154,13 @@ function buildForecastDays(propertyId, forecastComps){
     const demandAdj = (di-50)/50 * 0.12; // +/-12% swing at demand extremes
     const recommended = Math.round((marketAvg * (1+demandAdj)) / 10) * 10;
     days.push({
-      dateKey, dayOffset:d,
+      dateKey, dayOffset,
       myRate, marketAvg, recommended,
       gapPct: ((recommended-myRate)/myRate*100),
       demandIndex: di, tier: fcDemandTier(di),
       pace: fcBookingPace(propertyId, dateKey),
-      confidence: fcConfidenceFor(d, forecastComps.length),
+      confidence: fcConfidenceFor(dayOffset, forecastComps.length),
       isWeekend: PORTALDATA.isWeekend(dateKey), isHoliday: PORTALDATA.isHoliday(dateKey),
-      event: PORTALDATA.localEventOn(dateKey),
       lowRate: compRates.length ? Math.min(...compRates) : myRate,
       highRate: compRates.length ? Math.max(...compRates) : myRate
     });
@@ -136,7 +169,10 @@ function buildForecastDays(propertyId, forecastComps){
 }
 
 function renderForecastOpportunities(propertyId, realComps, forecastComps, days, totalRooms){
-  document.getElementById('fc_horizonLabel').textContent = `Next ${FORECAST_HORIZON} days`;
+  const rangeLabel = days.length>1
+    ? `${APP.fmtDateReadable(days[0].dateKey)} – ${APP.fmtDateReadable(days[days.length-1].dateKey)}`
+    : APP.fmtDateReadable(days[0].dateKey);
+  document.getElementById('fc_horizonLabel').textContent = `${rangeLabel} (${days.length} day${days.length===1?'':'s'})`;
   const cards = [];
 
   // ---- 1. Best contiguous raise window ----
@@ -148,11 +184,10 @@ function renderForecastOpportunities(propertyId, realComps, forecastComps, days,
     const reasons = [];
     if(raiseDays.some(d=>d.isWeekend)) reasons.push('Includes weekend dates that historically command a premium.');
     if(raiseDays.some(d=>d.isHoliday)) reasons.push('A public holiday falls within this window.');
-    if(raiseDays.some(d=>d.event)) reasons.push(`Local demand driver detected: ${raiseDays.find(d=>d.event).event}.`);
     reasons.push(`Market average is projected to run ${Math.round(raiseDays.reduce((s,d)=>s+d.gapPct,0)/raiseDays.length)}% above your current rate on these dates.`);
     cards.push({
       icon:'bi-graph-up-arrow', tone:'impact-positive', title:`Raise rates across ${raiseDays.length} date(s), starting ${firstDate}`,
-      confidence:avgConf, impact, reasons,
+      confidence:avgConf, impact, reasons, affectedDays:raiseDays,
       action:`Recommended: move toward the market-aligned rate — up to +${Math.round(Math.max(...raiseDays.map(d=>d.gapPct)))}% on the strongest date.`
     });
   }
@@ -162,33 +197,19 @@ function renderForecastOpportunities(propertyId, realComps, forecastComps, days,
   if(softDays.length >= 2){
     cards.push({
       icon:'bi-graph-down-arrow', tone:'impact-caution', title:`Soft demand projected on ${softDays.length} date(s)`,
+      affectedDays:softDays,
       confidence:Math.round(softDays.reduce((s,d)=>s+d.confidence,0)/softDays.length),
       impact: null,
       reasons:[
         `Demand index averages just ${Math.round(softDays.reduce((s,d)=>s+d.demandIndex,0)/softDays.length)}/100 on these dates — well below a typical day.`,
-        'No weekend, holiday, or local event driver identified for this stretch.',
+        'No weekend or holiday driver identified for this stretch.',
         'A modest rate cut or value-add offer could help stimulate bookings before the window closes.'
       ],
       action:'Recommended: consider a targeted promotion or length-of-stay incentive for these dates.'
     });
   }
 
-  // ---- 3. Upcoming local event opportunity ----
-  const eventDay = days.find(d=>d.event);
-  if(eventDay){
-    cards.push({
-      icon:'bi-calendar-star', tone:'impact-positive', title:`${eventDay.event} detected on ${APP.fmtDateReadable(eventDay.dateKey)}`,
-      confidence:eventDay.confidence, impact: (eventDay.recommended-eventDay.myRate)*totalRooms,
-      reasons:[
-        'Local events reliably pull demand from outside your usual booking window.',
-        `Projected demand index is ${eventDay.demandIndex}/100 on this date, vs. a typical day around 50.`,
-        `You are not yet priced ahead of it — current rate is ${APP.fmtCurrency(eventDay.myRate)} vs. a projected market rate of ${APP.fmtCurrency(eventDay.marketAvg)}.`
-      ],
-      action:`Recommended: price ahead of demand — target ${APP.fmtCurrency(eventDay.recommended)} for this date.`
-    });
-  }
-
-  // ---- 4. Rate parity risk carried into the forecast window ----
+  // ---- 3. Rate parity risk carried into the forecast window ----
   const violation = PORTALDATA.firstParityViolation(propertyId, PORTALDATA.dateKeyOffset(0));
   if(violation){
     const gapPct = Math.round((violation.directPrice-violation.otaPrice)/violation.directPrice*100);
@@ -204,7 +225,7 @@ function renderForecastOpportunities(propertyId, realComps, forecastComps, days,
     });
   }
 
-  // ---- 5. OTA channel outlier carried forward, averaged across the forecast window ----
+  // ---- 4. OTA channel outlier carried forward, averaged across the forecast window ----
   const channels = DB.channels.byProperty(propertyId);
   const master = channels.find(c=>c.type==='master');
   const otaChannels = channels.filter(c=>c.type!=='master');
@@ -234,7 +255,7 @@ function renderForecastOpportunities(propertyId, realComps, forecastComps, days,
           icon:'bi-sliders', tone:'impact-caution', title:`${outlier.ch.name} is projected to drift from your other channels`,
           confidence:70, impact:null,
           reasons:[
-            `Averaged over the next ${FORECAST_HORIZON} days, ${outlier.ch.name} is projected ${Math.abs(diffPct)}% ${diffPct>0?'above':'below'} your other OTA channels (${APP.fmtCurrency(Math.round(mean))} avg.).`,
+            `Averaged over the next ${days.length} days, ${outlier.ch.name} is projected ${Math.abs(diffPct)}% ${diffPct>0?'above':'below'} your other OTA channels (${APP.fmtCurrency(Math.round(mean))} avg.).`,
             'Left unchecked, this widens into a channel-specific pricing inconsistency rather than a one-off.'
           ],
           action:`Recommended: review ${outlier.ch.name}'s channel-specific pricing rules.`
@@ -243,7 +264,7 @@ function renderForecastOpportunities(propertyId, realComps, forecastComps, days,
     }
   }
 
-  // ---- 6. Competitor momentum — 7-day trend across the tracked competitor pool ----
+  // ---- 5. Competitor momentum — 7-day trend across the tracked competitor pool ----
   if(forecastComps.length){
     const nearTrend = forecastComps.map(c=>{
       const now = PORTALDATA.competitorRateOnDate(c, PORTALDATA.dateKeyOffset(0));
@@ -267,7 +288,7 @@ function renderForecastOpportunities(propertyId, realComps, forecastComps, days,
     }
   }
 
-  // ---- 7. Pinned/favorite competitor watch (Competitors page's user-curated tracking) ----
+  // ---- 6. Pinned/favorite competitor watch (Competitors page's user-curated tracking) ----
   const curated = forecastComps.filter(c=>c.pinned || c.favorite);
   if(curated.length){
     const todayKey = PORTALDATA.dateKeyOffset(0);
@@ -292,7 +313,7 @@ function renderForecastOpportunities(propertyId, realComps, forecastComps, days,
     }
   }
 
-  // ---- 8. Room-level pricing opportunity — only the real, assigned comparison properties have
+  // ---- 7. Room-level pricing opportunity — only the real, assigned comparison properties have
   // actual room/rate-plan data to match against. ----
   if(master && realComps.length){
     function roomAvgRateOnDate(roomId, dateKey){
@@ -326,11 +347,12 @@ function renderForecastOpportunities(propertyId, realComps, forecastComps, days,
       if(avgGap>6 && (!best || avgGap>best.avgGap)) best = { room, avgGap };
     });
     if(best){
+      const roomImpact = Math.round((best.avgGap/100) * best.room.basePrice * (best.room.totalRooms||1) * days.length);
       cards.push({
         icon:'bi-door-open-fill', tone:'impact-positive', title:`${best.room.name} has the strongest room-level opportunity`,
-        confidence:78, impact:null,
+        confidence:78, impact:roomImpact, affectedDays:days,
         reasons:[
-          `Averaged over the next ${FORECAST_HORIZON} days, ${best.room.name} is priced ${Math.round(best.avgGap)}% below comparable rooms at your tracked comparison properties.`,
+          `Averaged over the next ${days.length} days, ${best.room.name} is priced ${Math.round(best.avgGap)}% below comparable rooms at your tracked comparison properties.`,
           'This is the same room-to-room matching used in Room Rate Comparison\'s Value Proposition Analysis.'
         ],
         action:`Recommended: prioritize a rate review for ${best.room.name} over other room types.`
@@ -338,7 +360,17 @@ function renderForecastOpportunities(propertyId, realComps, forecastComps, days,
     }
   }
 
-  document.getElementById('fc_insightGrid').innerHTML = cards.length ? cards.slice(0,8).map(c=>`
+  document.getElementById('fc_insightGrid').innerHTML = cards.length ? cards.slice(0,8).map(c=>{
+    // Every card names the specific stay dates it's about — the full forecast window for
+    // cards that are an averaged/whole-window finding (OTA outlier, room-level, parity risk,
+    // competitor momentum/pinned watch), or a genuine narrower subset for the two cards that
+    // are literally about a specific run of dates (raise window, soft-demand window).
+    const affected = c.affectedDays || days;
+    const cardRangeLabel = affected.length>1
+      ? `${APP.fmtDateReadable(affected[0].dateKey)} – ${APP.fmtDateReadable(affected[affected.length-1].dateKey)}`
+      : APP.fmtDateReadable(affected[0].dateKey);
+    const bestDay = affected.reduce((best,d)=> (!best || Math.abs(d.gapPct)>Math.abs(best.gapPct)) ? d : best, null);
+    return `
     <div class="col-md-6 col-xl-4">
       <div class="insight-card forecast-card ${c.tone}">
         <div class="d-flex align-items-start gap-2 mb-2">
@@ -348,12 +380,18 @@ function renderForecastOpportunities(propertyId, realComps, forecastComps, days,
             <span class="insight-confidence-badge mt-1 d-inline-block">Confidence: ${c.confidence}%</span>
           </div>
         </div>
+        <div class="forecast-meta-grid">
+          <div class="fc-scenario-stat"><div class="k">Forecast Range</div><div class="v" style="font-size:.72rem">${cardRangeLabel}</div></div>
+          <div class="fc-scenario-stat"><div class="k">Stay Dates Affected</div><div class="v">${affected.length}</div></div>
+          <div class="fc-scenario-stat"><div class="k">Highest Opportunity</div><div class="v" style="font-size:.72rem">${APP.fmtDateReadable(bestDay.dateKey)}</div></div>
+          <div class="fc-scenario-stat"><div class="k">Revenue Lift</div><div class="v ${c.impact>0?'pos':c.impact<0?'neg':''}">${c.impact!=null ? (c.impact>=0?'+':'-')+APP.fmtCurrency(Math.round(Math.abs(c.impact))) : '—'}</div></div>
+        </div>
         <button type="button" class="insight-toggle"><i class="bi bi-chevron-down"></i>Show details (${c.reasons.length})</button>
         <ul class="insight-supporting mb-2">${c.reasons.map(r=>`<li>${r}</li>`).join('')}</ul>
-        ${c.impact != null ? `<div class="forecast-impact ${c.impact>=0?'pos':'neg'} mb-2"><i class="bi bi-${c.impact>=0?'plus':'dash'}-circle me-1"></i>Estimated impact: ${APP.fmtCurrency(Math.round(Math.abs(c.impact)))} over the forecast window</div>` : ''}
         <div class="insight-action"><i class="bi bi-lightbulb-fill"></i>${c.action}</div>
       </div>
-    </div>`).join('') : `<div class="col-12">${PWIDGETS.emptyState('bi-stars','No standout forecast signals right now','Your projected pricing and demand are well aligned — check back as new competitor and event data comes in.')}</div>`;
+    </div>`;
+  }).join('') : `<div class="col-12">${PWIDGETS.emptyState('bi-stars','No standout forecast signals right now','Your projected pricing and demand are well aligned — check back as new competitor data comes in.')}</div>`;
 }
 
 // Scenario Planner — compact "what if" card. Purely rate-driven (no occupancy modeled): every
@@ -361,6 +399,14 @@ function renderForecastOpportunities(propertyId, realComps, forecastComps, days,
 // library involved — a lightweight CSS bar comparison redraws instantly on every slider tick.
 function initScenarioPlanner(days, totalRooms, compCount){
   const slider = document.getElementById('fc_scenarioSlider');
+
+  // Prominently show the active forecast window above the projection metrics, so it's always
+  // clear exactly which dates "Projected Revenue" etc. below are being computed over.
+  const windowLabel = days.length>1
+    ? `${APP.fmtDateReadable(days[0].dateKey)} – ${APP.fmtDateReadable(days[days.length-1].dateKey)}`
+    : APP.fmtDateReadable(days[0].dateKey);
+  document.getElementById('fc_scenarioWindow').innerHTML = `<i class="bi bi-calendar-range me-1"></i>Forecast window: ${windowLabel} (${days.length} day${days.length===1?'':'s'})`;
+
   const avgMarket = Math.round(days.reduce((s,d)=>s+d.marketAvg,0)/days.length);
   const avgCurrentRate = Math.round(days.reduce((s,d)=>s+d.myRate,0)/days.length);
   const baselineRevenue = days.reduce((s,d)=> s + d.myRate*totalRooms, 0);
@@ -415,7 +461,7 @@ function initScenarioPlanner(days, totalRooms, compCount){
     } else {
       const up = pct > 0;
       const impactLine = `A ${Math.abs(pct)}% ${up?'increase':'decrease'} projects ${APP.fmtCurrency(avgProjectedRate)} ADR (Price Index ${priceIndex}), landing ${position.toLowerCase()} at ${confidence}% confidence.`;
-      const revenueLine = `Estimated ${deltaRevenue>=0?'gain':'loss'} of ${APP.fmtCurrency(Math.abs(Math.round(deltaRevenue)))} over ${FORECAST_HORIZON} days if held across your full inventory.`;
+      const revenueLine = `Estimated ${deltaRevenue>=0?'gain':'loss'} of ${APP.fmtCurrency(Math.abs(Math.round(deltaRevenue)))} over ${days.length} days if held across your full inventory.`;
       let riskLine;
       if(up && Math.abs(pct)>=12) riskLine = 'Risk: a jump this large may soften demand — this model has no occupancy data to confirm it. Consider phasing the increase.';
       else if(up) riskLine = 'Suggested strategy: a measured increase, monitored against competitor response over the next few days.';
@@ -599,7 +645,7 @@ function renderMarketInsights(propertyId){
 }
 
 /* ==========================================================================
-   Pricing Recommendations — nine concrete recommended-action types, each with
+   Pricing Recommendations — ten concrete recommended-action types, each with
    its own real, deterministic trigger condition against live rate/channel/
    room/market data (never random). A type only produces a card when its
    condition is actually met on this property today — never fabricated to
@@ -613,6 +659,7 @@ const REC_ACTION_TYPES = {
   parity:          { label:'Fix Rate Parity Issues',          icon:'bi-exclamation-octagon-fill',color:'var(--fa-text-strong)', bg:'var(--fa-tint-strong)' },
   mealPlan:        { label:'Review Meal Plan Pricing',        icon:'bi-cup-hot-fill',            color:'var(--fa-text-mod)',  bg:'var(--fa-tint-mod)' },
   roomPositioning: { label:'Review Room Positioning',         icon:'bi-door-open-fill',          color:'var(--fa-text-mild)', bg:'var(--fa-tint-mild)' },
+  roomValueGap:    { label:'Room Value Gap',                  icon:'bi-door-open-fill',          color:'var(--fa-text-mild)', bg:'var(--fa-tint-mild)' },
   promotions:      { label:'Monitor Competitor Promotions',   icon:'bi-megaphone-fill',          color:'var(--fa-text-mod)',  bg:'var(--fa-tint-mod)' },
   opportunity:     { label:'Capitalize on Market Opportunities', icon:'bi-graph-up-arrow',        color:'var(--fa-text-mild)', bg:'var(--fa-tint-mild)' },
 };
@@ -624,8 +671,12 @@ function generatePricingRecommendations(propertyId){
   const recs = [];
   if(!myRate) return recs;
 
-  function push(type, detail, opts){
-    recs.push({ type, detail, ...opts });
+  // Every recommendation now carries a specific, human-readable title (not just the generic
+  // type label), an effective date (or date range), which room type(s)/channel(s) it's actually
+  // about, and a page to jump to for the full supporting analysis — on top of the existing
+  // rate/confidence/priority fields.
+  function push(type, title, detail, opts){
+    recs.push({ type, title, detail, effectiveDate:today, affected:[], ...opts });
   }
 
   /* ---- 1/2/3. Increase / Decrease / Maintain — my rate vs. the tracked market average ---- */
@@ -635,15 +686,20 @@ function generatePricingRecommendations(propertyId){
     const gapPct = ((marketAvg-myRate)/myRate*100);
     if(gapPct > 6){
       const amount = Math.round((marketAvg-myRate)*0.6/10)*10;
-      push('increase', `Market average (${APP.fmtCurrency(marketAvg)}) is running ${gapPct.toFixed(1)}% above your rate — room to raise without losing competitiveness.`,
-        { currentRate:myRate, expectedRate:myRate+amount, confidence:82, priority: gapPct>=15?'High':'Medium' });
+      push('increase', 'Increase Overall ADR',
+        `Market average (${APP.fmtCurrency(marketAvg)}) across ${comps.length} tracked comparison properties is running ${gapPct.toFixed(1)}% above your rate — room to raise without losing competitiveness.`,
+        { currentRate:myRate, expectedRate:myRate+amount, confidence:82, priority: gapPct>=15?'High':'Medium',
+          affected:['All Rooms'] });
     } else if(gapPct < -6){
       const amount = Math.round((myRate-marketAvg)*0.5/10)*10;
-      push('decrease', `You're priced ${Math.abs(gapPct).toFixed(1)}% above the market average (${APP.fmtCurrency(marketAvg)}) — risk of losing share to competitors.`,
-        { currentRate:myRate, expectedRate:myRate-amount, confidence:76, priority: Math.abs(gapPct)>=15?'High':'Medium' });
+      push('decrease', 'Decrease Overall ADR',
+        `You're priced ${Math.abs(gapPct).toFixed(1)}% above the market average (${APP.fmtCurrency(marketAvg)}) across ${comps.length} tracked comparison properties — risk of losing share to competitors.`,
+        { currentRate:myRate, expectedRate:myRate-amount, confidence:76, priority: Math.abs(gapPct)>=15?'High':'Medium',
+          affected:['All Rooms'] });
     } else {
-      push('maintain', `Your rate is within ${Math.abs(gapPct).toFixed(1)}% of the ${comps.length}-property market average (${APP.fmtCurrency(marketAvg)}) — well aligned.`,
-        { currentRate:myRate, expectedRate:myRate, confidence:90, priority:'Low' });
+      push('maintain', 'Maintain Current Pricing',
+        `Your rate is within ${Math.abs(gapPct).toFixed(1)}% of the ${comps.length}-property market average (${APP.fmtCurrency(marketAvg)}) — well aligned.`,
+        { currentRate:myRate, expectedRate:myRate, confidence:90, priority:'Low', affected:['All Rooms'] });
     }
   }
 
@@ -670,8 +726,10 @@ function generatePricingRecommendations(propertyId){
       const outlier = channelRates.find(c=> stdDev>0 && Math.abs(c.rate-mean)>1.4*stdDev);
       if(outlier){
         const diffPct = ((outlier.rate-mean)/mean*100);
-        push('channelAdjust', `${outlier.ch.name} is priced ${Math.abs(diffPct).toFixed(1)}% ${diffPct>0?'above':'below'} your average OTA rate (${APP.fmtCurrency(Math.round(mean))}) — worth reviewing that channel's specific pricing.`,
-          { currentRate:outlier.rate, expectedRate:Math.round(mean), confidence:70, priority: Math.abs(diffPct)>=25?'High':'Medium' });
+        push('channelAdjust', `${diffPct>0?'Reduce':'Increase'} ${outlier.ch.name} Rate`,
+          `${outlier.ch.name} is priced ${Math.abs(diffPct).toFixed(1)}% ${diffPct>0?'above':'below'} your average OTA rate (${APP.fmtCurrency(Math.round(mean))}) — a pricing-competitiveness outlier worth reviewing on that channel specifically.`,
+          { currentRate:outlier.rate, expectedRate:Math.round(mean), confidence:70, priority: Math.abs(diffPct)>=25?'High':'Medium',
+            applyChannel:outlier.ch, affected:[outlier.ch.name] });
       }
     }
   }
@@ -681,9 +739,11 @@ function generatePricingRecommendations(propertyId){
   const violation1 = PORTALDATA.firstParityViolation(propertyId, today);
   if(violation1){
     const gapPct = ((violation1.directPrice-violation1.otaPrice)/violation1.directPrice*100);
-    push('parity', `${violation1.channel.name} is listing ${violation1.room.name} at ${APP.fmtCurrency(violation1.otaPrice)} — ${gapPct.toFixed(1)}% below your Direct rate of ${APP.fmtCurrency(violation1.directPrice)}.`,
+    push('parity', `Restore ${violation1.channel.name} Rate Parity`,
+      `${violation1.channel.name} is listing ${violation1.room.name} at ${APP.fmtCurrency(violation1.otaPrice)} — ${gapPct.toFixed(1)}% below your Direct rate of ${APP.fmtCurrency(violation1.directPrice)}. This is the same parity check used by your Dashboard's Rate Parity Score.`,
       { currentRate:violation1.otaPrice, expectedRate:violation1.directPrice, confidence:88, priority:'High',
-        applyPlan: violation1.plan, applyRoom: violation1.room });
+        applyPlan: violation1.plan, applyRoom: violation1.room,
+        affected:[violation1.room.name, violation1.channel.name] });
   }
 
   /* ---- 6. Review Meal Plan Pricing — EP/CP/MAP/AP should get progressively more expensive as
@@ -692,8 +752,10 @@ function generatePricingRecommendations(propertyId){
   const mealRates = mealOrder.map(p=>({ plan:p, rate:PORTALDATA.mealPlanRateOnDate(propertyId, p, today) })).filter(m=>m.rate!=null);
   for(let i=1;i<mealRates.length;i++){
     if(mealRates[i].rate < mealRates[i-1].rate*0.98){
-      push('mealPlan', `${DB.MEAL_LABELS[mealRates[i-1].plan]} (${APP.fmtCurrency(mealRates[i-1].rate)}) is priced higher than ${DB.MEAL_LABELS[mealRates[i].plan]} (${APP.fmtCurrency(mealRates[i].rate)}), despite including less — worth re-checking the pricing ladder.`,
-        { currentRate:mealRates[i].rate, expectedRate:mealRates[i-1].rate, confidence:74, priority:'Medium' });
+      push('mealPlan', `Review ${DB.MEAL_LABELS[mealRates[i].plan]} Meal Plan Pricing`,
+        `${DB.MEAL_LABELS[mealRates[i-1].plan]} (${APP.fmtCurrency(mealRates[i-1].rate)}) is priced higher than ${DB.MEAL_LABELS[mealRates[i].plan]} (${APP.fmtCurrency(mealRates[i].rate)}), despite including less — a pricing-ladder inconsistency worth re-checking.`,
+        { currentRate:mealRates[i].rate, expectedRate:mealRates[i-1].rate, confidence:74, priority:'Medium',
+          affected:[`${DB.MEAL_LABELS[mealRates[i].plan]} Meal Plan`] });
       break; // one clear example is enough — no need to list every step
     }
   }
@@ -705,14 +767,62 @@ function generatePricingRecommendations(propertyId){
     const sorted = [...masterRooms].sort((a,b)=>(a.capacity||0)-(b.capacity||0));
     for(let i=1;i<sorted.length;i++){
       if((sorted[i].capacity||0) > (sorted[i-1].capacity||0) && sorted[i].basePrice < sorted[i-1].basePrice*0.95){
-        push('roomPositioning', `${sorted[i].name} (${sorted[i].capacity} guests, ${APP.fmtCurrency(sorted[i].basePrice)}) is priced below ${sorted[i-1].name} (${sorted[i-1].capacity} guests, ${APP.fmtCurrency(sorted[i-1].basePrice)}) despite sleeping more guests.`,
-          { currentRate:sorted[i].basePrice, expectedRate:sorted[i-1].basePrice, confidence:72, priority:'Medium' });
+        push('roomPositioning', `Reposition ${sorted[i].name} Pricing`,
+          `${sorted[i].name} (${sorted[i].capacity} guests, ${APP.fmtCurrency(sorted[i].basePrice)}) is priced below ${sorted[i-1].name} (${sorted[i-1].capacity} guests, ${APP.fmtCurrency(sorted[i-1].basePrice)}) despite sleeping more guests — a self-inconsistent pricing ladder across your own room types.`,
+          { currentRate:sorted[i].basePrice, expectedRate:sorted[i-1].basePrice, confidence:72, priority:'Medium',
+            applyRoom:sorted[i], affected:[sorted[i].name] });
         break;
       }
     }
   }
 
-  /* ---- 8. Monitor Competitor Promotions — a competitor cut their rate sharply in the last
+  /* ---- 8. Room-to-Room Value Gap — a specific room type priced well below its matched
+     equivalent room at your tracked comparison properties, averaged over the next 14 days. Same
+     room-to-room matching Room Rate Comparison's Value Proposition Analysis uses, surfaced here
+     as something actually actionable rather than just an insight to read. ---- */
+  if(master && comps.length){
+    function roomAvgRateOnDate(roomId, dateKey){
+      const plans = DB.ratePlans.byRoom(roomId);
+      if(!plans.length) return null;
+      const room = DB.rooms.get(roomId);
+      const prices = plans.map(p=>{ const day=DB.rates.forPlan(p.id)[dateKey]; return day ? day.price : room.basePrice; });
+      return prices.reduce((a,b)=>a+b,0)/prices.length;
+    }
+    const valueGapHorizon = Array.from({length:14}).map((_,i)=>PORTALDATA.dateKeyOffset(i));
+    let bestGap = null;
+    DB.rooms.byChannel(master.id).forEach(room=>{
+      const gaps = [];
+      valueGapHorizon.forEach(dateKey=>{
+        const myRoomRate = roomAvgRateOnDate(room.id, dateKey);
+        if(myRoomRate==null) return;
+        const matched = [];
+        comps.forEach(c=>{
+          const compMaster = DB.channels.byProperty(c.realPropertyId).find(ch=>ch.type==='master');
+          if(!compMaster) return;
+          const matchRoom = DB.rooms.byChannel(compMaster.id).find(r=>r.name===room.name);
+          if(!matchRoom) return;
+          const rate = roomAvgRateOnDate(matchRoom.id, dateKey);
+          if(rate!=null) matched.push(rate);
+        });
+        if(!matched.length) return;
+        const matchedAvg = matched.reduce((a,b)=>a+b,0)/matched.length;
+        gaps.push(((matchedAvg-myRoomRate)/myRoomRate)*100);
+      });
+      if(!gaps.length) return;
+      const avgGap = gaps.reduce((a,b)=>a+b,0)/gaps.length;
+      if(avgGap>15 && (!bestGap || avgGap>bestGap.avgGap)) bestGap = { room, avgGap };
+    });
+    if(bestGap){
+      const amount = Math.round(bestGap.room.basePrice*(bestGap.avgGap/100)*0.6/10)*10;
+      push('roomValueGap', `Increase ${bestGap.room.name} ADR`,
+        `Averaged over the next 14 days, ${bestGap.room.name} is priced ${Math.round(bestGap.avgGap)}% below comparable rooms across your tracked comparison properties. This recommendation is based on the same room-to-room matching used in Room Rate Comparison's Value Proposition Analysis.`,
+        { currentRate:bestGap.room.basePrice, expectedRate:bestGap.room.basePrice+amount, confidence:80, priority: bestGap.avgGap>=30?'High':'Medium',
+          effectiveDate:today, effectiveEnd:valueGapHorizon[valueGapHorizon.length-1],
+          applyRoom:bestGap.room, affected:[bestGap.room.name] });
+    }
+  }
+
+  /* ---- 9. Monitor Competitor Promotions — a competitor cut their rate sharply in the last
      7 days (possible promo push worth watching, distinct from a Direct-channel parity issue). ---- */
   if(comps.length){
     const mover = comps.map(c=>{
@@ -721,26 +831,28 @@ function generatePricingRecommendations(propertyId){
       return { c, pct: y ? ((t-y)/y*100) : 0 };
     }).sort((a,b)=>a.pct-b.pct)[0];
     if(mover && mover.pct <= -8){
-      push('promotions', `${mover.c.name} cut their rate ${Math.abs(mover.pct).toFixed(1)}% over the last 7 days — likely running a promotion. Keep an eye on their booking pace.`,
-        { confidence:68, priority: mover.pct<=-15?'High':'Medium' });
+      push('promotions', `Monitor ${mover.c.name} Promotion`,
+        `${mover.c.name} cut their rate ${Math.abs(mover.pct).toFixed(1)}% over the last 7 days — likely running a promotion. Keep an eye on their booking pace before reacting.`,
+        { confidence:68, priority: mover.pct<=-15?'High':'Medium', affected:[mover.c.name] });
     }
   }
 
-  /* ---- 9. Capitalize on Market Opportunities — a weekend/holiday or local event is coming up
-     within the week, and you're not already priced at a premium — a chance to raise ahead of
-     anticipated demand. ---- */
+  /* ---- 10. Capitalize on Market Opportunities — a weekend/holiday is coming up within the week,
+     and you're not already priced at a premium — a chance to raise ahead of anticipated demand.
+     Deliberately not event-driven for now. ---- */
   for(let d=1; d<=6; d++){
     const dk = PORTALDATA.dateKeyOffset(d);
     const isSpecial = PORTALDATA.isWeekend(dk) || PORTALDATA.isHoliday(dk);
-    const evt = PORTALDATA.localEventOn(dk);
-    if((isSpecial || evt) && comps.length){
+    if(isSpecial && comps.length){
       const compRatesThen = comps.map(c=>PORTALDATA.competitorRateOnDate(c, dk));
       const marketAvgThen = Math.round(compRatesThen.reduce((a,b)=>a+b,0)/compRatesThen.length);
       const myRateThen = PORTALDATA.myRateOnDate(propertyId, dk);
       if(myRateThen <= marketAvgThen*1.02){
-        const reason = evt ? `Local event detected: ${evt}` : PORTALDATA.isHoliday(dk) ? 'Upcoming holiday' : 'Upcoming weekend';
-        push('opportunity', `${reason} on ${APP.fmtDateReadable(dk)} — this market typically commands higher rates and you're not yet priced ahead of it.`,
-          { currentRate:myRateThen, expectedRate:Math.round(myRateThen*1.08/10)*10, confidence:69, priority:'Medium' });
+        const reason = PORTALDATA.isHoliday(dk) ? 'Upcoming Holiday' : 'Upcoming Weekend';
+        push('opportunity', `Raise Rate Ahead of ${reason}`,
+          `${reason} on ${APP.fmtDateReadable(dk)} — this market typically commands higher rates on this occupancy pattern, and you're not yet priced ahead of it.`,
+          { currentRate:myRateThen, expectedRate:Math.round(myRateThen*1.08/10)*10, confidence:69, priority:'Medium',
+            effectiveDate:dk, affected:['All Rooms'] });
       }
       break; // nearest opportunity only
     }
@@ -760,39 +872,68 @@ function generatePricingRecommendations(propertyId){
    Range" action already uses — so a rate change made here shows up everywhere My Rate is read
    from (Dashboard, Rate Shopper, Room Rate Comparison, Rate Matrix, property-details.html).
    ========================================================================== */
+// A recommendation's identity for dismissal purposes — type + title is stable across re-renders
+// of the same underlying condition (the data is deterministic), without needing a persisted id.
+function acSignature(r){ return `${r.type}|${r.title}`; }
+function acDismissedKey(propertyId){ return `hop_ac_dismissed_${propertyId}`; }
+function acDismissedSet(propertyId){ return new Set(JSON.parse(localStorage.getItem(acDismissedKey(propertyId)) || '[]')); }
+
 let acQueue = [];
 function renderActionCenter(propertyId){
-  const today = PORTALDATA.dateKeyOffset(0);
-  acQueue = generatePricingRecommendations(propertyId).filter(r=>r.type!=='maintain' && r.currentRate!=null && r.expectedRate!=null && r.currentRate!==r.expectedRate);
+  const dismissed = acDismissedSet(propertyId);
+  acQueue = generatePricingRecommendations(propertyId)
+    .filter(r=>r.type!=='maintain' && r.currentRate!=null && r.expectedRate!=null && r.currentRate!==r.expectedRate)
+    .filter(r=> !dismissed.has(acSignature(r)));
 
   document.getElementById('ac_countBadge').textContent = acQueue.length ? `${acQueue.length} pending` : '';
 
   document.getElementById('actionQueueGrid').innerHTML = acQueue.length ? acQueue.map((r,i)=>{
     const meta = REC_ACTION_TYPES[r.type];
     const delta = r.expectedRate - r.currentRate;
+    const pctChange = r.currentRate ? (delta/r.currentRate*100) : 0;
+    const effectiveLabel = r.effectiveEnd
+      ? `${APP.fmtDateReadable(r.effectiveDate)} – ${APP.fmtDateReadable(r.effectiveEnd)}`
+      : APP.fmtDateReadable(r.effectiveDate);
     return `<div class="col-md-6 col-xl-4">
       <div class="insight-card priority-${r.priority}">
         <div class="d-flex align-items-start gap-2 mb-2">
           <div class="insight-icon" style="background:${meta.bg};color:${meta.color}"><i class="bi ${meta.icon}"></i></div>
           <div class="flex-grow-1">
-            <div class="fw-bold" style="font-size:.86rem;line-height:1.25">${meta.label}</div>
-            <div class="d-flex gap-1 mt-1">
+            <div class="fw-bold" style="font-size:.86rem;line-height:1.25">${r.title}</div>
+            <div class="d-flex gap-1 mt-1 flex-wrap">
               <span class="insight-priority-badge ${r.priority}">${r.priority} Priority</span>
               <span class="insight-confidence-badge">Confidence: ${r.confidence}%</span>
             </div>
           </div>
         </div>
-        <p class="text-muted small mb-2">${r.detail}</p>
+        <div class="text-muted mb-2" style="font-size:.68rem"><i class="bi bi-calendar-check me-1"></i>Effective: ${effectiveLabel}</div>
+        ${r.affected && r.affected.length ? `<div class="d-flex flex-wrap gap-1 mb-2">${r.affected.map(a=>`<span class="badge bg-light text-dark border" style="font-size:.65rem">${a}</span>`).join('')}</div>` : ''}
         <div class="row g-2 mb-2">
           <div class="col-6"><div class="text-muted" style="font-size:.68rem">Current Rate</div><div class="fw-semibold">${APP.fmtCurrency(r.currentRate)}</div></div>
-          <div class="col-6"><div class="text-muted" style="font-size:.68rem">New Rate</div><div class="fw-semibold" style="color:${delta>0?'var(--fa-text-mod)':'var(--fa-text-mild)'}">${APP.fmtCurrency(r.expectedRate)}</div></div>
+          <div class="col-6"><div class="text-muted" style="font-size:.68rem">Recommended Rate</div><div class="fw-semibold" style="color:${delta>0?'var(--fa-text-mod)':'var(--fa-text-mild)'}">${APP.fmtCurrency(r.expectedRate)} <span style="font-size:.68rem;font-weight:600">(${pctChange>=0?'+':''}${pctChange.toFixed(1)}%)</span></div></div>
         </div>
-        <button class="btn btn-primary btn-sm w-100" onclick="openApplyModal(${i})"><i class="bi bi-lightning-charge-fill me-1"></i>Apply Rate Change</button>
+        <p class="text-muted small mb-2">${r.detail}</p>
+        <div class="d-flex gap-2">
+          <button class="btn btn-primary btn-sm flex-grow-1" onclick="openApplyModal(${i})"><i class="bi bi-lightning-charge-fill me-1"></i>Apply</button>
+          <button class="btn btn-soft btn-sm" onclick="dismissRecommendation(${i})" title="Dismiss"><i class="bi bi-x-lg"></i></button>
+        </div>
       </div>
     </div>`;
-  }).join('') : `<div class="col-12">${PWIDGETS.emptyState('bi-check2-circle','Nothing to act on right now','Every open recommendation has already been applied or your pricing is well aligned — check back after the market moves.')}</div>`;
+  }).join('') : `<div class="col-12">${PWIDGETS.emptyState('bi-check2-circle','Nothing to act on right now','Every open recommendation has already been applied or dismissed, or your pricing is well aligned — check back after the market moves.')}</div>`;
 
   renderRecentlyApplied(propertyId);
+}
+
+function dismissRecommendation(index){
+  const rec = acQueue[index];
+  if(!rec) return;
+  const me = RBAC.currentUser();
+  const propertyId = PORTAL.activePropertyId(me);
+  const dismissed = acDismissedSet(propertyId);
+  dismissed.add(acSignature(rec));
+  localStorage.setItem(acDismissedKey(propertyId), JSON.stringify([...dismissed]));
+  APP.toast('Recommendation Dismissed', `"${rec.title}" won't show in the Action Queue again unless the underlying condition changes.`, 'success');
+  renderActionCenter(propertyId);
 }
 
 function renderRecentlyApplied(propertyId){
@@ -811,29 +952,42 @@ function renderRecentlyApplied(propertyId){
 function openApplyModal(index){
   const rec = acQueue[index];
   if(!rec) return;
-  const meta = REC_ACTION_TYPES[rec.type];
   document.getElementById('acModalDetail').textContent = rec.detail;
   document.getElementById('acModalCurrent').textContent = APP.fmtCurrency(rec.currentRate);
   document.getElementById('acModalNew').textContent = APP.fmtCurrency(rec.expectedRate);
-  document.getElementById('acModalScope').textContent = rec.applyPlan
-    ? `Applies to ${rec.applyRoom.name} on ${APP.fmtDateReadable(rec.date || PORTALDATA.dateKeyOffset(0))}.`
-    : `Applies proportionally across every Direct (Master) room/rate plan on ${APP.fmtDateReadable(rec.date || PORTALDATA.dateKeyOffset(0))}.`;
+  const applyDate = rec.effectiveDate || PORTALDATA.dateKeyOffset(0);
+  const applyDateLabel = rec.effectiveEnd ? `${APP.fmtDateReadable(applyDate)} – ${APP.fmtDateReadable(rec.effectiveEnd)}` : APP.fmtDateReadable(applyDate);
+  const scope = rec.applyPlan ? `${rec.applyRoom.name}`
+    : rec.applyRoom ? `${rec.applyRoom.name} (every rate plan)`
+    : rec.applyChannel ? `${rec.applyChannel.name} (every room on that channel)`
+    : 'every Direct (Master) room/rate plan, proportionally';
+  document.getElementById('acModalScope').textContent = `Applies to ${scope} on ${applyDateLabel}.`;
   document.getElementById('acModalApplyBtn').onclick = ()=>{
-    applyRecommendation(rec, meta);
+    applyRecommendation(rec);
     bootstrap.Modal.getInstance(document.getElementById('acApplyModal')).hide();
   };
   new bootstrap.Modal(document.getElementById('acApplyModal')).show();
 }
 
-function applyRecommendation(rec, meta){
+function applyRecommendation(rec){
   const me = RBAC.currentUser();
   const propertyId = PORTAL.activePropertyId(me);
-  const date = rec.date || PORTALDATA.dateKeyOffset(0);
+  const date = rec.effectiveDate || PORTALDATA.dateKeyOffset(0);
   const ratio = rec.currentRate>0 ? rec.expectedRate/rec.currentRate : 1;
 
+  // Applies at whatever scope the recommendation is actually about: one specific rate plan
+  // (parity), every plan on one specific room (a room-level fix — value gap/positioning), every
+  // room on one specific channel (a channel-level fix), or — the old default — proportionally
+  // across every Direct/Master room+plan for property-wide recommendations only.
   let targets = [];
   if(rec.applyPlan){
     targets = [{ plan:rec.applyPlan, room:rec.applyRoom }];
+  } else if(rec.applyRoom){
+    DB.ratePlans.byRoom(rec.applyRoom.id).forEach(plan=> targets.push({ plan, room:rec.applyRoom }));
+  } else if(rec.applyChannel){
+    DB.rooms.byChannel(rec.applyChannel.id).forEach(room=>{
+      DB.ratePlans.byRoom(room.id).forEach(plan=> targets.push({ plan, room }));
+    });
   } else {
     const channels = DB.channels.byProperty(propertyId);
     const master = channels.find(c=>c.type==='master');
@@ -844,21 +998,23 @@ function applyRecommendation(rec, meta){
     }
   }
 
+  const dateEnd = rec.effectiveEnd || date;
   targets.forEach(({plan,room})=>{
     const day = DB.rates.forPlan(plan.id)[date];
     const price = day ? day.price : room.basePrice;
     const newPrice = Math.max(500, Math.round(price*ratio/10)*10);
     const maxOcc = Math.max(room.maxOccupancy||1, plan.baseOccupancy||1);
-    DB.rates.setRange(plan.id, date, date, newPrice, plan.baseOccupancy, plan.extraAdultPrice, maxOcc);
+    DB.rates.setRange(plan.id, date, dateEnd, newPrice, plan.baseOccupancy, plan.extraAdultPrice, maxOcc);
   });
 
+  const effectiveLabel = rec.effectiveEnd ? `${APP.fmtDateReadable(date)} – ${APP.fmtDateReadable(dateEnd)}` : APP.fmtDateReadable(date);
   PORTALDATA.addNotification(propertyId, {
     type:'rateApplied', icon:'bi-lightning-charge-fill', priority:'low',
-    title:`${meta.label} applied`,
-    message:`${APP.fmtCurrency(rec.currentRate)} → ${APP.fmtCurrency(rec.expectedRate)} for ${APP.fmtDateReadable(date)}.`
+    title:`${rec.title} applied`,
+    message:`${APP.fmtCurrency(rec.currentRate)} → ${APP.fmtCurrency(rec.expectedRate)} for ${effectiveLabel}.`
   });
 
-  APP.toast('Rate Change Applied', `${meta.label} — new rate takes effect for ${APP.fmtDateReadable(date)}.`, 'success');
+  APP.toast('Rate Change Applied', `${rec.title} — new rate takes effect for ${effectiveLabel}.`, 'success');
   PORTAL.refreshBell(me);
   renderActionCenter(propertyId);
   // Keep the Forecast tab (Top Forecasted Opportunities + Scenario Planner) in sync with the

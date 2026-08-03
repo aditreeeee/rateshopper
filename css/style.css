@@ -446,6 +446,13 @@ body:not(.cal-embed) .cal-context-bar{top:var(--header-h)}
 .grid-table-wrap::-webkit-scrollbar-thumb{ background:var(--border-1); border-radius:16px; border:3px solid var(--bg-surface-2); }
 .grid-table-wrap::-webkit-scrollbar-thumb:hover{ background:var(--brand-300); }
 .grid-table-wrap::-webkit-scrollbar-corner{ background:var(--bg-surface-2); }
+/* Auto layout (not fixed): the sticky first column is pinned to an exact width (see
+   .grid-sticky-col's width+max-width below), but date columns only get a MINIMUM width
+   (.grid-date-col/.grid-price-cell) — with width:100% on the table, that leftover space is
+   free to stretch across however many date columns are actually showing. For 7D/14D that means
+   every column grows to fill the card edge-to-edge instead of leaving empty space to the right;
+   for 30D/90D there are enough columns that the min-width floor is hit and the table overflows
+   into .grid-table-wrap's own horizontal scroll instead. */
 .grid-table{border-collapse:separate;border-spacing:0;width:100%}
 .grid-table th,.grid-table td{border-bottom:1px solid var(--border-2);border-right:1px solid var(--border-2);padding:0;white-space:nowrap}
 
@@ -466,9 +473,13 @@ body:not(.cal-embed) .cal-context-bar{top:var(--header-h)}
   position:sticky; left:0; z-index:2;
   background:color-mix(in srgb, var(--bg-surface) 88%, transparent);
   backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
-  min-width:230px; max-width:230px; white-space:normal;
+  width:230px; min-width:230px; max-width:230px; white-space:normal;
   border-right:1px solid var(--border-1) !important;
 }
+/* Date-column floor width — shared by every date <th> (via this class) and every price <td>
+   (via .grid-price-cell, below). Only a minimum, not a fixed width, so columns can stretch
+   wider than this to fill available space when few are showing (7D/14D). */
+.grid-date-col{ min-width:92px; }
 .grid-table thead th.grid-sticky-col{
   z-index:5; text-align:left;
   background:color-mix(in srgb, var(--bg-surface-2) 92%, transparent);
@@ -485,7 +496,7 @@ body:not(.cal-embed) .cal-context-bar{top:var(--header-h)}
   padding:1px 7px; border-radius:20px; background:var(--bg-surface-2); color:var(--text-2); line-height:1.6;
 }
 [data-theme="dark"] .grid-occ-badge{background:var(--bg-surface-2)}
-.grid-price-cell{min-width:88px;text-align:center;cursor:pointer;transition:background .15s ease}
+.grid-price-cell{min-width:92px;text-align:center;cursor:pointer;transition:background .15s ease}
 .grid-price-cell:hover{background:var(--bg-surface-2)}
 .grid-price-cell.today-col{background:rgba(56,97,251,.05)}
 .grid-price-cell .gp-price{

@@ -23,6 +23,22 @@
 </div>
 
 <div id="mi_tabRecommendations">
+  <div class="section-card mb-3 py-2 px-3">
+    <div class="fc-period-bar" title="Scenario Planner and Top Forecasted Opportunities below both project over this window.">
+      <span class="fc-period-label flex-shrink-0"><i class="bi bi-calendar-range me-1"></i>Forecast Period</span>
+      <div class="btn-group btn-group-sm flex-shrink-0" id="fc_rangeGroup" role="group">
+        <button type="button" class="btn btn-soft" data-days="7">7D</button>
+        <button type="button" class="btn btn-outline-primary" data-days="14">14D</button>
+        <button type="button" class="btn btn-soft" data-days="30">30D</button>
+      </div>
+      <span class="fc-period-divider flex-shrink-0"></span>
+      <input type="date" class="form-control form-control-sm flex-shrink-0" id="fc_startDate" style="width:132px">
+      <span class="text-muted small flex-shrink-0">–</span>
+      <input type="date" class="form-control form-control-sm flex-shrink-0" id="fc_endDate" style="width:132px">
+      <button type="button" class="btn btn-primary btn-sm flex-shrink-0" id="fc_applyRange"><i class="bi bi-check2 me-1"></i>Apply</button>
+    </div>
+  </div>
+
   <div class="section-card sp-card mb-3">
     <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
       <div class="rc-section-title mb-0">
@@ -36,6 +52,7 @@
     </div>
     <input type="range" class="fc-slider" id="fc_scenarioSlider" min="-20" max="20" step="1" value="0">
     <div class="fc-slider-scale mb-2"><span>-20%</span><span>Rate Change</span><span>+20%</span></div>
+    <div class="mb-2"><span class="badge bg-primary-subtle text-primary" id="fc_scenarioWindow" style="font-size:.72rem"></span></div>
 
     <div class="row g-2" id="fc_scenarioStats"></div>
 

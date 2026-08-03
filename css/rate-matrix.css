@@ -132,9 +132,41 @@
 
 /* Cross-fade on date-range change (7D/14D/30D/90D, Prev/Next) — softens the otherwise abrupt
    jump when the number of date columns changes (e.g. 7D -> 14D roughly doubles them). Shared by
-   the Rate Matrix grid (#mx_gridHost) and the Rate Calendar grid (#gridHost). */
-#mx_gridHost, #gridHost{ transition:opacity .15s ease; }
-#mx_gridHost.mx-grid-fade, #gridHost.mx-grid-fade{ opacity:.35; }
+   the Rate Matrix grid (#mx_gridHost), the Rate Calendar grid (#gridHost), and both Rate Parity
+   grids (#parityGridHost, same id reused on both pages) — one consistent transition everywhere
+   the date-column count can change. */
+#mx_gridHost, #gridHost, #parityGridHost{ transition:opacity .15s ease; }
+#mx_gridHost.mx-grid-fade, #gridHost.mx-grid-fade, #parityGridHost.mx-grid-fade{ opacity:.35; }
+
+/* ---------- Range-shift arrows, embedded in the date header row itself (the .mx-edge-left/right
+   hover-scroll zones already sit exactly there — see the height:46px override below) instead of
+   floating in the toolbar above the table. Only meaningful once the window is wide enough that
+   paging by a whole period is actually useful, so they're fully hidden (not just faded/disabled)
+   for the 7D/14D presets on the two MAIN grids — .mx-range-shiftable is toggled on the card by JS
+   whenever the active preset is 30D/90D/Custom.
+   Rate Parity is deliberately excluded from this hide rule: its modal is much narrower than the
+   full-page grids, so even a 14-Day (or 7-Day) range can overflow it and still need hover-scroll
+   — panning within the loaded columns is a different job from paging to a whole new period, and
+   the former has to keep working regardless of preset. Only the click-to-jump-a-period affordance
+   (the .mx-range-shiftable opacity/cursor rule below) stays gated to 30 Days/Custom there. ---------- */
+.mx-grid-card:not(.mx-range-shiftable) .mx-edge-left,
+.mx-grid-card:not(.mx-range-shiftable) .mx-edge-right,
+.cal-grid-card:not(.mx-range-shiftable) .mx-edge-left,
+.cal-grid-card:not(.mx-range-shiftable) .mx-edge-right{
+  display:none;
+}
+.mx-range-shiftable .mx-edge-left, .mx-range-shiftable .mx-edge-right{ opacity:.4; cursor:pointer; }
+.mx-range-shiftable .mx-edge-left.is-active, .mx-range-shiftable .mx-edge-right.is-active{ opacity:1; }
+/* Parity's zones stay present at every preset (hover-scroll always works) but only look/act like
+   a clickable page-jump arrow once shiftable — otherwise they're the plain hover-reveal chevron
+   the main grids use everywhere. */
+.parity-scroll-wrap .mx-edge-left, .parity-scroll-wrap .mx-edge-right{ cursor:default; }
+.parity-scroll-wrap.mx-range-shiftable .mx-edge-left, .parity-scroll-wrap.mx-range-shiftable .mx-edge-right{ opacity:.4; cursor:pointer; }
+/* The left zone sits at the boundary of the first DATE column, not left:0 — left:0 would overlap
+   the sticky "Channel" column (.grid-sticky-col, 230px wide), which reads as if hovering over the
+   channel names themselves scrolls the grid. Pushed past that column's width instead, so it's
+   unambiguously anchored to the date columns it actually scrolls. */
+.parity-scroll-wrap .mx-edge-left{ left:230px; }
 
 /* ---------- Edge hover-scroll — base .mx-edge-scroll styles live in css/portal.css (shared with
    Room Rate Comparison). Here, left/right are narrowed to the sticky date-header row instead of
@@ -154,13 +186,12 @@
 .parity-range-bar input[type="date"]{ min-width:150px; }
 
 /* ---------- Rate Parity grid — same edge hover-scroll as the main Rate Matrix grid (.mx-edge-*
-   classes, reused as-is): hover near the left/right edge to scroll toward it. Rate Calendar's
-   Rate Parity modal additionally keeps these zones faintly visible and clickable at rest (below,
-   scoped to #parityGridHost's wrap) so there's a discoverable click-arrow affordance too, on top
-   of the hover-to-scroll and the grid's own native scrollbar — all three coexist. ---------- */
+   classes, reused as-is): hover near the left/right edge to scroll toward it, click to jump a
+   whole period. Visibility/opacity for these zones is governed by the shared
+   .mx-range-shiftable rules above (hidden for 7/14 Days, faintly visible at rest for 30 Days or
+   a manual/custom range) so the affordance and the native scrollbar coexist consistently with
+   the main grids. ---------- */
 .parity-scroll-wrap{ position:relative; }
-.parity-scroll-wrap .mx-edge-scroll{ opacity:.55; cursor:pointer; }
-.parity-scroll-wrap .mx-edge-scroll.is-active{ opacity:1; }
 
 /* ---------- Rate Parity modal backdrop — a frosted glass scrim instead of Bootstrap's flat
    dark overlay, consistent with the rest of the app's glass-surface language. The rest of the

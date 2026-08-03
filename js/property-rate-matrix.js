@@ -217,7 +217,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const todayKey = DB.fmtDate(new Date());
     const theadDates = dates.map(d=>{
       const isToday = DB.fmtDate(d)===todayKey;
-      return `<th class="${isToday?'today-col':''}">${d.toLocaleDateString('en-IN',{weekday:'short'})}<br>${d.getDate()} ${d.toLocaleDateString('en-IN',{month:'short'})}</th>`;
+      return `<th class="grid-date-col ${isToday?'today-col':''}">${d.toLocaleDateString('en-IN',{weekday:'short'})}<br>${d.getDate()} ${d.toLocaleDateString('en-IN',{month:'short'})}</th>`;
     }).join('');
 
     const totalRooms = groups.reduce((s,g)=>s+g.rooms.length, 0);
@@ -345,7 +345,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const todayKey = DB.fmtDate(new Date());
     const theadDates = dates.map(d=>{
       const isToday = DB.fmtDate(d)===todayKey;
-      return `<th class="${isToday?'today-col':''}">${d.toLocaleDateString('en-IN',{weekday:'short'})}<br>${d.getDate()} ${d.toLocaleDateString('en-IN',{month:'short'})}</th>`;
+      return `<th class="grid-date-col ${isToday?'today-col':''}">${d.toLocaleDateString('en-IN',{weekday:'short'})}<br>${d.getDate()} ${d.toLocaleDateString('en-IN',{month:'short'})}</th>`;
     }).join('');
 
     const bodyRows = priceGrid.map(row=>{
@@ -375,13 +375,35 @@ document.addEventListener('DOMContentLoaded', ()=>{
       const active = Number(b.dataset.days)===days;
       b.classList.toggle('btn-outline-primary', active); b.classList.toggle('btn-soft', !active);
     });
+    // Same rule as the main grid: range-shift arrows only for 30 Days or a manual/custom range
+    // (days==null), never for the fixed 7/14 Day presets.
+    const shiftable = days === 30 || days == null;
+    const wrap = document.querySelector('.parity-scroll-wrap');
+    if(wrap) wrap.classList.toggle('mx-range-shiftable', shiftable);
   }
   function applyParityRange(start, end, presetDays){
     parityRangeStart = mxStartOfDay(start); parityRangeEnd = mxStartOfDay(end);
     document.getElementById('parity_startDate').value = DB.fmtDate(parityRangeStart);
     document.getElementById('parity_endDate').value = DB.fmtDate(parityRangeEnd);
     setParityActivePreset(presetDays || null);
-    renderParityGrid();
+
+    // Same cross-fade treatment as the main grid — softens the column-count jump when the
+    // parity range changes instead of an instant swap.
+    const host = document.getElementById('parityGridHost');
+    host.classList.add('mx-grid-fade');
+    requestAnimationFrame(()=>{
+      renderParityGrid();
+      requestAnimationFrame(()=> host.classList.remove('mx-grid-fade'));
+    });
+  }
+  // Shift the parity range backward/forward by its own current span — mirrors mxShiftRange, kept
+  // separate since the parity range is independent of the main grid's.
+  function parityShiftRange(direction){
+    const spanDays = Math.round((parityRangeEnd - parityRangeStart) / 86400000) + 1;
+    const newStart = mxAddDays(parityRangeStart, direction*spanDays);
+    const newEnd = mxAddDays(parityRangeEnd, direction*spanDays);
+    const activeBtn = document.querySelector('#parity_rangeGroup [data-days].btn-outline-primary');
+    applyParityRange(newStart, newEnd, activeBtn ? Number(activeBtn.dataset.days) : null);
   }
   document.querySelectorAll('#parity_rangeGroup [data-days]').forEach(btn=>{
     btn.addEventListener('click', ()=>{
@@ -493,6 +515,12 @@ document.addEventListener('DOMContentLoaded', ()=>{
     document.getElementById('mx_dateRangeLabel').textContent = mxSameDay(mxRangeStart,mxRangeEnd)
       ? mxFmtShort(mxRangeStart) : `${mxFmtShort(mxRangeStart)} – ${mxFmtShort(mxRangeEnd)}`;
 
+    // Prev/Next range-shift arrows live embedded in the grid's own date header row (the
+    // .mx-edge-left/right zones) and only make sense once the window is wide enough that paging
+    // by a whole period is actually useful — 30D/90D/Custom, never 7D/14D (the CSS in
+    // rate-matrix.css hides them entirely unless this class is present).
+    document.querySelector('.mx-grid-card').classList.toggle('mx-range-shiftable', presetKey!=='7' && presetKey!=='14');
+
     // Cross-fade the grid instead of an instant column-count jump — going from 7D to 14D roughly
     // doubles the date columns, which felt like a jarring, "choppy" jump when swapped in instantly.
     const host = document.getElementById('mx_gridHost');
@@ -596,8 +624,11 @@ document.addEventListener('DOMContentLoaded', ()=>{
     closeCustomDropdown();
   });
 
-  document.getElementById('mx_rangePrev').addEventListener('click', ()=> mxShiftRange(-1));
-  document.getElementById('mx_rangeNext').addEventListener('click', ()=> mxShiftRange(1));
+  // Range-shift is now triggered by clicking the grid's own left/right edge zones (embedded in
+  // the date header row) rather than separate toolbar buttons — see applyRange() for the
+  // .mx-range-shiftable visibility toggle that hides these for 7D/14D.
+  document.getElementById('mx_edgeLeft').addEventListener('click', ()=> mxShiftRange(-1));
+  document.getElementById('mx_edgeRight').addEventListener('click', ()=> mxShiftRange(1));
 
   // Edge hover-scroll — hovering near an edge of a grid scrolls smoothly toward it for as long as
   // the cursor stays there, instead of a click-to-scroll arrow/directional pad. Looks up the
@@ -633,6 +664,14 @@ document.addEventListener('DOMContentLoaded', ()=>{
     { id:'mx_edgeLeft',  dx:-9, dy:0  },
     { id:'mx_edgeRight', dx:9,  dy:0  },
   ]);
+  // These zones stay hoverable (for panning within the loaded columns) at every preset — only
+  // the click-to-jump-a-period behavior is gated to when a 30 Days/Custom range makes it useful.
+  document.getElementById('parity_edgeLeft').addEventListener('click', ()=>{
+    if(document.querySelector('.parity-scroll-wrap').classList.contains('mx-range-shiftable')) parityShiftRange(-1);
+  });
+  document.getElementById('parity_edgeRight').addEventListener('click', ()=>{
+    if(document.querySelector('.parity-scroll-wrap').classList.contains('mx-range-shiftable')) parityShiftRange(1);
+  });
   wireEdgeScroll('#parityGridHost .grid-table-wrap', [
     { id:'parity_edgeLeft',  dx:-9, dy:0 },
     { id:'parity_edgeRight', dx:9,  dy:0 },

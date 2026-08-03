@@ -690,6 +690,18 @@
 /* ==========================================================================
    Forecast (Forecast & Actions tab) — opportunity cards + scenario slider.
    ========================================================================== */
+/* ---------- Forecast Period bar — one compact, single-line row spanning the card's full width:
+   label, preset pills, and the custom date range all sit inline instead of wrapping onto their
+   own line. flex-wrap:nowrap is deliberate (unlike .parity-range-bar's modal-width layout, this
+   card has the full page width to work with, so nothing should ever need to drop to a second
+   line) — overflow-x:auto is only a safety net for a very narrow viewport. ---------- */
+.fc-period-bar{
+  display:flex; align-items:center; gap:10px; flex-wrap:nowrap;
+  overflow-x:auto; padding-bottom:1px; /* room for the scrollbar to appear without clipping content, on the rare viewport narrow enough to need it */
+}
+.fc-period-label{ font-size:.82rem; font-weight:700; color:var(--text-1); white-space:nowrap; }
+.fc-period-divider{ width:1px; height:20px; background:var(--border-1); flex-shrink:0; }
+.fc-period-bar input[type="date"]{ min-width:0; }
 /* ---------- Forecast opportunity cards — insight-card's layout, forecast-flavored accent ---------- */
 .forecast-card{ border-left-width:4px; }
 .forecast-card.impact-positive{ border-left-color:var(--fa-text-mild); }
@@ -702,6 +714,10 @@
 .forecast-impact{ font-size:.78rem; font-weight:700; }
 .forecast-impact.pos{ color:var(--fa-text-mild); }
 .forecast-impact.neg{ color:var(--fa-text-strong); }
+/* ---- Per-card forecast meta (date range / stay dates affected / revenue lift / highest-
+   opportunity date) — reuses .fc-scenario-stat's tile look (Scenario Planner) so both places
+   that show a "stat + label" read as the same component. ---- */
+.forecast-meta-grid{ display:grid; grid-template-columns:1fr 1fr; gap:6px; margin:2px 0 10px; }
 
 /* ---------- Scenario Planner — same .section-card chrome as every other card on this page
    (Top Forecasted Opportunities, Insight Generation), just a little more compact since it's
