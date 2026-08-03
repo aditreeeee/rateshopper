@@ -168,6 +168,18 @@ document.addEventListener('DOMContentLoaded', ()=>{
       const el = document.getElementById('am_'+a.replace(/\s/g,''));
       if(el) el.checked = true;
     });
+
+    // Core identity fields — a Property Owner can set these once when first creating their
+    // property, but editing them afterward is a Company Admin-only action (prevents an owner
+    // from silently relocating/rebranding a property Company Admin has already onboarded).
+    // Company Admin keeps full edit access to every field, same as before.
+    if(me.role === RBAC.ROLES.PROPERTY_OWNER){
+      ['f_name','f_type','f_country','f_state','f_city','f_stars','f_timezone','f_website'].forEach(id=>{
+        const el = document.getElementById(id);
+        if(el){ el.disabled = true; el.title = 'Contact your Company Admin to change this.'; }
+      });
+      document.getElementById('ownerLockNotice').classList.remove('d-none');
+    }
   }
 
   document.getElementById('logoUrlInput').addEventListener('input', function(){

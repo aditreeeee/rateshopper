@@ -18,7 +18,6 @@ document.addEventListener('DOMContentLoaded', ()=>{
   document.getElementById('s_alertLargeIncrease').checked = s.alertLargeIncrease;
   document.getElementById('s_alertLargeDecrease').checked = s.alertLargeDecrease;
   document.getElementById('s_alertNewMappedRoom').checked = s.alertNewMappedRoom;
-  document.getElementById('s_dashboardLayout').value = s.dashboardLayout;
   document.getElementById('s_defaultRangeDays').value = s.defaultRangeDays;
 
   // Appearance applies immediately (same as the topbar's own theme toggle) rather than waiting
@@ -36,7 +35,6 @@ document.addEventListener('DOMContentLoaded', ()=>{
       alertLargeIncrease: document.getElementById('s_alertLargeIncrease').checked,
       alertLargeDecrease: document.getElementById('s_alertLargeDecrease').checked,
       alertNewMappedRoom: document.getElementById('s_alertNewMappedRoom').checked,
-      dashboardLayout: document.getElementById('s_dashboardLayout').value,
       defaultRangeDays: Number(document.getElementById('s_defaultRangeDays').value)
     };
     PORTALDATA.saveSettings(propertyId, updated);

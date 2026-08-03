@@ -296,7 +296,7 @@ const PORTALDATA = (() => {
     return DB.get(KEYS.settings+propertyId, {
       alertCompetitorChange:true, alertNewLowest:true, alertParityMismatch:true, alertMissingRate:false,
       alertLargeIncrease:true, alertLargeDecrease:true, alertNewMappedRoom:false,
-      dashboardLayout:'default', defaultRangeDays:14
+      defaultRangeDays:14
     });
   }
   function saveSettings(propertyId, s){ DB.set(KEYS.settings+propertyId, s); }

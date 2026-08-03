@@ -10,6 +10,21 @@
 let mxRangeStart = null, mxRangeEnd = null; // the matrix's active date range — drives the grid, CSV export, and Rate Parity alike
 let mxPreset = '14'; // longer default window than before, so a first-time visitor sees two weeks of rate movement instead of just one
 
+// Cross-fade a grid re-render instead of swapping its content instantly. The previous version of
+// this swapped content after a single requestAnimationFrame — only ~16ms after the fade-out
+// class was added — which is nowhere near enough time for the opacity transition (220ms, matching
+// #mx_gridHost/#parityGridHost's CSS transition-duration) to actually get low. The column-count/
+// width jump was therefore happening in full view; the "fade" never got a chance to mask it. Now
+// the re-render is deferred until the fade-out transition has actually finished.
+const GRID_FADE_MS = 220;
+function fadeAndRerender(host, renderFn){
+  host.classList.add('mx-grid-fade');
+  setTimeout(()=>{
+    renderFn();
+    requestAnimationFrame(()=> host.classList.remove('mx-grid-fade'));
+  }, GRID_FADE_MS);
+}
+
 // The left/right edge-scroll zones must sit exactly over the date header row and nowhere else.
 // They're absolutely positioned against `card` (its position:relative ancestor), whose "top:0"
 // lines up with the padding EDGE (i.e. flush with the border) — not with where the card's own
@@ -422,12 +437,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
     // Same cross-fade treatment as the main grid — softens the column-count jump when the
     // parity range changes instead of an instant swap.
-    const host = document.getElementById('parityGridHost');
-    host.classList.add('mx-grid-fade');
-    requestAnimationFrame(()=>{
-      renderParityGrid();
-      requestAnimationFrame(()=> host.classList.remove('mx-grid-fade'));
-    });
+    fadeAndRerender(document.getElementById('parityGridHost'), renderParityGrid);
   }
   // Shift the parity range backward/forward by its own current span — mirrors mxShiftRange, kept
   // separate since the parity range is independent of the main grid's.
@@ -560,12 +570,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
     // Cross-fade the grid instead of an instant column-count jump — going from 7D to 14D roughly
     // doubles the date columns, which felt like a jarring, "choppy" jump when swapped in instantly.
-    const host = document.getElementById('mx_gridHost');
-    host.classList.add('mx-grid-fade');
-    requestAnimationFrame(()=>{
-      renderGrid();
-      requestAnimationFrame(()=> host.classList.remove('mx-grid-fade'));
-    });
+    fadeAndRerender(document.getElementById('mx_gridHost'), renderGrid);
   }
 
   // ---- Prev/Next range navigation — keyboard- and mouse-accessible way to step through time

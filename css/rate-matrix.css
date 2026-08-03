@@ -81,7 +81,6 @@
    doesn't require reopening the Custom picker each time. */
 .mx-range-nav{ display:flex; align-items:center; gap:8px; }
 .mx-range-nav #mx_dateRangeLabel{ min-width:150px; text-align:center; font-weight:600; }
-.mx-range-nav .btn-sm-icon:hover{ background:var(--brand-50); color:var(--brand-600); transform:translateY(-1px); }
 .mx-seg-btn:active{ transform:scale(.96); }
 .mx-seg-btn.active{ background:var(--brand-500); color:#fff; box-shadow:inset 0 0 0 1px var(--brand-500); }
 .mx-seg-btn.active:hover{ background:var(--brand-600); color:#fff; }
@@ -89,26 +88,6 @@
 #mx_dateRangeLabel{ font-size:.78rem; font-weight:600; }
 
 #mx_dateRangeMenu{ border-radius:16px; overflow:hidden; box-shadow:var(--shadow-lg); border:1px solid var(--border-1); }
-.mx-drp-presets{
-  display:flex; flex-direction:column; gap:2px; padding:10px; min-width:190px;
-  border-right:1px solid var(--border-1);
-}
-.mx-drp-preset{
-  display:flex; align-items:center; gap:9px;
-  border:none; background:transparent; text-align:left; padding:10px 12px; border-radius:10px;
-  font-size:.86rem; font-weight:500; color:var(--text-1); cursor:pointer;
-  transition:background .12s ease, color .12s ease, transform .12s ease;
-}
-.mx-drp-preset::before{
-  content:''; width:7px; height:7px; border-radius:50%; flex:0 0 auto;
-  background:var(--border-1); transition:background .12s ease, transform .12s ease;
-}
-.mx-drp-preset:hover{ background:var(--bg-surface-2); transform:translateX(1px); }
-.mx-drp-preset:hover::before{ background:var(--brand-300); }
-.mx-drp-preset.active{ background:var(--brand-50); color:var(--brand-600); font-weight:700; }
-.mx-drp-preset.active::before{ background:var(--brand-500); transform:scale(1.15); }
-[data-theme="dark"] .mx-drp-preset.active{ background:rgba(56,97,251,.16); }
-
 .mx-drp-custom{ padding:14px 16px; width:452px; }
 .mx-drp-cal{ display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:2px; flex:1; min-width:0; overflow:hidden; }
 .mx-drp-cal .mx-drp-dow{ font-size:.64rem; font-weight:700; color:var(--text-3); text-align:center; padding:4px 0; text-transform:uppercase; letter-spacing:.02em; }
@@ -139,7 +118,7 @@
    the Rate Matrix grid (#mx_gridHost), the Rate Calendar grid (#gridHost), and both Rate Parity
    grids (#parityGridHost, same id reused on both pages) — one consistent transition everywhere
    the date-column count can change. */
-#mx_gridHost, #gridHost, #parityGridHost{ transition:opacity .15s ease; }
+#mx_gridHost, #gridHost, #parityGridHost{ transition:opacity .22s ease; }
 #mx_gridHost.mx-grid-fade, #gridHost.mx-grid-fade, #parityGridHost.mx-grid-fade{ opacity:.35; }
 
 /* ---------- Range-shift arrows, embedded in the date header row itself (the .mx-edge-left/right

@@ -22,6 +22,21 @@ function alignEdgeZonesToHeader(card, host, leftId, rightId){
   });
 }
 
+// Cross-fade a grid re-render instead of swapping its content instantly. Swapping content after
+// a single requestAnimationFrame (~16ms after the fade-out class was added) is nowhere near
+// enough time for the opacity transition (220ms, matching #gridHost/#parityGridHost's CSS
+// transition-duration) to actually get low — the column-count/width jump was happening in full
+// view; the "fade" never got a chance to mask it. This defers the re-render until the fade-out
+// transition has actually finished.
+const GRID_FADE_MS = 220;
+function fadeAndRerender(host, renderFn){
+  host.classList.add('mx-grid-fade');
+  setTimeout(()=>{
+    renderFn();
+    requestAnimationFrame(()=> host.classList.remove('mx-grid-fade'));
+  }, GRID_FADE_MS);
+}
+
 let calRangeStart = null, calRangeEnd = null; // the calendar's active date range — drives the grid, bulk-update scopes, and Rate Parity alike
 let calPreset = '14';
 let calApplyRange = null; // set inside setupDateRangePicker() — exposed at module scope so calShiftRange (called from the edge-scroll wiring, outside that closure) can reach it
@@ -183,12 +198,7 @@ function setupDateRangePicker(){
     // Cross-fade the grid instead of an instant column-count jump — going from 7D to 14D/30D
     // roughly doubles the date columns, which felt like a jarring, "choppy" jump when swapped in
     // instantly.
-    const host = document.getElementById('gridHost');
-    host.classList.add('mx-grid-fade');
-    requestAnimationFrame(()=>{
-      renderGrid();
-      requestAnimationFrame(()=> host.classList.remove('mx-grid-fade'));
-    });
+    fadeAndRerender(document.getElementById('gridHost'), renderGrid);
   }
   calApplyRange = applyRange;
 
@@ -739,12 +749,7 @@ function applyParityRange(start, end, presetDays){
 
   // Same cross-fade treatment as the main grid — softens the column-count jump when the parity
   // range changes instead of an instant swap.
-  const host = document.getElementById('parityGridHost');
-  host.classList.add('mx-grid-fade');
-  requestAnimationFrame(()=>{
-    renderParityGrid();
-    requestAnimationFrame(()=> host.classList.remove('mx-grid-fade'));
-  });
+  fadeAndRerender(document.getElementById('parityGridHost'), renderParityGrid);
 }
 // Shift the parity range backward/forward by its own current span — mirrors calShiftRange, kept
 // separate since the parity range is independent of the main grid's.

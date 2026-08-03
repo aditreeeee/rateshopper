@@ -1,19 +1,3 @@
-// Shared Chart.js animation preset — see js/property-dashboard.js for the same helper; bars
-// cascade in one-by-one, lines draw in with a smooth ease so the page feels alive on load.
-function chartAnim(isBar){
-  return {
-    duration: 850, easing: 'easeOutQuart',
-    delay: (ctx)=> isBar
-      ? (ctx.type==='data' ? ctx.dataIndex*30 + (ctx.datasetIndex||0)*80 : 0)
-      : (ctx.datasetIndex||0) * 150
-  };
-}
-
-// Chart.js renders its own canvas text and otherwise defaults to the browser's generic
-// sans-serif stack, not the page's actual font — make every chart on this page use the same
-// Inter/system-ui stack as the surrounding UI instead of visibly mismatched axis/legend text.
-if(window.Chart) Chart.defaults.font.family = getComputedStyle(document.body).fontFamily;
-
 // Expandable analysis cards — one delegated listener covers every .insight-toggle button on the
 // page (Insight Generation and Forecast Opportunity cards alike), including any re-rendered after
 // this listener is attached, since it's bound on document rather than on the buttons themselves.

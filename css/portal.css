@@ -141,13 +141,6 @@
 [data-theme="dark"] .rp-brief-link{ background:rgba(56,97,251,.16); }
 [data-theme="dark"] .rp-brief-link:hover{ background:rgba(56,97,251,.26); }
 
-/* ---------- Rate position gauge ---------- */
-.rate-gauge{ display:flex; flex-direction:column; align-items:center; gap:8px; padding:10px 0; }
-.rate-gauge-bar{ position:relative; width:100%; height:10px; border-radius:6px;
-  background:linear-gradient(90deg,#12b76a,#ffb020,#ff4d5e); }
-.rate-gauge-marker{ position:absolute; top:-6px; width:3px; height:22px; background:var(--text-1); border-radius:2px; transform:translateX(-50%); }
-.rate-gauge-labels{ display:flex; justify-content:space-between; width:100%; font-size:.68rem; color:var(--text-3); }
-
 /* ---------- Leaderboard ---------- */
 .leaderboard-row{
   display:flex; align-items:center; gap:12px; padding:10px 8px; border-radius:10px; transition:.15s;
@@ -211,30 +204,6 @@
 .settings-alert-row .form-switch{ flex:0 0 auto; padding-left:2.5em; }
 .settings-alert-row .form-check-input{ width:2.4em; height:1.3em; cursor:pointer; }
 
-/* ---------- Distribution bars ---------- */
-.dist-bar-row{ display:flex; align-items:center; gap:10px; margin-bottom:8px; }
-.dist-bar-track{ flex:1; height:8px; border-radius:6px; background:var(--bg-surface-2); overflow:hidden; }
-.dist-bar-fill{ height:100%; border-radius:6px; background:linear-gradient(90deg,var(--brand-500),var(--accent)); }
-
-/* ---------- Heatmap ---------- */
-.heatmap-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(34px,1fr)); gap:4px; }
-.heatmap-cell{
-  aspect-ratio:1; border-radius:6px; display:flex; align-items:center; justify-content:center;
-  font-size:.62rem; font-weight:700; color:#fff; cursor:default;
-}
-
-/* ---------- Recommendation cards ---------- */
-.rec-card{
-  background:var(--glass-bg); border:1px solid var(--glass-border); border-radius:16px; padding:16px;
-  box-shadow:var(--shadow-sm); height:100%;
-  backdrop-filter:blur(var(--glass-blur)); -webkit-backdrop-filter:blur(var(--glass-blur));
-}
-.rec-badge{ display:inline-flex; align-items:center; gap:6px; padding:5px 12px; border-radius:20px; font-size:.72rem; font-weight:700; }
-.rec-badge.increase{ background:var(--fa-tint-mild); color:var(--fa-text-mild); }
-.rec-badge.decrease{ background:var(--fa-tint-strong); color:var(--fa-text-strong); }
-.rec-badge.hold{ background:var(--fa-tint-mod); color:var(--fa-text-mod); }
-.confidence-track{ height:6px;border-radius:4px;background:var(--bg-surface-2);overflow:hidden; }
-.confidence-fill{ height:100%;border-radius:4px;background:linear-gradient(90deg,var(--fa-2),var(--fa-3)); }
 
 /* ---------- Compact table variant (Market Intelligence > Value Proposition Analysis) — smaller
    font/padding so a chart + full comparison table can share one card without feeling cramped. ---------- */
@@ -316,11 +285,6 @@
   position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
   font-weight:800; font-size:1.15rem; color:var(--text-1);
 }
-
-/* ---------- Alert priority ---------- */
-.alert-priority-high{ border-left:4px solid var(--danger); }
-.alert-priority-medium{ border-left:4px solid var(--warn); }
-.alert-priority-low{ border-left:4px solid var(--brand-400); }
 
 /* ---------- Sticky rate-shopper table ---------- */
 .rate-shopper-table-wrap{ max-height:70vh; overflow:auto; border-radius:14px; }
@@ -405,9 +369,6 @@
    popping in simultaneously. */
 @keyframes ticker-in{ from{ opacity:0; transform:translateY(10px); } to{ opacity:1; transform:none; } }
 .ticker-card{ animation:ticker-in .4s var(--ease-premium) both; }
-.ticker-up{ color:#12b76a; }   /* market convention: green = price up */
-.ticker-down{ color:#ff4d5e; } /* market convention: red = price down */
-.ticker-flat{ color:var(--text-3); }
 
 .ticker-chart-card{
   background:var(--glass-bg); border:1px solid var(--glass-border); border-radius:16px; padding:18px;
@@ -641,18 +602,6 @@
 
 .ric-detail-section{ border-top:1px solid var(--ric-border); padding-top:10px; margin-bottom:10px; }
 .ric-detail-label{ font-size:.61rem; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:var(--ric-text-muted); margin-bottom:6px; }
-.ric-detail-comp-list{ display:flex; flex-direction:column; gap:1px; }
-.ric-detail-row{
-  display:flex; justify-content:space-between; font-size:.75rem; padding:3px 5px; border-radius:6px; color:var(--ric-text-muted);
-}
-.ric-detail-row span:last-child{ font-weight:700; font-variant-numeric:tabular-nums; color:var(--ric-text); }
-
-.ric-detail-alert{
-  display:flex; align-items:center; gap:7px; font-size:.71rem; font-weight:700; color:#fff;
-  background:var(--ric-alert); border-radius:9px; padding:7px 9px; margin-bottom:10px;
-}
-[data-theme="dark"] .ric-detail-alert{ color:var(--ric-5); }
-.ric-detail-alert .bi{ font-size:.8rem; flex:0 0 auto; }
 
 .ric-detail-recommend{
   display:flex; align-items:flex-start; gap:9px; background:color-mix(in srgb, var(--ric-1) 14%, var(--ric-surface));
@@ -672,18 +621,11 @@
 }
 [data-theme="dark"] .ric-detail-confidence{ background:var(--ric-2); color:var(--ric-5); }
 
-/* ---- Compact status chips — 1-3 word pills (price gap, parity, market movement, AI tag) so the
-   panel stays glanceable at a fixed height instead of growing with sentence-style summaries. ---- */
-.ric-chip-row{ display:flex; flex-wrap:wrap; gap:6px; margin:2px 0 12px; }
+/* ---- "AI Recommended" pill on the Recommendation card ---- */
 .ric-chip{
   display:inline-flex; align-items:center; font-size:.66rem; font-weight:700; line-height:1;
   padding:5px 9px; border-radius:20px; white-space:nowrap;
 }
-.ric-chip.chip-soft{ background:var(--ric-chip-bg); color:var(--ric-text); border:1px solid var(--ric-border); }
-.ric-chip.chip-opp{ background:color-mix(in srgb, var(--ric-opp) 16%, var(--ric-chip-bg)); color:var(--ric-opp); border:1px solid color-mix(in srgb, var(--ric-opp) 40%, transparent); }
-.ric-chip.chip-risk{ background:color-mix(in srgb, var(--ric-risk) 14%, var(--ric-chip-bg)); color:var(--ric-risk); border:1px solid color-mix(in srgb, var(--ric-risk) 35%, transparent); }
-.ric-chip.chip-alert{ background:var(--ric-alert); color:#fff; border:1px solid var(--ric-alert); }
-[data-theme="dark"] .ric-chip.chip-alert{ color:var(--ric-5); }
 .ric-chip.chip-ai{ background:color-mix(in srgb, var(--ric-3) 12%, var(--ric-chip-bg)); color:var(--ric-3); border:1px solid color-mix(in srgb, var(--ric-3) 30%, transparent); }
 [data-theme="dark"] .ric-chip.chip-ai{ color:var(--ric-1); }
 
@@ -741,9 +683,6 @@
 .forecast-card.impact-positive .insight-icon{ background:var(--fa-tint-mild); color:var(--fa-text-mild); }
 .forecast-card.impact-caution .insight-icon{ background:var(--fa-tint-mod); color:var(--fa-text-mod); }
 .forecast-card.impact-risk .insight-icon{ background:var(--fa-tint-strong); color:var(--fa-text-strong); }
-.forecast-impact{ font-size:.78rem; font-weight:700; }
-.forecast-impact.pos{ color:var(--fa-text-mild); }
-.forecast-impact.neg{ color:var(--fa-text-strong); }
 /* ---- Per-card forecast meta (date range / stay dates affected / revenue lift / highest-
    opportunity date) — reuses .fc-scenario-stat's tile look (Scenario Planner) so both places
    that show a "stat + label" read as the same component. ---- */

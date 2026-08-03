@@ -479,10 +479,13 @@ body:not(.cal-embed) .cal-context-bar{top:var(--header-h)}
   width:230px; min-width:230px; max-width:230px; white-space:normal;
   border-right:1px solid var(--border-1) !important;
 }
-/* Date-column floor width — shared by every date <th> (via this class) and every price <td>
-   (via .grid-price-cell, below). Only a minimum, not a fixed width, so columns can stretch
-   wider than this to fill available space when few are showing (7D/14D). */
-.grid-date-col{ min-width:92px; }
+/* Date-column width — shared by every date <th> (via this class) and every price <td> (via
+   .grid-price-cell, below). min-width lets columns stretch to fill available space when few are
+   showing (7D/14D) instead of leaving empty space to the right; max-width caps how far that
+   stretch goes (7D would otherwise balloon to fill the whole card), which keeps the per-column
+   width jump when switching to a range with more columns (14D/30D/90D) noticeably smaller —
+   less of a visual "shake" on the switch. */
+.grid-date-col{ min-width:92px; max-width:160px; }
 .grid-table thead th.grid-sticky-col{
   z-index:5; text-align:left;
   background:color-mix(in srgb, var(--bg-surface-2) 92%, transparent);
@@ -499,7 +502,7 @@ body:not(.cal-embed) .cal-context-bar{top:var(--header-h)}
   padding:1px 7px; border-radius:20px; background:var(--bg-surface-2); color:var(--text-2); line-height:1.6;
 }
 [data-theme="dark"] .grid-occ-badge{background:var(--bg-surface-2)}
-.grid-price-cell{min-width:92px;text-align:center;cursor:pointer;transition:background .15s ease}
+.grid-price-cell{min-width:92px;max-width:160px;text-align:center;cursor:pointer;transition:background .15s ease}
 .grid-price-cell:hover{background:var(--bg-surface-2)}
 .grid-price-cell.today-col{background:rgba(56,97,251,.05)}
 .grid-price-cell .gp-price{

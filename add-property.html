@@ -19,6 +19,12 @@
     <div class="section-card mb-3">
       <div class="section-title mb-3">Basic Information</div>
       <div class="row g-3">
+        <div class="col-12 d-none" id="ownerLockNotice">
+          <div class="alert alert-warning py-2 px-3 mb-0 d-flex align-items-center gap-2" style="font-size:.82rem">
+            <i class="bi bi-lock-fill"></i>
+            <span>Property name, type, country, state, city, star rating, timezone, and website can only be changed by your Company Admin.</span>
+          </div>
+        </div>
         <div class="col-md-8">
           <label class="form-label">Property Name *</label>
           <input type="text" class="form-control" id="f_name" required placeholder="e.g. Grand Horizon Resort">
