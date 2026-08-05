@@ -12,12 +12,15 @@
 </head>
 <body>
 
-<div class="auth-wrap">
+<div class="auth-wrap" id="authWrap">
   <div class="auth-orb o1"></div>
   <div class="auth-orb o2"></div>
+  <div class="auth-orb o3"></div>
+  <div class="auth-grain"></div>
+  <div class="pointer-light" id="pointerLight" aria-hidden="true"></div>
 
-  <div class="auth-shell">
-    <div class="auth-card">
+  <div class="auth-frame">
+    <div class="auth-panel auth-panel-left">
       <div class="auth-brand">
         <div class="logo-badge"><i class="bi bi-building-fill-check"></i></div>
         <div>
@@ -25,7 +28,11 @@
           <small class="text-white-50">Revenue Management System</small>
         </div>
       </div>
-      <p class="text-white-50 small mb-4">Sign in to manage your properties, rooms, rates and revenue.</p>
+
+      <div class="auth-heading">
+        <h2>Welcome back</h2>
+        <p class="text-white-50">Sign in to manage your properties, rooms, rates and revenue.</p>
+      </div>
 
       <form id="loginForm" novalidate>
         <div class="mb-3">
@@ -46,22 +53,25 @@
             <input class="form-check-input" type="checkbox" id="rememberMe" checked>
             <label class="form-check-label small text-white-50" for="rememberMe">Remember me</label>
           </div>
-          <a href="#" class="small text-decoration-none" style="color:#9db4ff" data-bs-toggle="modal" data-bs-target="#forgotModal">Forgot password?</a>
+          <a href="#" class="small text-decoration-none auth-link" data-bs-toggle="modal" data-bs-target="#forgotModal">Forgot password?</a>
         </div>
         <button type="submit" class="btn btn-brand w-100 py-2" id="loginBtn">
           <span id="loginBtnText"><i class="bi bi-box-arrow-in-right me-1"></i> Sign In</span>
         </button>
       </form>
 
-      <div class="text-center mt-4">
+      <div class="mt-4">
         <small class="text-white-50">© 2026 Hotel Owner Panel. Frontend Demo Build.</small>
       </div>
     </div>
 
-    <div class="auth-card auth-demo-card">
-      <div class="mb-1 fw-bold text-white"><i class="bi bi-lightning-charge-fill me-1" style="color:#ffce54"></i>Quick Demo Access</div>
-      <p class="text-white-50 small mb-3">This build ships with a mock RBAC hierarchy. Pick a role to sign in instantly and explore what that role can see.</p>
-      <div class="d-flex flex-column gap-2" id="demoAccessList"></div>
+    <div class="auth-panel auth-panel-right">
+      <div class="auth-spark" aria-hidden="true"></div>
+      <div class="auth-panel-right-inner">
+        <div class="mb-1 fw-bold text-white auth-demo-title"><i class="bi bi-lightning-charge-fill me-1" style="color:#ffce54"></i>Quick Demo Access</div>
+        <p class="text-white-50 small mb-3">This build ships with a mock RBAC hierarchy. Pick a role to sign in instantly and explore what that role can see.</p>
+        <div class="d-flex flex-column gap-2" id="demoAccessList"></div>
+      </div>
     </div>
   </div>
 </div>

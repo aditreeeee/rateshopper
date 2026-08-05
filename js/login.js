@@ -12,6 +12,24 @@ const DEMO_ACCOUNTS = [
 document.documentElement.setAttribute('data-theme','light'); // login always light for brand consistency on the orb bg
 
 document.addEventListener('DOMContentLoaded', ()=>{
+  // Cursor-following glow — CSS (.pointer-light) just reads --lx/--ly off #authWrap, this is
+  // only the tracking + the "don't glow behind the login square" exclusion zone. Reads the
+  // left panel's rect fresh on every move rather than caching it once, since it's cheap and
+  // means a window resize/reflow never leaves the exclusion zone stale.
+  const authWrap = document.getElementById('authWrap');
+  const loginPanel = document.querySelector('.auth-panel-left');
+  if(authWrap && loginPanel){
+    authWrap.addEventListener('mousemove', e=>{
+      authWrap.style.setProperty('--lx', e.clientX + 'px');
+      authWrap.style.setProperty('--ly', e.clientY + 'px');
+      authWrap.classList.add('pointer-light-active');
+      const r = loginPanel.getBoundingClientRect();
+      const overLoginSquare = e.clientX>=r.left && e.clientX<=r.right && e.clientY>=r.top && e.clientY<=r.bottom;
+      authWrap.classList.toggle('pointer-light-off', overLoginSquare);
+    });
+    authWrap.addEventListener('mouseleave', ()=> authWrap.classList.remove('pointer-light-active'));
+  }
+
   const toggleEye = document.getElementById('toggleEye');
   const pwInput = document.getElementById('password');
   toggleEye.addEventListener('click', ()=>{

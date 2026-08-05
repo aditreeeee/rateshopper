@@ -48,25 +48,40 @@ document.addEventListener('DOMContentLoaded', ()=>{
   const owners = users.filter(u=>u.role===RBAC.ROLES.PROPERTY_OWNER);
   const admins = users.filter(u=>u.role===RBAC.ROLES.COMPANY_ADMIN);
 
-  const ownerByPropertyId = {};
-  owners.forEach(u=>{ if(u.parentPropertyId) ownerByPropertyId[u.parentPropertyId] = u; });
+  // Nothing in add-user.js stops two different Property Owner accounts from picking the same
+  // property as their own `parentPropertyId` (it's a legitimate setup — e.g. co-owners or a
+  // primary + backup manager), so this has to be a property id -> ARRAY of owners, not a single
+  // owner. A plain {} keyed by property id can only ever hold one owner per property; the second
+  // owner assigned to the same property was silently overwriting the first (order-dependent on
+  // DB.users.all()'s iteration order), which dropped that owner from Property Health entirely and
+  // made the health score/status flip nondeterministically depending on which owner "won".
+  const ownersByPropertyId = {};
+  owners.forEach(u=>{
+    if(u.parentPropertyId) (ownersByPropertyId[u.parentPropertyId] = ownersByPropertyId[u.parentPropertyId] || []).push(u);
+  });
 
   // ---- Per-property health computation (owner, competitor coverage, config completeness) ----
   const healthRows = properties.map(p=>{
-    const owner = ownerByPropertyId[p.id] || null;
-    const competitorCount = owner ? (owner.assignedProperties||[]).length : 0;
+    const propertyOwners = ownersByPropertyId[p.id] || [];
+    // Union (not sum) of every assigned owner's comparison properties — two owners on the same
+    // property may have configured different or overlapping competitor sets; the property's real
+    // coverage is everything either of them tracks, counted once each, not double-counted for
+    // properties both owners happen to track in common.
+    const competitorIds = new Set();
+    propertyOwners.forEach(o=> (o.assignedProperties||[]).forEach(id=> competitorIds.add(id)));
+    const competitorCount = competitorIds.size;
     const propChannels = channels.filter(c=>c.propertyId===p.id);
     const activeChannels = propChannels.filter(c=>c.status==='active');
     const activeOtaChannels = activeChannels.filter(c=>c.type!=='master');
     const propRooms = rooms.filter(r=>r.propertyId===p.id);
     const propRatePlans = ratePlans.filter(rp=>rp.propertyId===p.id);
 
-    const checks = [!!owner, activeOtaChannels.length>0, propRooms.length>0, propRatePlans.length>0, competitorCount>0];
+    const checks = [propertyOwners.length>0, activeOtaChannels.length>0, propRooms.length>0, propRatePlans.length>0, competitorCount>0];
     const progress = Math.round(checks.filter(Boolean).length / checks.length * 100);
     const status = progress===100 ? 'healthy' : progress>=40 ? 'attention' : 'incomplete';
 
     return {
-      p, owner, competitorCount,
+      p, owners: propertyOwners, competitorCount,
       channelsActive: activeChannels.length, channelsTotal: propChannels.length,
       roomsCount: propRooms.length, ratePlansCount: propRatePlans.length,
       progress, status
@@ -104,8 +119,8 @@ document.addEventListener('DOMContentLoaded', ()=>{
         if(!hay.includes(q)) return false;
       }
       if(statusF && r.status !== statusF) return false;
-      if(ownerF==='assigned' && !r.owner) return false;
-      if(ownerF==='unassigned' && r.owner) return false;
+      if(ownerF==='assigned' && !r.owners.length) return false;
+      if(ownerF==='unassigned' && r.owners.length) return false;
       return true;
     });
 
@@ -140,7 +155,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
             </div>
           </div>
         </td>
-        <td>${r.owner ? `<div style="font-size:.83rem">${escapeHtml(r.owner.name)}</div>` : `<a href="add-user.html" class="d-inline-flex align-items-center gap-1 text-decoration-none" style="font-size:.78rem;color:var(--warn,#b9791a);font-weight:600"><i class="bi bi-person-plus"></i>Assign owner</a>`}</td>
+        <td>${r.owners.length ? `<div style="font-size:.83rem">${r.owners.map(o=>escapeHtml(o.name)).join(', ')}</div>` : `<a href="add-user.html" class="d-inline-flex align-items-center gap-1 text-decoration-none" style="font-size:.78rem;color:var(--warn,#b9791a);font-weight:600"><i class="bi bi-person-plus"></i>Assign owner</a>`}</td>
         <td class="text-center">${r.competitorCount}</td>
         <td class="text-center">${r.channelsActive}/${r.channelsTotal}</td>
         <td class="text-center">${r.roomsCount}</td>
@@ -200,11 +215,11 @@ document.addEventListener('DOMContentLoaded', ()=>{
     APP.toast('Import Properties', 'Bulk property import will be available in a future release.', 'info');
   });
   document.getElementById('qaExport').addEventListener('click', ()=>{
-    const headers = ['Name','Type','Brand','Property Code','City','State','Country','Stars','Status','Assigned Owner','Created At'];
+    const headers = ['Name','Type','Brand','Property Code','City','State','Country','Stars','Status','Assigned Owner(s)','Created At'];
     const lines = [headers.map(h=>`"${h}"`).join(',')];
     properties.forEach(p=>{
-      const owner = ownerByPropertyId[p.id];
-      const row = [p.name, p.type, p.brand||'', p.code||'', p.city, p.state||'', p.country, p.stars, p.status, owner?owner.name:'Unassigned', p.createdAt];
+      const propOwners = ownersByPropertyId[p.id] || [];
+      const row = [p.name, p.type, p.brand||'', p.code||'', p.city, p.state||'', p.country, p.stars, p.status, propOwners.length?propOwners.map(o=>o.name).join('; '):'Unassigned', p.createdAt];
       lines.push(row.map(v=>`"${String(v==null?'':v).replace(/"/g,'""')}"`).join(','));
     });
     const blob = new Blob([lines.join('\n')], { type:'text/csv;charset=utf-8;' });
