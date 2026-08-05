@@ -1,4 +1,5 @@
 let notifFilter = 'all';
+let notifCategory = '';
 
 document.addEventListener('DOMContentLoaded', ()=>{
   // This feed is Company Admin's own (user/account events) — Property Owner has Rate Alerts
@@ -7,6 +8,13 @@ document.addEventListener('DOMContentLoaded', ()=>{
   APP.mount({
     title:'Notifications', subtitle:'Stay up to date on user accounts, roles, and access changes.',
     breadcrumb:[{label:'Home',href:'dashboard.html'},{label:'Notifications'}]
+  });
+
+  document.getElementById('categoryFilter').innerHTML += Object.entries(DB.NOTIF_CATEGORIES)
+    .map(([key,label])=>`<option value="${key}">${label}</option>`).join('');
+  document.getElementById('categoryFilter').addEventListener('change', function(){
+    notifCategory = this.value;
+    render();
   });
 
   document.querySelectorAll('[data-filter]').forEach(btn=>{
@@ -28,8 +36,14 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
 function render(){
   const colors = {success:'#12b76a', brand:'#3861fb', warn:'#b9791a', danger:'#ff4d5e'};
+  // This page deliberately shows every notification, including ones from a category muted in
+  // Settings — muting only quiets the bell badge/unread count (DB.notifications.visible(), used
+  // by main.js), it doesn't erase history from the one place you came here to actually review it.
   let list = DB.notifications.all();
   if(notifFilter==='unread') list = list.filter(n=>!n.read);
+  if(notifCategory) list = list.filter(n=>n.category===notifCategory);
+
+  const mutedCategories = new Set((DB.settings.get().mutedNotifCategories)||[]);
 
   const wrap = document.getElementById('notifListFull');
   const empty = document.getElementById('notifEmpty');
@@ -49,6 +63,10 @@ function render(){
           <small class="text-muted">${APP.fmtDateReadable(n.time)}</small>
         </div>
         <div class="text-muted small">${n.msg}</div>
+        <div class="mt-1">
+          ${n.category ? `<span class="badge bg-light text-dark border" style="font-size:.62rem">${DB.NOTIF_CATEGORIES[n.category]||n.category}</span>` : ''}
+          ${n.category && mutedCategories.has(n.category) ? `<span class="text-muted" style="font-size:.68rem"> · Muted in <a href="settings.html">Settings</a></span>` : ''}
+        </div>
       </div>
       <div class="d-flex gap-1">
         ${!n.read?`<button class="btn btn-sm-icon btn-soft" title="Mark read" onclick="markRead('${n.id}')"><i class="bi bi-check2"></i></button>`:''}

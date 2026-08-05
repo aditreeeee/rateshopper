@@ -60,9 +60,31 @@
   </div>
 </div>
 
-<div id="resultsCount" class="text-muted small mb-2"></div>
+<div class="d-flex align-items-center justify-content-between mb-2">
+  <div id="resultsCount" class="text-muted small"></div>
+  <div class="form-check d-none" id="selectAllWrap">
+    <input class="form-check-input" type="checkbox" id="selectAllCheckbox">
+    <label class="form-check-label small text-muted" for="selectAllCheckbox">Select all shown</label>
+  </div>
+</div>
+<div class="bulk-bar d-none" id="bulkBar">
+  <span class="fw-semibold small" id="bulkCount"></span>
+  <div class="d-flex gap-2 ms-auto">
+    <button class="btn btn-soft btn-sm" id="bulkActivateBtn"><i class="bi bi-toggle-on me-1"></i>Activate</button>
+    <button class="btn btn-soft btn-sm" id="bulkDeactivateBtn"><i class="bi bi-toggle-off me-1"></i>Deactivate</button>
+    <button class="btn btn-light-danger btn-sm" id="bulkDeleteBtn"><i class="bi bi-trash3 me-1"></i>Delete</button>
+    <button class="btn btn-light btn-sm" id="bulkClearBtn">Clear</button>
+  </div>
+</div>
 <div id="propertyGrid" class="row g-3"></div>
 <div id="emptyState" class="d-none"></div>
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mt-3" id="paginationBar">
+  <div class="text-muted small" id="pageInfo"></div>
+  <div class="btn-group btn-group-sm">
+    <button class="btn btn-soft" id="prevPageBtn"><i class="bi bi-chevron-left"></i></button>
+    <button class="btn btn-soft" id="nextPageBtn"><i class="bi bi-chevron-right"></i></button>
+  </div>
+</div>
 
 </div>
 

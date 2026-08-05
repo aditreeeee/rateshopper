@@ -1,6 +1,9 @@
 let currentView = 'list';
 let canEditProperties = false;
 let canDeleteProperties = false;
+let selectedProperties = new Set(); // ids currently checked for bulk actions — reset whenever the filtered list changes shape
+const PROPERTIES_PAGE_SIZE = 12;
+let propPage = 0;
 
 document.addEventListener('DOMContentLoaded', ()=>{
   if(!RBAC.requireModuleAccess(RBAC.MODULES.PROPERTIES, 'view')) return;
@@ -20,13 +23,17 @@ document.addEventListener('DOMContentLoaded', ()=>{
   document.getElementById('countryFilter').innerHTML += countries.map(c=>`<option value="${c}">${c}</option>`).join('');
   refreshCityOptions();
 
+  // Any filter/search/sort change can change which properties are even visible and how many
+  // pages there are, so a stale selection (e.g. "3 selected" including rows that just got
+  // filtered out) or a stranded page number would be confusing — simplest correct behavior is to
+  // reset both back to a clean slate whenever the underlying filters move.
   ['searchInput','statusFilter','typeFilter','sortBy','cityFilter'].forEach(id=>{
-    document.getElementById(id).addEventListener('input', render);
-    document.getElementById(id).addEventListener('change', render);
+    document.getElementById(id).addEventListener('input', onFilterChange);
+    document.getElementById(id).addEventListener('change', onFilterChange);
   });
-  document.getElementById('countryFilter').addEventListener('change', ()=>{ refreshCityOptions(); render(); });
-  document.getElementById('viewGrid').addEventListener('click', ()=>{ currentView='grid'; render(); });
-  document.getElementById('viewList').addEventListener('click', ()=>{ currentView='list'; render(); });
+  document.getElementById('countryFilter').addEventListener('change', ()=>{ refreshCityOptions(); onFilterChange(); });
+  document.getElementById('viewGrid').addEventListener('click', ()=>{ currentView='grid'; onFilterChange(); });
+  document.getElementById('viewList').addEventListener('click', ()=>{ currentView='list'; onFilterChange(); });
   document.getElementById('resetFiltersBtn').addEventListener('click', ()=>{
     document.getElementById('searchInput').value = '';
     document.getElementById('countryFilter').value = '';
@@ -35,11 +42,58 @@ document.addEventListener('DOMContentLoaded', ()=>{
     document.getElementById('statusFilter').value = '';
     document.getElementById('sortBy').value = 'name';
     refreshCityOptions();
+    onFilterChange();
+  });
+
+  document.getElementById('prevPageBtn').addEventListener('click', ()=>{ propPage = Math.max(0, propPage-1); render(); });
+  document.getElementById('nextPageBtn').addEventListener('click', ()=>{ propPage++; render(); });
+
+  document.getElementById('selectAllCheckbox').addEventListener('change', function(){
+    const grid = document.getElementById('propertyGrid');
+    if(this.checked) grid.querySelectorAll('[data-select-id]').forEach(el=>selectedProperties.add(el.dataset.selectId));
+    else grid.querySelectorAll('[data-select-id]').forEach(el=>selectedProperties.delete(el.dataset.selectId));
     render();
   });
+  document.getElementById('bulkClearBtn').addEventListener('click', clearSelection);
+  document.getElementById('bulkActivateBtn').addEventListener('click', ()=>bulkSetStatus('active'));
+  document.getElementById('bulkDeactivateBtn').addEventListener('click', ()=>bulkSetStatus('inactive'));
+  document.getElementById('bulkDeleteBtn').addEventListener('click', bulkDelete);
 
   render();
 });
+
+function onFilterChange(){ propPage = 0; selectedProperties.clear(); render(); }
+function clearSelection(){ selectedProperties.clear(); render(); }
+
+function toggleSelect(id, checked){
+  if(checked) selectedProperties.add(id); else selectedProperties.delete(id);
+  render();
+}
+
+function bulkSetStatus(status){
+  if(!canEditProperties){ APP.toast('Not Allowed', 'You do not have permission to edit properties.', 'danger'); return; }
+  const ids = [...selectedProperties];
+  ids.forEach(id=> DB.properties.save({ id, status }));
+  APP.toast('Properties Updated', `${ids.length} propert${ids.length===1?'y':'ies'} marked ${status}.`, 'success');
+  selectedProperties.clear();
+  render();
+}
+
+function bulkDelete(){
+  if(!canDeleteProperties){ APP.toast('Not Allowed', 'You do not have permission to delete properties.', 'danger'); return; }
+  const ids = [...selectedProperties];
+  if(!ids.length) return;
+  APP.confirmModal({
+    title:'Delete Properties?', message:`Delete ${ids.length} selected propert${ids.length===1?'y':'ies'}? This will also remove all their rooms and rate plans. This action cannot be undone.`,
+    confirmText:'Delete', danger:true,
+    onConfirm: ()=>{
+      ids.forEach(id=> DB.properties.remove(id));
+      APP.toast('Properties Deleted', `${ids.length} propert${ids.length===1?'y':'ies'} removed.`, 'danger');
+      selectedProperties.clear();
+      render();
+    }
+  });
+}
 
 function refreshCityOptions(){
   const country = document.getElementById('countryFilter').value;
@@ -77,6 +131,32 @@ function render(){
 
   const grid = document.getElementById('propertyGrid');
   const empty = document.getElementById('emptyState');
+  const canBulk = canEditProperties || canDeleteProperties;
+  // Drop any selected id that's no longer in the current filtered list at all (e.g. it was just
+  // deleted, or a filter narrowed the list) so the bulk-bar count never lies — selections on
+  // OTHER pages of the same filtered list are deliberately left alone.
+  const visibleIds = new Set(list.map(p=>p.id));
+  [...selectedProperties].forEach(id=>{ if(!visibleIds.has(id)) selectedProperties.delete(id); });
+
+  const totalPages = Math.max(1, Math.ceil(list.length / PROPERTIES_PAGE_SIZE));
+  propPage = Math.min(propPage, totalPages-1);
+  const pageStart = propPage * PROPERTIES_PAGE_SIZE;
+  const pageRows = list.slice(pageStart, pageStart + PROPERTIES_PAGE_SIZE);
+
+  document.getElementById('pageInfo').textContent = list.length
+    ? `Showing ${pageStart+1}-${Math.min(pageStart+PROPERTIES_PAGE_SIZE, list.length)} of ${list.length}` : '';
+  document.getElementById('prevPageBtn').disabled = propPage<=0;
+  document.getElementById('nextPageBtn').disabled = propPage>=totalPages-1;
+  document.getElementById('paginationBar').classList.toggle('d-none', !list.length);
+
+  document.getElementById('selectAllWrap').classList.toggle('d-none', !canBulk);
+  document.getElementById('selectAllCheckbox').checked = canBulk && pageRows.length>0 && pageRows.every(p=>selectedProperties.has(p.id));
+  const bulkBar = document.getElementById('bulkBar');
+  bulkBar.classList.toggle('d-none', !canBulk || selectedProperties.size===0);
+  document.getElementById('bulkCount').textContent = `${selectedProperties.size} selected`;
+  document.getElementById('bulkActivateBtn').classList.toggle('d-none', !canEditProperties);
+  document.getElementById('bulkDeactivateBtn').classList.toggle('d-none', !canEditProperties);
+  document.getElementById('bulkDeleteBtn').classList.toggle('d-none', !canDeleteProperties);
 
   if(!list.length){
     grid.innerHTML=''; grid.classList.add('d-none');
@@ -88,10 +168,11 @@ function render(){
   grid.classList.remove('d-none');
 
   if(currentView==='grid'){
-    grid.innerHTML = list.map(p=>`
+    grid.innerHTML = pageRows.map(p=>`
       <div class="col-md-6 col-xl-4">
-        <div class="property-card h-100">
+        <div class="property-card h-100" data-select-id="${p.id}">
           <div class="p-cover" style="background-image:url('${p.logo}')">
+            ${canBulk ? `<div class="form-check p-select-check"><input class="form-check-input" type="checkbox" ${selectedProperties.has(p.id)?'checked':''} onchange="toggleSelect('${p.id}', this.checked)"></div>` : ''}
             <span class="badge-status ${p.status==='active'?'badge-active':'badge-inactive'} p-badge">${p.status}</span>
           </div>
           <div class="p-body">
@@ -114,9 +195,10 @@ function render(){
       </div>`).join('');
   } else {
     grid.innerHTML = `<div class="col-12"><div class="card-surface p-0 overflow-hidden"><table class="table-modern w-100">
-      <thead><tr><th>Property</th><th>City</th><th>Country</th><th>Type</th><th>Rooms</th><th>Rating</th><th>Status</th><th class="text-end">Actions</th></tr></thead>
-      <tbody>${list.map(p=>`
-        <tr>
+      <thead><tr>${canBulk?'<th style="width:36px"></th>':''}<th>Property</th><th>City</th><th>Country</th><th>Type</th><th>Rooms</th><th>Rating</th><th>Status</th><th class="text-end">Actions</th></tr></thead>
+      <tbody>${pageRows.map(p=>`
+        <tr data-select-id="${p.id}">
+          ${canBulk ? `<td><input class="form-check-input" type="checkbox" ${selectedProperties.has(p.id)?'checked':''} onchange="toggleSelect('${p.id}', this.checked)"></td>` : ''}
           <td><a href="property-details.html?id=${p.id}" class="d-flex align-items-center gap-2 text-decoration-none text-body"><img src="${p.logo}" class="avatar-thumb"><div><div class="fw-semibold">${p.name}</div><div class="text-muted" style="font-size:.75rem">${p.email}</div></div></a></td>
           <td>${p.city}</td>
           <td>${p.country||'-'}</td>

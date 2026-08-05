@@ -31,8 +31,8 @@
       <div class="section-card">
         <div class="section-title mb-3">Company Information</div>
         <div class="row g-3">
-          <div class="col-md-6"><label class="form-label">Company Name</label><input class="form-control" id="s_companyName"></div>
-          <div class="col-md-6"><label class="form-label">Company Email</label><input type="email" class="form-control" id="s_companyEmail"></div>
+          <div class="col-md-6"><label class="form-label">Company Name *</label><input class="form-control" id="s_companyName" required></div>
+          <div class="col-md-6"><label class="form-label">Company Email *</label><input type="email" class="form-control" id="s_companyEmail" required></div>
           <div class="col-md-6"><label class="form-label">Company Phone</label><input class="form-control" id="s_companyPhone"></div>
           <div class="col-md-6"><label class="form-label">Timezone</label><input class="form-control" id="s_timezone"></div>
           <div class="col-12"><label class="form-label">Company Address</label><textarea class="form-control" rows="2" id="s_companyAddress"></textarea></div>
@@ -57,18 +57,19 @@
           <div class="col-md-4"><label class="form-label">Date Format</label>
             <select class="form-select" id="s_dateFormat"><option>DD/MM/YYYY</option><option>MM/DD/YYYY</option><option>YYYY-MM-DD</option></select>
           </div>
-          <div class="col-md-6"><label class="form-label">Tax Rate (%)</label><input type="number" class="form-control" id="s_taxRate"></div>
-          <div class="col-md-6"><label class="form-label">Service Charge (%)</label><input type="number" class="form-control" id="s_serviceCharge"></div>
+          <div class="col-md-6"><label class="form-label">Tax Rate (%)</label><input type="number" class="form-control" id="s_taxRate" min="0" max="100" step="0.01"></div>
+          <div class="col-md-6"><label class="form-label">Service Charge (%)</label><input type="number" class="form-control" id="s_serviceCharge" min="0" max="100" step="0.01"></div>
         </div>
       </div>
     </div>
 
     <div id="tab-notif" class="d-none">
       <div class="section-card">
-        <div class="section-title mb-3">Notification Preferences</div>
-        <div class="form-check form-switch py-2"><input class="form-check-input" type="checkbox" id="s_notifyBooking"><label class="form-check-label">New booking alerts</label></div>
-        <div class="form-check form-switch py-2"><input class="form-check-input" type="checkbox" id="s_notifyCancellation"><label class="form-check-label">Cancellation alerts</label></div>
-        <div class="form-check form-switch py-2"><input class="form-check-input" type="checkbox" id="s_notifyRateChange"><label class="form-check-label">Rate change alerts</label></div>
+        <div class="section-title mb-1">Notification Preferences</div>
+        <div class="section-sub mb-3 text-muted small">Choose which categories of account/access activity appear in your Notifications feed and bell badge. This app only ever notifies on account, access, and security events — never hotel operations (bookings/check-ins live inside each property, not here).</div>
+        <div class="form-check form-switch py-2"><input class="form-check-input" type="checkbox" id="s_notifyAccounts"><label class="form-check-label">Account Changes <span class="text-muted small">— users created, activated, or deactivated</span></label></div>
+        <div class="form-check form-switch py-2"><input class="form-check-input" type="checkbox" id="s_notifyAccess"><label class="form-check-label">Access & Permissions <span class="text-muted small">— role and module-permission changes</span></label></div>
+        <div class="form-check form-switch py-2"><input class="form-check-input" type="checkbox" id="s_notifySecurity"><label class="form-check-label">Security Events <span class="text-muted small">— sign-ins and password resets</span></label></div>
       </div>
     </div>
 

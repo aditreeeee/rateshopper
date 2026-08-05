@@ -588,6 +588,21 @@ body:not(.cal-embed) .cal-context-bar{top:var(--header-h)}
 .property-card:hover{transform:translateY(-4px);box-shadow:var(--shadow-lg)}
 .property-card .p-cover{height:150px;background-size:cover;background-position:center;position:relative}
 .property-card .p-cover .p-badge{position:absolute;top:10px;right:10px}
+.property-card .p-cover .p-select-check{
+  position:absolute; top:10px; left:10px; background:rgba(255,255,255,.9); border-radius:6px;
+  padding:4px 6px; box-shadow:0 1px 4px rgba(0,0,0,.15);
+}
+.property-card .p-cover .p-select-check input{ cursor:pointer; margin:0; }
+
+/* ---------- Bulk-action bar — appears above a filtered list/grid once at least one row is
+   checked, for company-wide operations (Activate/Deactivate/Delete) across many properties or
+   users at once instead of editing them one at a time. ---------- */
+.bulk-bar{
+  display:flex; align-items:center; gap:12px;
+  background:var(--brand-50); border:1px solid var(--brand-200); border-radius:var(--radius-md);
+  padding:10px 16px; margin-bottom:12px;
+}
+[data-theme="dark"] .bulk-bar{ background:rgba(56,97,251,.14); border-color:rgba(56,97,251,.3); }
 .property-card .p-body{padding:16px}
 
 .kv-row{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border-2);font-size:.85rem}

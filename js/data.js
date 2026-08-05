@@ -9,6 +9,10 @@ const DB = (() => {
     seeded:'hop_seeded_v29'
   };
 
+  // Categories the Company Admin notification feed (hop_notifications) is grouped into — used
+  // by Settings > Notifications (mute a category) and by notifications.html (filter by category).
+  const NOTIF_CATEGORIES = { accounts:'Account Changes', access:'Access & Permissions', security:'Security Events' };
+
   // Sales channels a property distributes through. Every property always has exactly one
   // 'master' channel (its own direct inventory); OTA channels (Goibibo, MakeMyTrip, Booking.com,
   // Agoda, Yatra...) and free-form 'custom' channels are added on top for rate-shopping comparisons.
@@ -372,14 +376,16 @@ const DB = (() => {
 
     // Notifications — Company Admin's notification feed is about accounts and access, not
     // hotel operations (bookings/reviews/check-ins live inside each property, not here).
+    // `category` groups these into the three buckets Settings > Notifications lets you mute
+    // (accounts/access/security — see NOTIF_CATEGORIES below) and that notifications.html filters by.
     const ROLE_LABELS_FOR_SEED = { company_admin:'Company Admin', property_owner:'Property Owner' };
     const notifActions = [
-      u=>({icon:'bi-person-plus',color:'success',title:'New User Created',msg:`${u.name} was added as ${ROLE_LABELS_FOR_SEED[u.role]||u.role}.`}),
-      u=>({icon:'bi-shield-lock',color:'brand',title:'Role Assigned',msg:`${u.name} was granted ${ROLE_LABELS_FOR_SEED[u.role]||u.role} access.`}),
-      u=>({icon:'bi-toggle-off',color: u.status==='active'?'success':'danger',title: u.status==='active'?'User Activated':'User Deactivated',msg:`${u.name}'s account was marked ${u.status}.`}),
-      u=>({icon:'bi-key',color:'warn',title:'Password Reset Requested',msg:`${u.name} requested a password reset.`}),
-      u=>({icon:'bi-pencil-square',color:'brand',title:'Permissions Updated',msg:`Module permissions were updated for ${u.name}.`}),
-      u=>({icon:'bi-box-arrow-in-right',color:'success',title:'New Sign-In',msg:`${u.name} signed in from a new device.`})
+      u=>({icon:'bi-person-plus',color:'success',category:'accounts',title:'New User Created',msg:`${u.name} was added as ${ROLE_LABELS_FOR_SEED[u.role]||u.role}.`}),
+      u=>({icon:'bi-shield-lock',color:'brand',category:'access',title:'Role Assigned',msg:`${u.name} was granted ${ROLE_LABELS_FOR_SEED[u.role]||u.role} access.`}),
+      u=>({icon:'bi-toggle-off',color: u.status==='active'?'success':'danger',category:'accounts',title: u.status==='active'?'User Activated':'User Deactivated',msg:`${u.name}'s account was marked ${u.status}.`}),
+      u=>({icon:'bi-key',color:'warn',category:'security',title:'Password Reset Requested',msg:`${u.name} requested a password reset.`}),
+      u=>({icon:'bi-pencil-square',color:'brand',category:'access',title:'Permissions Updated',msg:`Module permissions were updated for ${u.name}.`}),
+      u=>({icon:'bi-box-arrow-in-right',color:'success',category:'security',title:'New Sign-In',msg:`${u.name} signed in from a new device.`})
     ];
     const notifCombos = shuffle(users.flatMap(u=> notifActions.map(fn=>fn(u))));
     let notifications = notifCombos.slice(0,28).map((t,i)=>({id:uid('ntf'), ...t, read: i>8, time: fmtDate(new Date(Date.now()-rand(0,10)*86400000)) }));
@@ -404,7 +410,7 @@ const DB = (() => {
       companyAddress:'315, Ansal Classic Tower, J Nlock, Rajouri Garden, New Delhi',
       currency:'INR', currencySymbol:'₹', taxRate:12, serviceCharge:5,
       timezone:'Asia/Kolkata (GMT+5:30)', dateFormat:'DD/MM/YYYY',
-      notifyBooking:true, notifyCancellation:true, notifyRateChange:false,
+      mutedNotifCategories:[],
       theme:'light'
     });
 
@@ -511,9 +517,17 @@ const DB = (() => {
       set(KEYS.rates, all);
     }
   };
+  // Categories the Company Admin's notification feed is grouped into — see NOTIF_CATEGORIES
+  // export below. Settings > Notifications lets an admin mute a whole category; muted categories
+  // are hidden from both the bell badge count and the notifications.html feed itself (a "mute"
+  // that still surfaced items elsewhere would just be confusing).
   const notifications = {
     all: ()=> get(KEYS.notifications, []),
-    unreadCount: ()=> notifications.all().filter(n=>!n.read).length,
+    visible: ()=>{
+      const muted = new Set(settings.get().mutedNotifCategories || []);
+      return notifications.all().filter(n=> !n.category || !muted.has(n.category));
+    },
+    unreadCount: ()=> notifications.visible().filter(n=>!n.read).length,
     markRead: id=>{ const list=notifications.all(); const n=list.find(x=>x.id===id); if(n) n.read=true; set(KEYS.notifications,list); },
     markAllRead: ()=>{ const list=notifications.all(); list.forEach(n=>n.read=true); set(KEYS.notifications,list); },
     remove: id=>{ set(KEYS.notifications, notifications.all().filter(n=>n.id!==id)); }
@@ -595,10 +609,26 @@ const DB = (() => {
       }
     });
     if(ratePlansChanged) set(KEYS.ratePlans, allRatePlans);
+
+    // Backfill `category` on any notification saved before Settings > Notifications gained
+    // per-category muting, matched by its title (the same titles notifActions in seed() emits)
+    // so existing installs don't suddenly have uncategorized notifications that silently vanish
+    // from every category filter and from the "only show this category" mute logic.
+    const titleToCategory = {
+      'New User Created':'accounts', 'User Activated':'accounts', 'User Deactivated':'accounts',
+      'Role Assigned':'access', 'Permissions Updated':'access',
+      'Password Reset Requested':'security', 'New Sign-In':'security'
+    };
+    const allNotifications = notifications.all();
+    let notificationsChanged = false;
+    allNotifications.forEach(n=>{
+      if(!n.category){ n.category = titleToCategory[n.title] || 'accounts'; notificationsChanged = true; }
+    });
+    if(notificationsChanged) set(KEYS.notifications, allNotifications);
   }
 
   return { KEYS, seed, ensureChannels, uid, get, set, rand, pick, fmtDate, MEAL_PLANS, MEAL_LABELS, CHANNEL_TYPES,
-    CHANNEL_CATALOG, CHANNEL_TYPE_CODES, MASTER_CHANNEL_CODE, channelCatalogEntry, nextCustomChannelCode,
+    CHANNEL_CATALOG, CHANNEL_TYPE_CODES, MASTER_CHANNEL_CODE, channelCatalogEntry, nextCustomChannelCode, NOTIF_CATEGORIES,
     properties, channels, rooms, ratePlans, rates, notifications, activity, settings, users };
 })();
 
