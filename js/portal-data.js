@@ -173,8 +173,13 @@ const PORTALDATA = (() => {
   // "My Rate" — reuse the real DB where it exists (Master channel's rate plans cover roughly
   // -7..+97 days per data.js seeding), otherwise derive from the property's average base price.
   function myBaseRate(propertyId){
-    const rooms = DB.rooms.byProperty(propertyId);
-    const master = rooms.filter(r=> !!DB.channels.all && true); // rooms already channel-scoped
+    // Scoped to the Master (Direct) channel's own rooms only — same rule every sibling helper
+    // here (myRateOnDate, mealPlanBaseRate) already follows. Averaging across every channel's
+    // rooms (including OTA channels' separate synthetic room records, which can carry their own
+    // base prices) would silently skew this fallback away from the property's actual Direct rate.
+    const channels = DB.channels.byProperty(propertyId);
+    const master = channels.find(c=>c.type==='master');
+    const rooms = master ? DB.rooms.byChannel(master.id) : DB.rooms.byProperty(propertyId);
     if(!rooms.length) return 6000;
     return Math.round(rooms.reduce((s,r)=>s+r.basePrice,0)/rooms.length);
   }

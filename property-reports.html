@@ -83,18 +83,24 @@
   </div>
 </div>
 
-<ul class="nav nav-pills rp-tabs mb-3" id="rpTabs">
-  <li class="nav-item"><button class="nav-link active" data-tab="compare"><span class="rp-tab-num">1</span>Competitor Rate Comparison</button></li>
-  <li class="nav-item"><button class="nav-link" data-tab="trend"><span class="rp-tab-num">2</span>Historical Rate Trend</button></li>
-  <li class="nav-item"><button class="nav-link" data-tab="parity"><span class="rp-tab-num">3</span>Rate Parity</button></li>
-  <li class="nav-item"><button class="nav-link" data-tab="market"><span class="rp-tab-num">4</span>Market Rate Summary</button></li>
-</ul>
+<div class="rsiq-tabbar-wrap">
+  <ul class="nav rsiq-tabbar" id="rpTabs">
+    <li class="nav-item"><button class="nav-link active" type="button" data-tab="compare">Competitor Rate Comparison</button></li>
+    <li class="nav-item"><button class="nav-link" type="button" data-tab="trend">Historical Rate Trend</button></li>
+    <li class="nav-item"><button class="nav-link" type="button" data-tab="parity">Rate Parity</button></li>
+    <li class="nav-item"><button class="nav-link" type="button" data-tab="market">Market Rate Summary</button></li>
+  </ul>
+</div>
 
 <!-- 1. Competitor Rate Comparison -->
 <div id="rp_tabCompare">
   <div class="text-muted small mb-2" id="rp1_summary">-</div>
-  <div class="section-card p-0">
-    <div class="table-responsive"><table class="table-modern w-100" id="rp1_table"></table></div>
+  <div class="section-card p-0" style="position:relative">
+    <div class="mx-edge-scroll mx-edge-top" id="rp1_edgeUp" aria-hidden="true"><i class="bi bi-chevron-up"></i></div>
+    <div class="mx-edge-scroll mx-edge-bottom" id="rp1_edgeDown" aria-hidden="true"><i class="bi bi-chevron-down"></i></div>
+    <div class="mx-edge-scroll mx-edge-left" id="rp1_edgeLeft" aria-hidden="true"><i class="bi bi-chevron-left"></i></div>
+    <div class="mx-edge-scroll mx-edge-right" id="rp1_edgeRight" aria-hidden="true"><i class="bi bi-chevron-right"></i></div>
+    <div class="rate-shopper-table-wrap tbl-pin-col" id="rp1_tableWrap" style="max-height:640px"><table class="table-modern w-100" id="rp1_table"></table></div>
   </div>
 </div>
 
@@ -120,15 +126,22 @@
 
 <!-- 3. Rate Parity -->
 <div id="rp_tabParity" class="d-none">
-  <div class="text-muted small mb-2"><i class="bi bi-info-circle me-1"></i>Compares your Direct (Master) channel rate against every OTA channel you sell on.</div>
-  <div class="section-card p-0">
-    <div class="table-responsive"><table class="table-modern w-100" id="rp3_table"></table></div>
+  <div class="text-muted small mb-1"><i class="bi bi-info-circle me-1"></i>Compares your Direct (Master) channel rate against every OTA channel you sell on.</div>
+  <div class="text-muted small mb-2" id="rp3_summary"></div>
+  <div class="section-card p-0" style="position:relative">
+    <div class="mx-edge-scroll mx-edge-top" id="rp3_edgeUp" aria-hidden="true"><i class="bi bi-chevron-up"></i></div>
+    <div class="mx-edge-scroll mx-edge-bottom" id="rp3_edgeDown" aria-hidden="true"><i class="bi bi-chevron-down"></i></div>
+    <div class="mx-edge-scroll mx-edge-left" id="rp3_edgeLeft" aria-hidden="true"><i class="bi bi-chevron-left"></i></div>
+    <div class="mx-edge-scroll mx-edge-right" id="rp3_edgeRight" aria-hidden="true"><i class="bi bi-chevron-right"></i></div>
+    <div class="rate-shopper-table-wrap" id="rp3_tableWrap" style="max-height:640px"><table class="table-modern w-100" id="rp3_table"></table></div>
   </div>
 </div>
 
 <!-- 4. Market Rate Summary -->
 <div id="rp_tabMarket" class="d-none">
-  <div class="row g-3 mb-1" id="rp4_kpis"></div>
+  <div class="section-card p-0 mb-3">
+    <div class="table-responsive"><table class="table-modern w-100" id="rp4_summary"></table></div>
+  </div>
   <div class="row g-3 mt-1">
     <div class="col-lg-6">
       <div class="chart-card h-100">
@@ -137,9 +150,12 @@
       </div>
     </div>
     <div class="col-lg-6">
-      <div class="section-card h-100 p-0">
+      <div class="section-card h-100 p-0" style="position:relative">
         <div class="fw-bold p-3 pb-2">Competitor Ranking</div>
-        <div class="table-responsive"><table class="table-modern w-100" id="rp4_table"></table></div>
+        <div class="mx-edge-scroll mx-edge-bottom" id="rp4_edgeDown" aria-hidden="true"><i class="bi bi-chevron-down"></i></div>
+        <div class="mx-edge-scroll mx-edge-left" id="rp4_edgeLeft" aria-hidden="true"><i class="bi bi-chevron-left"></i></div>
+        <div class="mx-edge-scroll mx-edge-right" id="rp4_edgeRight" aria-hidden="true"><i class="bi bi-chevron-right"></i></div>
+        <div class="rate-shopper-table-wrap" id="rp4_tableWrap" style="max-height:420px"><table class="table-modern w-100" id="rp4_table"></table></div>
       </div>
     </div>
   </div>

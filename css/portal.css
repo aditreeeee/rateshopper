@@ -92,7 +92,11 @@
 .channel-perf-card:hover .kpi-desc, .channel-perf-card:focus-within .kpi-desc{ opacity:1; transform:none; }
 .kpi-card .kpi-label{ font-size:.72rem; color:var(--text-3); font-weight:600; text-transform:uppercase; letter-spacing:.3px; }
 .kpi-card .kpi-value{ font-size:1.35rem; font-weight:800; color:var(--text-1); line-height:1.2; }
-.kpi-card .kpi-sub{ font-size:.74rem; font-weight:600; display:flex; align-items:center; justify-content:center; gap:4px; }
+.kpi-card .kpi-sub{
+  font-size:.74rem; font-weight:600; display:flex; align-items:center; justify-content:center; gap:4px;
+  max-width:100%; overflow:hidden;
+}
+.kpi-card .kpi-sub span{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0; }
 .kpi-card .kpi-sub.up{ color:var(--success); }
 .kpi-card .kpi-sub.down{ color:var(--danger); }
 .kpi-card .kpi-sub.flat{ color:var(--text-3); }
@@ -738,13 +742,6 @@
 .fc-scenario-stat .v{ font-size:.86rem; font-weight:800; color:var(--text-1); margin-top:1px; }
 .fc-scenario-stat .v.pos{ color:var(--fa-text-mild); }
 .fc-scenario-stat .v.neg{ color:var(--fa-text-strong); }
-
-/* ---- Recommendation summary ---- */
-.sp-recommend{
-  display:flex; align-items:flex-start; gap:8px; margin-top:11px; padding:9px 11px;
-  background:var(--fa-tint-mod); border-radius:11px; font-size:.74rem; line-height:1.45; color:var(--text-2);
-}
-.sp-recommend .bi{ color:var(--fa-text-mod); flex:0 0 auto; margin-top:2px; }
 
 /* ---------- Slim quick-actions bar — replaces the old market-snapshot stat strip (its numbers
    were already duplicated by the KPI cards directly below it). One-click shortcuts to the

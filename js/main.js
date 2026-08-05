@@ -216,12 +216,9 @@ const APP = (() => {
     const d = new Date(dateStr);
     return d.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'});
   }
-  function skeleton(rows=5){
-    return Array(rows).fill(0).map(()=>`<div class="skeleton skeleton-row"></div>`).join('');
-  }
   function qs(name){ return new URLSearchParams(location.search).get(name); }
 
-  return { mount, setBreadcrumb, toggleSidebarMobile, toggleNavSection, toggleTheme, logout, toast, confirmModal, fmtCurrency, fmtDateReadable, skeleton, qs, requireAuth, initTheme, getTheme, setTheme };
+  return { mount, setBreadcrumb, toggleSidebarMobile, toggleNavSection, toggleTheme, logout, toast, confirmModal, fmtCurrency, fmtDateReadable, qs, requireAuth, initTheme, getTheme, setTheme };
 })();
 
 // apply theme ASAP even before DOM mount to avoid flash

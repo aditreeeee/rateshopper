@@ -155,6 +155,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
   if(existing){
     document.getElementById('submitLabel').textContent = 'Update Property';
+    document.getElementById('f_hmsPropertyId').value = existing.hmsPropertyId || '';
     document.getElementById('f_name').value = existing.name;
     document.getElementById('f_type').value = existing.type;
     document.getElementById('f_country').value = existing.country || '';
@@ -182,7 +183,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     // from silently relocating/rebranding a property Company Admin has already onboarded).
     // Company Admin keeps full edit access to every field, same as before.
     if(me.role === RBAC.ROLES.PROPERTY_OWNER){
-      ['f_name','f_type','f_country','f_state','f_city','f_stars','f_timezone','f_website'].forEach(id=>{
+      ['f_hmsPropertyId','f_name','f_type','f_country','f_state','f_city','f_stars','f_timezone','f_website'].forEach(id=>{
         const el = document.getElementById(id);
         if(el){ el.disabled = true; el.title = 'Contact your Company Admin to change this.'; }
       });
@@ -198,9 +199,17 @@ document.addEventListener('DOMContentLoaded', ()=>{
     e.preventDefault();
     if(!this.checkValidity()){ this.reportValidity(); return; }
 
+    const hmsPropertyId = document.getElementById('f_hmsPropertyId').value.trim();
+    if(DB.properties.isHmsIdTaken(hmsPropertyId, existing ? existing.id : null)){
+      APP.toast('Property ID Already In Use', 'Another property is already registered with this Property ID.', 'danger');
+      document.getElementById('f_hmsPropertyId').focus();
+      return;
+    }
+
     const amenities = [...document.querySelectorAll('.amenity-check:checked')].map(c=>c.value);
     const payload = {
       id: existing ? existing.id : undefined,
+      hmsPropertyId,
       name: document.getElementById('f_name').value.trim(),
       type: document.getElementById('f_type').value,
       country: document.getElementById('f_country').value.trim(),

@@ -10,6 +10,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   document.getElementById('pf_avatarPreview').src = me.avatar;
   document.getElementById('pf_nameDisplay').textContent = me.name;
   document.getElementById('pf_roleDisplay').textContent = RBAC.ROLE_LABELS[me.role];
+  document.getElementById('pf_hmsUserIdDisplay').textContent = me.hmsUserId || '—';
   document.getElementById('pf_emailDisplay').textContent = me.email;
   document.getElementById('pf_phoneDisplay').textContent = me.phone || '—';
   document.getElementById('pf_avatarUrl').value = me.avatar;

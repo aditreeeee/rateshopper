@@ -148,6 +148,7 @@ function renderOverview(){
     {label:'Rate Plans', value:ratePlans.length, icon:'bi-tags', color:'#b9791a', bg:'#fff8e6'}
   ].map(s=>`<div class="col-md-4 col-xl-3 col-6"><div class="stat-card"><div class="stat-icon" style="background:${s.bg};color:${s.color}"><i class="bi ${s.icon}"></i></div><div><div class="stat-label">${s.label}</div><h3 style="font-size:1.25rem">${s.value}</h3></div></div></div>`).join('');
 
+  document.getElementById('kv_hmsPropertyId').textContent = p.hmsPropertyId || '—';
   document.getElementById('kv_type').textContent = p.type;
   document.getElementById('kv_city').textContent = p.city;
   document.getElementById('kv_rooms').textContent = totalInv;

@@ -494,7 +494,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
           </div>
         </td>
         ${row.prices.map(price=>{
-          return `<td class="grid-price-cell"><div class="gp-cell-inner"><div class="gp-price">${price!=null ? APP.fmtCurrency(price) : '—'}</div></div></td>`;
+          return `<td class="grid-price-cell"><div class="py-2 px-1"><div class="gp-price">${price!=null ? APP.fmtCurrency(price) : '—'}</div></div></td>`;
         }).join('')}
       </tr>`;
     }).join('');

@@ -67,6 +67,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
   if(existing){
     document.getElementById('submitLabel').textContent = 'Update User';
+    document.getElementById('f_hmsUserId').value = existing.hmsUserId || '';
     document.getElementById('f_name').value = existing.name;
     document.getElementById('f_firstName').value = existing.firstName || (existing.name||'').split(' ')[0] || '';
     document.getElementById('f_lastName').value = existing.lastName || (existing.name||'').split(' ').slice(1).join(' ') || '';
@@ -88,6 +89,13 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const dupe = DB.users.byEmail(email);
     if(dupe && (!existing || dupe.id !== existing.id)){
       APP.toast('Email Already In Use', 'Another account already uses that email address.', 'danger');
+      return;
+    }
+
+    const hmsUserId = document.getElementById('f_hmsUserId').value.trim();
+    if(DB.users.isHmsIdTaken(hmsUserId, existing ? existing.id : null)){
+      APP.toast('User ID Already In Use', 'Another user is already registered with this User ID.', 'danger');
+      document.getElementById('f_hmsUserId').focus();
       return;
     }
 
@@ -118,6 +126,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
     const payload = {
       id: existing ? existing.id : undefined,
+      hmsUserId,
       name: fullName,
       firstName: isOwner ? firstName : (existing ? existing.firstName : undefined),
       lastName: isOwner ? lastName : (existing ? existing.lastName : undefined),

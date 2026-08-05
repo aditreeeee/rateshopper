@@ -14,11 +14,3 @@
 .rm-empty{ text-align:center; padding:28px 12px; color:var(--text-3); }
 .rm-empty i{ font-size:1.6rem; opacity:.5; display:block; margin-bottom:6px; }
 .rm-empty p{ font-size:.8rem; margin:0; }
-
-/* ---------- Competitor card: "needs review" badge ---------- */
-.rm-review-badge{
-  display:inline-flex; align-items:center; gap:5px; padding:4px 10px; border-radius:20px;
-  font-size:.68rem; font-weight:700; background:rgba(185,121,26,.12); color:#b9791a;
-  border:1px solid rgba(185,121,26,.25); cursor:pointer; transition:.15s; text-align:left;
-}
-.rm-review-badge:hover{ background:rgba(185,121,26,.2); transform:translateY(-1px); }

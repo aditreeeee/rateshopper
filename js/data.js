@@ -5,7 +5,7 @@ const DB = (() => {
   const KEYS = {
     session:'hop_session', properties:'hop_properties', channels:'hop_channels', rooms:'hop_rooms',
     ratePlans:'hop_ratePlans', rates:'hop_rates', notifications:'hop_notifications',
-    activity:'hop_activity', settings:'hop_settings', users:'hop_users',
+    settings:'hop_settings', users:'hop_users',
     seeded:'hop_seeded_v29'
   };
 
@@ -203,6 +203,12 @@ const DB = (() => {
     // Properties
     const properties = CITIES.map((c,i)=>({
       id: uid('prop'),
+      // hmsPropertyId — the identifier this property is registered under in eGlobe Solutions'
+      // own HMS. Kept deliberately distinct from `id` (this app's own internal record id, never
+      // shown to a user): hmsPropertyId is the one an admin types in (or edits) to match
+      // whatever id the property already has on the HMS side, so the two systems can be linked
+      // up. Must stay unique across every property — see properties.isHmsIdTaken() below.
+      hmsPropertyId: 'EGS-P-' + String(100000+i),
       name: c.name,
       type: pick(['Resort','Business Hotel','Heritage Hotel','Boutique Hotel']),
       city: c.city,
@@ -250,14 +256,14 @@ const DB = (() => {
     set(KEYS.properties, properties);
     const users = [
       {
-        id: uid('usr'), name:'Arjun Mehta', email:'admin@eglobe.com', password:'Admin@123',
+        id: uid('usr'), hmsUserId:'EGS-U-200001', name:'Arjun Mehta', email:'admin@eglobe.com', password:'Admin@123',
         role:'company_admin', status:'active', assignedProperties:[], permissions:null,
         phone:'+91 9820033445', bio:'Company Admin — full platform oversight across every property.',
         avatar:'https://ui-avatars.com/api/?name=Arjun+Mehta&background=00c2a8&color=fff&size=200',
         createdAt: fmtDate(new Date(Date.now()-360*86400000))
       },
       {
-        id: kavitaId, name:'Kavita Nair', firstName:'Kavita', lastName:'Nair', email:'property.owner@eglobe.com', password:'Property@123',
+        id: kavitaId, hmsUserId:'EGS-U-200002', name:'Kavita Nair', firstName:'Kavita', lastName:'Nair', email:'property.owner@eglobe.com', password:'Property@123',
         role:'property_owner', status:'active', parentPropertyId: properties[0].id,
         assignedProperties:[properties[1].id, properties[2].id, properties[3].id, properties[4].id, properties[5].id], permissions:null,
         phone:'+91 9820055667', bio:'Property Owner — manages her assigned properties end-to-end.',
@@ -265,7 +271,7 @@ const DB = (() => {
         createdAt: fmtDate(new Date(Date.now()-240*86400000))
       },
       {
-        id: vikramId, name:'Vikram Rao', firstName:'Vikram', lastName:'Rao', email:'vikram.rao@eglobe.com', password:'Property@123',
+        id: vikramId, hmsUserId:'EGS-U-200003', name:'Vikram Rao', firstName:'Vikram', lastName:'Rao', email:'vikram.rao@eglobe.com', password:'Property@123',
         role:'property_owner', status:'active', parentPropertyId: properties[2].id,
         assignedProperties:[properties[3].id, properties[4].id], permissions:null,
         phone:'+91 9820099001', bio:'Property Owner — manages a portfolio of heritage and boutique properties.',
@@ -273,7 +279,7 @@ const DB = (() => {
         createdAt: fmtDate(new Date(Date.now()-200*86400000))
       },
       {
-        id: adityaId, name:'Aditya Verma', firstName:'Aditya', lastName:'Verma', email:'aditya.verma@eglobe.com', password:'Property@123',
+        id: adityaId, hmsUserId:'EGS-U-200004', name:'Aditya Verma', firstName:'Aditya', lastName:'Verma', email:'aditya.verma@eglobe.com', password:'Property@123',
         role:'property_owner', status:'active', parentPropertyId: properties[5].id,
         assignedProperties:[properties[5].id, properties[6].id], permissions:null,
         phone:'+91 9820099445', bio:'Property Owner — manages the international portfolio (Dubai, Toronto).',
@@ -391,19 +397,6 @@ const DB = (() => {
     let notifications = notifCombos.slice(0,28).map((t,i)=>({id:uid('ntf'), ...t, read: i>8, time: fmtDate(new Date(Date.now()-rand(0,10)*86400000)) }));
     set(KEYS.notifications, notifications);
 
-    // Activity — generated per-property so no two entries are identical
-    const activityActions = [
-      p=>({icon:'bi-plus-circle',color:'success',text:`Added a new room type to ${p.name}`}),
-      p=>({icon:'bi-pencil-square',color:'brand',text:`Updated rate plan pricing for ${p.name}`}),
-      p=>({icon:'bi-building',color:'brand',text:`Updated property details for ${p.name}`}),
-      p=>({icon:'bi-calendar2-week',color:'warn',text:`Bulk updated weekend rates for ${p.name}`}),
-      p=>({icon:'bi-toggle-off',color: p.status==='active'?'success':'danger', text:`Marked ${p.name} as ${p.status==='active'?'Active':'Inactive'}`}),
-      p=>({icon:'bi-check2-circle',color:'success',text:`Confirmed a new booking at ${p.name}`})
-    ];
-    const activityCombos = shuffle(properties.flatMap(p=> activityActions.map(fn=>fn(p))));
-    let activity = activityCombos.slice(0,20).map(t=>({id:uid('act'), ...t, time: rand(1,48)+'h ago'}));
-    set(KEYS.activity, activity);
-
     // Settings
     set(KEYS.settings, {
       companyName:'eGlobe Solutions', companyEmail:'owner@example.com', companyPhone:'+91 9876543210',
@@ -440,6 +433,13 @@ const DB = (() => {
       set(KEYS.properties, properties.all().filter(p=>p.id!==id));
       rooms.all().filter(r=>r.propertyId===id).forEach(r=>rooms.remove(r.id));
       set(KEYS.channels, channels.all().filter(c=>c.propertyId!==id));
+    },
+    // True if some OTHER property already uses this Property ID — checked case-insensitively
+    // (and trimmed) since eGlobe's HMS and this app's own edit form are two separate places the
+    // same value can be typed, and a stray space/case mismatch shouldn't be treated as "unique".
+    isHmsIdTaken: (hmsPropertyId, excludeId)=>{
+      const norm = String(hmsPropertyId||'').trim().toLowerCase();
+      return properties.all().some(p=> p.id!==excludeId && String(p.hmsPropertyId||'').trim().toLowerCase()===norm);
     }
   };
   const channels = {
@@ -532,7 +532,6 @@ const DB = (() => {
     markAllRead: ()=>{ const list=notifications.all(); list.forEach(n=>n.read=true); set(KEYS.notifications,list); },
     remove: id=>{ set(KEYS.notifications, notifications.all().filter(n=>n.id!==id)); }
   };
-  const activity = { all: ()=> get(KEYS.activity, []) };
   const settings = { get: ()=> get(KEYS.settings, {}), save: s=> set(KEYS.settings, s) };
 
   // Plain CRUD only — the same shape a future ASP.NET "UsersController" + SQL Server
@@ -549,7 +548,13 @@ const DB = (() => {
       else { u.id=uid('usr'); u.createdAt=fmtDate(new Date()); list.push(u); }
       set(KEYS.users,list); return u;
     },
-    remove: id=>{ set(KEYS.users, users.all().filter(u=>u.id!==id)); }
+    remove: id=>{ set(KEYS.users, users.all().filter(u=>u.id!==id)); },
+    // Same case/whitespace-insensitive uniqueness check as properties.isHmsIdTaken(), for the
+    // User ID an admin enters on the Add/Edit User form.
+    isHmsIdTaken: (hmsUserId, excludeId)=>{
+      const norm = String(hmsUserId||'').trim().toLowerCase();
+      return users.all().some(u=> u.id!==excludeId && String(u.hmsUserId||'').trim().toLowerCase()===norm);
+    }
   };
 
   // Defensive migration, safe to run on every load regardless of seeding history: guarantees
@@ -577,8 +582,21 @@ const DB = (() => {
       if(p.brand == null){ p.brand = pick(PROPERTY_BRANDS); propertiesFieldsChanged = true; }
       if(p.code == null){ p.code = 'PRC-' + String(1000+i); propertiesFieldsChanged = true; }
       if(p.state == null){ p.state = ''; propertiesFieldsChanged = true; }
+      // Backfill hmsPropertyId on any property saved before this field existed — derived from
+      // the property's own id (never collides with another record, no need to re-check
+      // uniqueness) rather than reusing the seed's sequential EGS-P-100000+i scheme, which is
+      // only guaranteed unique across a single fresh seed().
+      if(p.hmsPropertyId == null){ p.hmsPropertyId = 'EGS-P-LEGACY-' + p.id.slice(-6).toUpperCase(); propertiesFieldsChanged = true; }
     });
     if(propertiesFieldsChanged) set(KEYS.properties, allProperties);
+
+    // Same backfill for users' hmsUserId.
+    const allUsers = users.all();
+    let usersFieldsChanged = false;
+    allUsers.forEach(u=>{
+      if(u.hmsUserId == null){ u.hmsUserId = 'EGS-U-LEGACY-' + u.id.slice(-6).toUpperCase(); usersFieldsChanged = true; }
+    });
+    if(usersFieldsChanged) set(KEYS.users, allUsers);
     // Backfill channelCode on any channel saved before this field existed, so every record
     // stays SQL-ready (NOT NULL INT) without needing a one-time server-side migration later.
     allChannels.forEach(c=>{
@@ -627,9 +645,9 @@ const DB = (() => {
     if(notificationsChanged) set(KEYS.notifications, allNotifications);
   }
 
-  return { KEYS, seed, ensureChannels, uid, get, set, rand, pick, fmtDate, MEAL_PLANS, MEAL_LABELS, CHANNEL_TYPES,
-    CHANNEL_CATALOG, CHANNEL_TYPE_CODES, MASTER_CHANNEL_CODE, channelCatalogEntry, nextCustomChannelCode, NOTIF_CATEGORIES,
-    properties, channels, rooms, ratePlans, rates, notifications, activity, settings, users };
+  return { seed, ensureChannels, uid, get, set, rand, pick, fmtDate, MEAL_PLANS, MEAL_LABELS, CHANNEL_TYPES,
+    CHANNEL_CATALOG, CHANNEL_TYPE_CODES, MASTER_CHANNEL_CODE, channelCatalogEntry, NOTIF_CATEGORIES,
+    properties, channels, rooms, ratePlans, rates, notifications, settings, users };
 })();
 
 DB.seed();

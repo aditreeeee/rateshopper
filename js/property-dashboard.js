@@ -70,9 +70,13 @@ document.addEventListener('DOMContentLoaded', ()=>{
       desc:'The cheapest rate among your comparison properties today.'}),
     PWIDGETS.kpiCard({icon:'bi-arrow-up-circle', color:'#ff4d5e', bg:'#fff0f1', label:'Highest Market Rate', value:APP.fmtCurrency(highest), sub:`out of ${comps.length} competitors tracked`, subDir:'flat',
       desc:'The most expensive rate among your comparison properties today.'}),
-    PWIDGETS.kpiCard({icon:'bi-trophy', color:'#12b76a', bg:'#e7faf1', label:'Cheapest Competitor', value: cheapestComp ? cheapestComp.name : '—', sub: cheapestComp ? `${APP.fmtCurrency(PORTALDATA.competitorRateOnDate(cheapestComp,today))} · out of ${comps.length} tracked` : `out of ${comps.length} tracked`, subDir:'flat',
+    // Value leads with the rate (a short number, like every other card in this row) and the
+    // property name moves to the sub-line — a full competitor name as the headline "value" could
+    // run to two lines on a narrow 1/5-width card, stretching every other card in the same row
+    // to match its height and leaving them with an odd gap of empty space underneath.
+    PWIDGETS.kpiCard({icon:'bi-trophy', color:'#12b76a', bg:'#e7faf1', label:'Cheapest Competitor', value: cheapestComp ? APP.fmtCurrency(PORTALDATA.competitorRateOnDate(cheapestComp,today)) : '—', sub: cheapestComp ? cheapestComp.name : `out of ${comps.length} tracked`, subDir:'flat',
       desc:'Which comparison property currently has the lowest rate.'}),
-    PWIDGETS.kpiCard({icon:'bi-gem', color:'#ff4d5e', bg:'#fff0f1', label:'Most Expensive Competitor', value: priciestComp ? priciestComp.name : '—', sub: priciestComp ? `${APP.fmtCurrency(PORTALDATA.competitorRateOnDate(priciestComp,today))} · out of ${comps.length} tracked` : `out of ${comps.length} tracked`, subDir:'flat',
+    PWIDGETS.kpiCard({icon:'bi-gem', color:'#ff4d5e', bg:'#fff0f1', label:'Most Expensive Competitor', value: priciestComp ? APP.fmtCurrency(PORTALDATA.competitorRateOnDate(priciestComp,today)) : '—', sub: priciestComp ? priciestComp.name : `out of ${comps.length} tracked`, subDir:'flat',
       desc:'Which comparison property currently has the highest rate.'}),
   ].join('');
 

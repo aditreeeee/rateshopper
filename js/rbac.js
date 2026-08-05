@@ -22,12 +22,6 @@ const RBAC = (() => {
     property_owner: 'Property Owner'
   };
 
-  // Higher number = higher in the hierarchy. Used for "can X manage Y" checks.
-  // Company Admin is the top of the hierarchy — the Company Owner role has been retired and
-  // its full authority folded into Company Admin. Property Admin and Property User have also
-  // been retired — Property Owner already fully covers their capabilities.
-  const ROLE_RANK = { company_admin: 4, property_owner: 3 };
-
   const MODULES = {
     DASHBOARD: 'dashboard',
     PROPERTIES: 'properties',
@@ -37,11 +31,6 @@ const RBAC = (() => {
     RATE_CALENDAR: 'rateCalendar',
     USERS: 'users',
     SETTINGS: 'settings'
-  };
-
-  const MODULE_LABELS = {
-    dashboard: 'Dashboard', properties: 'Properties', channels: 'Channels', rooms: 'Rooms',
-    ratePlans: 'Rate Plans', rateCalendar: 'Rate Calendar', users: 'Users', settings: 'Settings'
   };
 
   function session(){
@@ -210,8 +199,8 @@ const RBAC = (() => {
   }
 
   return {
-    ROLES, ROLE_LABELS, ROLE_RANK, MODULES, MODULE_LABELS,
-    session, currentUser, currentRole, isCompanyLevel, can,
+    ROLES, ROLE_LABELS, MODULES,
+    currentUser, currentRole, isCompanyLevel, can,
     assignedPropertyIds, propertyLimitRemaining, comparisonPropertyIds, canAccessProperty, filterProperties,
     creatableRoles, canManageUser, visibleUsers,
     requireRole, requireModuleAccess

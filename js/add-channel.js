@@ -96,7 +96,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     if(!isMaster && !channelSelect.value){ APP.toast('No Channel Selected', 'This property has no unassigned channels left to add.', 'danger'); return; }
     const channelCode = isMaster ? DB.MASTER_CHANNEL_CODE : Number(channelSelect.value);
     const catalogEntry = DB.channelCatalogEntry(channelCode);
-    if(!catalogEntry){ APP.toast('Invalid Channel', 'Please choose a channel from the list.', 'error'); return; }
+    if(!catalogEntry){ APP.toast('Invalid Channel', 'Please choose a channel from the list.', 'danger'); return; }
     // Belt-and-braces against a stale/duplicate submit (e.g. two tabs open) — the data layer
     // also enforces this, but fail fast here with a clear message instead of a silent overwrite.
     if(!isMaster && usedCodesForProperty(propertySelect.value).has(channelCode)){

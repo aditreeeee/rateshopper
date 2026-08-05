@@ -10,18 +10,10 @@
 .rp-hero-sub{ font-size:.82rem; opacity:.9; margin-top:2px; }
 .rp-hero-art{ font-size:2.6rem; opacity:.35; flex-shrink:0; }
 
-/* ---------- Report tabs (Competitor Comparison / Historical Trend / Rate Parity / Market Summary) ---------- */
-.rp-tabs .nav-link{
-  border:1px solid var(--border-1); border-radius:10px; margin-right:8px; color:var(--text-2);
-  font-weight:600; font-size:.85rem; padding:8px 16px; background:var(--bg-surface); transition:.15s;
-}
-.rp-tabs .nav-link:hover:not(.active){ border-color:var(--brand-300); color:var(--brand-600); }
-.rp-tabs .nav-link.active{ background:var(--brand-500); color:#fff; border-color:var(--brand-500); box-shadow:0 3px 10px rgba(56,97,251,.3); }
-.rp-tab-num{
-  display:inline-flex; align-items:center; justify-content:center; width:18px; height:18px;
-  border-radius:50%; background:rgba(255,255,255,.25); font-size:.68rem; margin-right:6px;
-}
-.rp-tabs .nav-link:not(.active) .rp-tab-num{ background:var(--bg-surface-2); }
+/* ---------- Report tabs (Competitor Comparison / Historical Trend / Rate Parity / Market Summary)
+   now use the shared .rsiq-tabbar component (css/portal.css) — the same sliding-underline tab
+   strip as Forecast & Actions and Room Rate Comparison, instead of a page-local filled-pill style,
+   so the tab UI reads consistently across every multi-report page in the portal. ---------- */
 
 /* ---------- Multi-select dropdown checkboxes (Competitor filter) ---------- */
 .mx-check-row{ display:flex; align-items:center; gap:8px; padding:5px 8px; border-radius:8px; cursor:pointer; font-size:.82rem; }

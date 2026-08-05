@@ -90,8 +90,6 @@
 .company-dashboard .kpi-card h4{ font-size: 1.16rem; letter-spacing:-.01em; }
 .company-dashboard .kpi-card .kpi-label{ font-size: .63rem; letter-spacing:.045em; }
 .company-dashboard .kpi-card .kpi-sub{ font-size: .64rem; }
-.company-dashboard .kpi-card-accent-warn::before{ background: linear-gradient(90deg, var(--warn), #ffd479); }
-.company-dashboard .kpi-card-accent-danger::before{ background: linear-gradient(90deg, var(--danger), #ff8a95); }
 
 /* Staggered entrance — quiet, quick, once. Respects reduced-motion. */
 @media (prefers-reduced-motion: no-preference){
@@ -109,24 +107,6 @@
 @keyframes cdRise{ from{ opacity:0; transform:translateY(10px) scale(.98); } to{ opacity:1; transform:none; } }
 @keyframes cdFadeUp{ from{ opacity:0; transform:translateY(14px); } to{ opacity:1; transform:none; } }
 
-/* ---- Alerts: quieter surface, top accent bar instead of a heavy left rail ---- */
-.company-dashboard .alert-tile{
-  border-radius: var(--cd-radius-sm);
-  border: 1px solid var(--cd-border);
-  border-left: none;
-  background: var(--bg-surface);
-  box-shadow: var(--cd-shadow);
-  padding: 13px 14px;
-  transition: transform .16s cubic-bezier(.2,.7,.3,1), box-shadow .16s ease;
-}
-.company-dashboard .alert-tile::before{
-  content:''; position:absolute; inset:0 0 auto 0; height:3px; border-radius:var(--cd-radius-sm) var(--cd-radius-sm) 0 0;
-}
-.company-dashboard .alert-tile{ position:relative; overflow:hidden; }
-.company-dashboard .alert-tile-danger::before{ background: linear-gradient(90deg, var(--danger), #ff8a95); }
-.company-dashboard .alert-tile-warn::before{ background: linear-gradient(90deg, var(--warn), #ffd479); }
-.company-dashboard .alert-tile:hover{ transform: translateY(-2px); box-shadow: var(--cd-shadow-hover); }
-
 /* ---- Charts: smaller footprint, tidier surrounding chrome ---- */
 .company-dashboard canvas{ max-height: 108px; }
 .company-dashboard #ownerChart{ max-height: 118px; }
@@ -142,11 +122,6 @@
 }
 .company-dashboard .table-sticky-wrap thead th{ box-shadow: 0 1px 0 var(--cd-border); }
 
-/* ---- Mini bar rows (Geographic Distribution / Brand Breakdown) — tidier bars ---- */
-.company-dashboard .mini-bar-row .progress-thin{ height: 6px; }
-.company-dashboard .mini-bar-row.clickable{ border-radius: 8px; padding: 4px 6px; margin: -4px -6px 10px; transition: background .14s ease; }
-.company-dashboard .mini-bar-row.clickable:hover{ background: rgba(56,97,251,.06); }
-
 /* ---- Quick Actions — a touch more lift on hover for a tactile, premium feel ---- */
 .company-dashboard #quickActions .btn{
   border-radius: 11px; transition: transform .14s cubic-bezier(.2,.7,.3,1), box-shadow .14s ease, background .14s ease;
@@ -156,11 +131,6 @@
 /* ---- Activity / login timeline rows — slightly denser, refined icon chips ---- */
 .company-dashboard .activity-ico{ width: 32px; height: 32px; border-radius: 9px; font-size: .82rem; }
 .company-dashboard .activity-item{ padding: 9px 0; }
-
-/* ---- Divider columns (Portfolio Overview / User Overview) — quieter hairline ---- */
-@media (min-width:992px){
-  .company-dashboard .portfolio-col{ border-right-color: var(--cd-border); }
-}
 
 @media (max-width: 767px){
   .company-dashboard .kpi-card{ padding: 11px 12px; }

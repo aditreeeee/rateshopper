@@ -10,6 +10,75 @@ let rpRangeDays = 14;      // global Date Range filter — used by reports 1/3/4
 let rp2RangeMode = '14';   // Historical Rate Trend's own local range control
 let rp2Chart = null, rp4Chart = null;
 let rpSelectedCompetitors = null; // Set of competitor ids, null = not yet initialized (defaults to all)
+let rp1Sort = { key:'compName', dir:'asc' }; // Competitor Rate Comparison table's column sort
+let rp1Edge, rp3Edge, rp4Edge; // hover-scroll edge zone controllers — set once tables exist, re-aligned after every render
+
+// Generic sort for an array of flat row objects by a given {key,dir} — null/undefined values
+// (a room with no rate on the selected filters) always sink to the bottom regardless of
+// direction, so an empty cell never gets mistaken for "the lowest rate" when sorting ascending.
+function sortRows(rows, sort){
+  return [...rows].sort((a,b)=>{
+    const av = a[sort.key], bv = b[sort.key];
+    if(av==null && bv==null) return 0;
+    if(av==null) return 1;
+    if(bv==null) return -1;
+    const cmp = typeof av==='string' ? av.localeCompare(bv) : av-bv;
+    return sort.dir==='asc' ? cmp : -cmp;
+  });
+}
+
+// Hover-to-scroll edge zones for a report table's scroll wrap — same interaction as the Rate
+// Matrix grid and Room Rate Comparison's table (see wireEdgeScroll() there): hovering a
+// chevron band along an edge scrolls continuously toward it for as long as the cursor stays,
+// instead of a click-to-page control. Zones are invisible (opacity:0) until hovered, so they
+// only ever "show up" — visually or functionally — on a table that actually has something to
+// scroll to in that direction; on a short/narrow table they're simply inert. Returns an
+// `align()` you should re-run after every re-render, since content height changes whether the
+// wrap is even scrollable and (for the top/bottom zones) where the wrap's own edges actually
+// sit within its card when something else in the card sits above it.
+function wireReportEdgeScroll(prefix){
+  const wrap = document.getElementById(prefix+'_tableWrap');
+  if(!wrap) return { align(){} };
+  const edgeUp = document.getElementById(prefix+'_edgeUp');
+  const edgeDown = document.getElementById(prefix+'_edgeDown');
+  const zones = [
+    { el:edgeUp, dx:0, dy:-9 },
+    { el:edgeDown, dx:0, dy:9 },
+    { el:document.getElementById(prefix+'_edgeLeft'), dx:-9, dy:0 },
+    { el:document.getElementById(prefix+'_edgeRight'), dx:9, dy:0 },
+  ];
+  let raf = null;
+  function tick(dx, dy){
+    wrap.scrollBy({ left:dx, top:dy });
+    raf = requestAnimationFrame(()=> tick(dx, dy));
+  }
+  zones.forEach(z=>{
+    if(!z.el) return;
+    z.el.addEventListener('mouseenter', ()=>{
+      z.el.classList.add('is-active');
+      cancelAnimationFrame(raf);
+      tick(z.dx, z.dy);
+    });
+    z.el.addEventListener('mouseleave', ()=>{
+      z.el.classList.remove('is-active');
+      cancelAnimationFrame(raf);
+      raf = null;
+    });
+  });
+  // Same fixed-offset problem as Room Rate Comparison's rc_edgeDown: a flush top:0/bottom:0 zone
+  // would overlap the wrap's own scrollbar, or (when a heading sits above the wrap inside the
+  // same card, as in Market Rate Summary) the heading itself rather than the table.
+  function align(){
+    const card = wrap.parentElement;
+    if(!card) return;
+    const cardRect = card.getBoundingClientRect();
+    const wrapRect = wrap.getBoundingClientRect();
+    if(edgeDown) edgeDown.style.bottom = `${Math.max(0, (cardRect.bottom - wrapRect.bottom) + 8)}px`;
+    if(edgeUp) edgeUp.style.top = `${Math.max(0, wrapRect.top - cardRect.top)}px`;
+  }
+  align();
+  return { align };
+}
 
 // Shared Chart.js animation preset — see js/property-dashboard.js for the same helper.
 function chartAnim(isBar){
@@ -194,26 +263,51 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
     document.getElementById('rp1_summary').textContent = `${rows.length} room comparisons across ${myRooms.length} of your rooms and ${compMaps.length} competitor propert${compMaps.length===1?'y':'ies'} — average rate over the last ${rpRangeDays} days.`;
 
-    document.getElementById('rp1_table').innerHTML = `
-      <thead><tr>
-        <th>My Property</th><th>Competitor</th><th>Room</th><th>Meal Plan</th><th>Channel</th>
-        <th>My Rate</th><th>Competitor Rate</th><th>Difference (₹)</th><th>Difference (%)</th>
-        <th>Lowest Rate</th><th>Highest Rate</th><th>Market Average</th>
-      </tr></thead>
-      <tbody>${rows.map(r=>`<tr>
-        <td class="fw-semibold">${property.name}</td>
-        <td>${r.cr.comp.name}</td>
-        <td>${r.myRoom.name}</td>
-        <td>${r.cr.plan.mealPlan}</td>
-        <td>${(()=>{ const meta = DB.CHANNEL_TYPES[channel&&channel.type] || DB.CHANNEL_TYPES.custom; return `<i class="bi ${meta.icon} me-1" style="color:${meta.color}"></i>${channel?channel.name:'—'}`; })()}</td>
+    // Competitor is the column that actually varies row-to-row and is what you're most likely to
+    // scan/sort by, so it leads (and is pinned via .tbl-pin-col on the wrap) instead of the
+    // constant "My Property" column, which stays in the table (useful once exported/printed
+    // standalone) but no longer eats the one pinned slot while scrolling through the rate columns.
+    const cols = [
+      {key:'compName', label:'Competitor'}, {key:'myProperty', label:'My Property'},
+      {key:'roomName', label:'Room'}, {key:'mealPlan', label:'Meal Plan'}, {key:'channelName', label:'Channel'},
+      {key:'myRate', label:'My Rate'}, {key:'compRate', label:'Competitor Rate'},
+      {key:'diff', label:'Difference (₹)'}, {key:'diffPct', label:'Difference (%)'},
+      {key:'lowest', label:'Lowest Rate'}, {key:'highest', label:'Highest Rate'}, {key:'marketAvg', label:'Market Average'}
+    ];
+    const channelMeta = DB.CHANNEL_TYPES[channel&&channel.type] || DB.CHANNEL_TYPES.custom;
+    let flatRows = rows.map(r=>({
+      compName: r.cr.comp.name, myProperty: property.name, roomName: r.myRoom.name, mealPlan: r.cr.plan.mealPlan,
+      channelName: channel ? channel.name : '—', myRate: r.myRate, compRate: r.cr.rate,
+      diff: r.diff, diffPct: r.diffPct, lowest: r.lowest, highest: r.highest, marketAvg: r.marketAvg
+    }));
+    flatRows = sortRows(flatRows, rp1Sort);
+
+    const thead = `<thead><tr>${cols.map(c=>`<th class="th-sortable ${rp1Sort.key===c.key?'active':''}" data-key="${c.key}">${c.label}${rp1Sort.key===c.key?`<i class="bi ${rp1Sort.dir==='asc'?'bi-caret-up-fill':'bi-caret-down-fill'}"></i>`:'<i class="bi bi-caret-up-fill" style="opacity:.15"></i>'}</th>`).join('')}</tr></thead>`;
+
+    document.getElementById('rp1_table').innerHTML = thead + `<tbody>${flatRows.map(r=>`<tr>
+        <td class="fw-semibold">${r.compName}</td>
+        <td>${r.myProperty}</td>
+        <td>${r.roomName}</td>
+        <td>${r.mealPlan}</td>
+        <td><i class="bi ${channelMeta.icon} me-1" style="color:${channelMeta.color}"></i>${r.channelName}</td>
         <td class="fw-semibold">${r.myRate!=null?APP.fmtCurrency(r.myRate):'—'}</td>
-        <td class="fw-semibold">${APP.fmtCurrency(r.cr.rate)}</td>
+        <td class="fw-semibold">${APP.fmtCurrency(r.compRate)}</td>
         <td class="${r.diff==null?'':r.diff>=0?'text-danger':'text-success'}">${r.diff==null?'—':`${r.diff>=0?'+':''}${APP.fmtCurrency(r.diff)}`}</td>
         <td class="${r.diffPct==null?'':r.diffPct>=0?'text-danger':'text-success'}">${r.diffPct==null?'—':`${r.diffPct>=0?'+':''}${r.diffPct.toFixed(1)}%`}</td>
         <td>${APP.fmtCurrency(r.lowest)}</td>
         <td>${APP.fmtCurrency(r.highest)}</td>
         <td>${APP.fmtCurrency(r.marketAvg)}</td>
-      </tr>`).join('') || `<tr><td colspan="12" class="text-center text-muted py-4">No mapped room comparisons for these filters.</td></tr>`}</tbody>`;
+      </tr>`).join('') || `<tr><td colspan="${cols.length}">${PWIDGETS.emptyState('bi-table','No mapped room comparisons','Adjust your filters, or map competitor rooms from the Competitors page.')}</td></tr>`}</tbody>`;
+
+    document.querySelectorAll('#rp1_table .th-sortable').forEach(th=>{
+      th.addEventListener('click', ()=>{
+        const key = th.dataset.key;
+        if(rp1Sort.key === key) rp1Sort.dir = rp1Sort.dir==='asc' ? 'desc' : 'asc';
+        else rp1Sort = { key, dir:'asc' };
+        renderCompare();
+      });
+    });
+    if(rp1Edge) rp1Edge.align();
   }
 
   /* ======================================================================
@@ -296,12 +390,17 @@ document.addEventListener('DOMContentLoaded', ()=>{
       });
       return rates.length ? Math.round(rates.reduce((a,b)=>a+b,0)/rates.length) : null;
     }
+    // Same >3% undercut threshold PORTALDATA.firstParityViolation()/parityScore() already use
+    // (Dashboard's Rate Parity Score, Market Intelligence's parity alert) — this report used to
+    // flag "Undercut" on ANY negative diff, including a trivial <1% gap that's really just normal
+    // per-channel rate jitter, which could show a violation here that nothing else in the app
+    // agreed was actually a violation.
     function violationsOnChannel(channel, directAvg){
       let count = 0;
       myRoomsFiltered.forEach(room=>{
         const channelRoom = findRoomOnChannel(propertyId, channel, room.name);
         const result = avgRate(channelRoom, mealPlanFilter, ratePlanFilter, rpRangeDays);
-        if(result && directAvg!=null && result.price < directAvg) count++;
+        if(result && directAvg!=null && result.price < directAvg*0.97) count++;
       });
       return count;
     }
@@ -313,25 +412,34 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const rows = otaChannels.map(channel=>{
       const otaAvg = avgRateOnChannel(channel);
       const diff = (otaAvg!=null && directAvg!=null) ? otaAvg-directAvg : null;
-      const status = diff==null ? null : diff>=0 ? 'parity' : 'undercut';
+      const status = (otaAvg==null || directAvg==null) ? null : otaAvg < directAvg*0.97 ? 'undercut' : 'parity';
       const violations = directAvg!=null ? violationsOnChannel(channel, directAvg) : 0;
       return { channel, otaAvg, diff, status, violations };
     });
 
+    // "Cheapest Channel" is a single portfolio-wide fact, not something that varies row-to-row —
+    // repeating the same value in a trailing column on every row added a column without adding
+    // any actual information. Surfacing it once as a callout, and highlighting that channel's own
+    // row directly, actually shows which row it refers to instead of just naming it redundantly.
+    document.getElementById('rp3_summary').innerHTML = cheapest
+      ? `<i class="bi bi-trophy-fill me-1" style="color:var(--success)"></i>Cheapest overall: <strong>${cheapest.channel.name}</strong> at ${APP.fmtCurrency(cheapest.avg)}.`
+      : '';
+
     document.getElementById('rp3_table').innerHTML = `
-      <thead><tr><th>Channel</th><th>Direct Rate</th><th>OTA Rate</th><th>Difference</th><th>Parity Status</th><th>Violations</th><th>Cheapest Channel</th></tr></thead>
+      <thead><tr><th>Channel</th><th>Direct Rate</th><th>OTA Rate</th><th>Difference</th><th>Parity Status</th><th>Violations</th></tr></thead>
       <tbody>${rows.map(r=>{
         const meta = DB.CHANNEL_TYPES[r.channel.type] || DB.CHANNEL_TYPES.custom;
-        return `<tr>
-          <td><i class="bi ${meta.icon} me-1" style="color:${meta.color}"></i>${r.channel.name}</td>
+        const isCheapest = cheapest && cheapest.channel.id===r.channel.id;
+        return `<tr class="${isCheapest?'rc-frozen-row':''}">
+          <td><i class="bi ${meta.icon} me-1" style="color:${meta.color}"></i>${r.channel.name}${isCheapest?' <span class="badge bg-success-subtle text-success" style="font-size:.62rem">Cheapest</span>':''}</td>
           <td class="fw-semibold">${directAvg!=null?APP.fmtCurrency(directAvg):'—'}</td>
           <td class="fw-semibold">${r.otaAvg!=null?APP.fmtCurrency(r.otaAvg):'—'}</td>
           <td class="${r.diff==null?'':r.diff<0?'text-danger':'text-success'}">${r.diff==null?'—':`${r.diff>=0?'+':''}${APP.fmtCurrency(r.diff)}`}</td>
           <td>${r.status==null?'<span class="text-muted">—</span>':r.status==='parity'?'<span class="badge-status badge-active"><i class="bi bi-check-circle-fill me-1"></i>At Parity</span>':'<span class="badge-status badge-inactive"><i class="bi bi-exclamation-triangle-fill me-1"></i>Undercut</span>'}</td>
           <td>${r.violations>0?`<span class="badge bg-danger-subtle text-danger">${r.violations} room(s)</span>`:'<span class="text-muted">0</span>'}</td>
-          <td>${cheapest ? `<i class="bi ${(DB.CHANNEL_TYPES[cheapest.channel.type]||DB.CHANNEL_TYPES.custom).icon} me-1"></i>${cheapest.channel.name}` : '—'}</td>
         </tr>`;
-      }).join('') || `<tr><td colspan="7" class="text-center text-muted py-4">No OTA channels found for this property.</td></tr>`}</tbody>`;
+      }).join('') || `<tr><td colspan="6">${PWIDGETS.emptyState('bi-diagram-3','No OTA channels found','Add an OTA channel to this property to see its parity comparison.')}</td></tr>`}</tbody>`;
+    if(rp3Edge) rp3Edge.align();
   }
 
   /* ======================================================================
@@ -354,9 +462,10 @@ document.addEventListener('DOMContentLoaded', ()=>{
     }).filter(Boolean).sort((a,b)=>a.rate-b.rate);
 
     if(!compRates.length){
-      document.getElementById('rp4_kpis').innerHTML = `<div class="col-12">${PWIDGETS.emptyState('bi-globe-americas','No market data','Adjust your filters or ask your Company Admin to assign comparison properties.')}</div>`;
+      document.getElementById('rp4_summary').innerHTML = `<tbody><tr><td>${PWIDGETS.emptyState('bi-globe-americas','No market data','Adjust your filters or ask your Company Admin to assign comparison properties.')}</td></tr></tbody>`;
       document.getElementById('rp4_table').innerHTML = '';
       if(rp4Chart){ rp4Chart.destroy(); rp4Chart=null; }
+      if(rp4Edge) rp4Edge.align();
       return;
     }
 
@@ -366,13 +475,18 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const median = rates[Math.floor(rates.length/2)];
     const range = highest-lowest;
 
-    document.getElementById('rp4_kpis').innerHTML = [
-      PWIDGETS.kpiCard({icon:'bi-arrow-down-circle', color:'#12b76a', bg:'#e7faf1', label:'Lowest Market Rate', value:APP.fmtCurrency(lowest), desc:'The cheapest rate among your visible comparison properties today.'}),
-      PWIDGETS.kpiCard({icon:'bi-arrow-up-circle', color:'#ff4d5e', bg:'#fff0f1', label:'Highest Market Rate', value:APP.fmtCurrency(highest), desc:'The most expensive rate among your visible comparison properties today.'}),
-      PWIDGETS.kpiCard({icon:'bi-bar-chart', color:'#3861fb', bg:'#eef4ff', label:'Average Market Rate', value:APP.fmtCurrency(avg), desc:'The average rate across your visible comparison properties today.'}),
-      PWIDGETS.kpiCard({icon:'bi-distribute-vertical', color:'#8c5cf7', bg:'#f3eeff', label:'Median Rate', value:APP.fmtCurrency(median), desc:'The middle rate when every comparison property is sorted low to high.'}),
-      PWIDGETS.kpiCard({icon:'bi-arrows-expand', color:'#b9791a', bg:'#fff8e6', label:'Price Range', value:APP.fmtCurrency(range), desc:'The spread between the highest and lowest market rate today.'}),
-    ].join('');
+    // A plain metric/value/description table instead of colorful KPI tiles — this tab is a
+    // Report, meant to be scanned, exported, and printed as a data sheet alongside the ranking
+    // table below it, not a dashboard glanced at for a single standout number.
+    document.getElementById('rp4_summary').innerHTML = `
+      <thead><tr><th>Metric</th><th class="text-end">Value</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td class="fw-semibold">Lowest Market Rate</td><td class="text-end fw-bold">${APP.fmtCurrency(lowest)}</td><td class="text-muted">The cheapest rate among your visible comparison properties today.</td></tr>
+        <tr><td class="fw-semibold">Highest Market Rate</td><td class="text-end fw-bold">${APP.fmtCurrency(highest)}</td><td class="text-muted">The most expensive rate among your visible comparison properties today.</td></tr>
+        <tr><td class="fw-semibold">Average Market Rate</td><td class="text-end fw-bold">${APP.fmtCurrency(avg)}</td><td class="text-muted">The average rate across your visible comparison properties today.</td></tr>
+        <tr><td class="fw-semibold">Median Rate</td><td class="text-end fw-bold">${APP.fmtCurrency(median)}</td><td class="text-muted">The middle rate when every comparison property is sorted low to high.</td></tr>
+        <tr><td class="fw-semibold">Price Range</td><td class="text-end fw-bold">${APP.fmtCurrency(range)}</td><td class="text-muted">The spread between the highest and lowest market rate today.</td></tr>
+      </tbody>`;
 
     if(rp4Chart) rp4Chart.destroy();
     rp4Chart = new Chart(document.getElementById('rp4_chart'), {
@@ -381,17 +495,27 @@ document.addEventListener('DOMContentLoaded', ()=>{
       options:{ indexAxis:'y', responsive:true, animation:chartAnim(true), plugins:{legend:{display:false}}, scales:{x:{ticks:{callback:v=>APP.fmtCurrency(v)}}} }
     });
 
+    // Rank 1 is the cheapest, not "the winner" in any other sense — a plain "#1" reads as neutral
+    // ordering, so the top three get a medal color/icon to make "lowest-priced in this market" pop
+    // out at a glance the same way it does in the chart above (leftmost bar), instead of requiring
+    // you to cross-reference the Rate column yourself.
+    const medalColors = ['#d4af37','#9aa0ab','#b56a3c'];
+    function rankCell(i){
+      if(i>2) return `<span class="text-muted">#${i+1}</span>`;
+      return `<span class="fw-bold" style="color:${medalColors[i]}"><i class="bi bi-award-fill me-1"></i>#${i+1}</span>`;
+    }
     document.getElementById('rp4_table').innerHTML = `
       <thead><tr><th>Rank</th><th>Competitor</th><th>Rate</th><th>Vs. Average</th></tr></thead>
       <tbody>${compRates.map((c,i)=>{
         const diff = c.rate-avg;
-        return `<tr>
-          <td>#${i+1}</td>
-          <td>${c.comp.name}</td>
+        return `<tr class="${i===0?'rc-frozen-row':''}">
+          <td>${rankCell(i)}</td>
+          <td class="fw-semibold">${c.comp.name}</td>
           <td class="fw-semibold">${APP.fmtCurrency(c.rate)}</td>
           <td class="${diff>=0?'text-danger':'text-success'}">${diff>=0?'+':''}${APP.fmtCurrency(diff)}</td>
         </tr>`;
       }).join('')}</tbody>`;
+    if(rp4Edge) rp4Edge.align();
   }
 
   /* ======================================================================
@@ -462,6 +586,11 @@ document.addEventListener('DOMContentLoaded', ()=>{
   document.getElementById('rp_exportPdf').addEventListener('click', (e)=>{ e.preventDefault(); APP.toast('Export Started', 'Your PDF report is being prepared for download.', 'success'); });
   document.getElementById('rp_print').addEventListener('click', ()=> window.print());
 
+  rp1Edge = wireReportEdgeScroll('rp1');
+  rp3Edge = wireReportEdgeScroll('rp3');
+  rp4Edge = wireReportEdgeScroll('rp4');
+
+  PWIDGETS.initTabbar('rpTabs');
   renderTabs();
   renderCompetitorMenu();
   renderActiveTab();

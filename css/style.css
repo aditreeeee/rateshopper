@@ -415,27 +415,6 @@ body:not(.cal-embed) .cal-context-bar{top:var(--header-h)}
 
 /* ---------- Calendar (Rate Calendar flagship) ---------- */
 .cal-toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin-bottom:16px}
-.rate-grid{display:grid;grid-template-columns:repeat(7,minmax(120px,1fr));gap:8px;overflow-x:auto}
-.rate-grid .dow{text-align:center;font-size:.72rem;font-weight:700;color:var(--text-3);text-transform:uppercase;padding-bottom:4px}
-.rate-cell{
-  background:var(--bg-surface);border:1px solid var(--border-1);border-radius:12px;padding:10px;min-height:100px;
-  cursor:pointer;position:relative;transition:.15s;display:flex;flex-direction:column;justify-content:space-between;
-}
-.rate-cell:hover{border-color:var(--brand-300);box-shadow:0 4px 14px rgba(56,97,251,.15);transform:translateY(-1px)}
-.rate-cell.selected{border-color:var(--brand-500);background:var(--brand-50);box-shadow:0 0 0 3px rgba(56,97,251,.18)}
-.rate-cell.muted{opacity:.35;cursor:default}
-.rate-cell .d-num{font-size:.78rem;font-weight:700;color:var(--text-2)}
-.rate-cell .d-price{font-size:1.05rem;font-weight:800;color:var(--text-1)}
-.rate-cell .d-flags{display:flex;gap:4px;flex-wrap:wrap}
-.rate-cell .flag-chip{font-size:.6rem;font-weight:700;padding:1px 6px;border-radius:6px;background:var(--bg-surface-2);color:var(--text-3)}
-.rate-cell .flag-chip.lock{background:#fff0f1;color:var(--danger)}
-.rate-cell .flag-chip.cta{background:#fff8e6;color:#b9791a}
-.rate-cell input.inline-price{width:100%;border:none;background:transparent;font-size:1.05rem;font-weight:800;color:var(--brand-600);padding:0}
-.rate-cell input.inline-price:focus{outline:none}
-[data-theme="dark"] .rate-cell.selected{background:rgba(56,97,251,.15)}
-
-.week-strip{display:flex;gap:8px;overflow-x:auto;padding-bottom:6px}
-.week-strip .rate-cell{min-width:150px}
 
 /* ---------- Rate Grid View (rooms/rate plans x dates) ---------- */
 .grid-table-wrap{
@@ -526,7 +505,6 @@ body:not(.cal-embed) .cal-context-bar{top:var(--header-h)}
   width:76px;text-align:center;border:1px solid var(--brand-400);border-radius:8px;font-size:.82rem;font-weight:400;padding:4px 2px;
   font-variant-numeric:tabular-nums;
 }
-.grid-price-cell .gp-flags{font-size:.6rem;font-weight:400;color:var(--text-3);margin-top:2px}
 /* Cheaper/pricier-than-mine indicator, shown under the price on every competitor cell where the
    gap is meaningful (>=1%) — turns the grid from a wall of numbers you have to mentally diff
    against your own row into something scannable at a glance. */
@@ -541,42 +519,9 @@ body:not(.cal-embed) .cal-context-bar{top:var(--header-h)}
 .nice-scroll{max-height:340px;overflow-y:auto}
 .progress-thin{height:8px;border-radius:6px;background:var(--bg-surface-2)}
 .progress-thin .progress-bar{border-radius:6px}
-.mini-calendar table{width:100%}
-.mini-calendar td{text-align:center;font-size:.78rem;padding:6px 0;color:var(--text-2)}
-.mini-calendar td.today{background:var(--brand-500);color:#fff;border-radius:50%}
-.mini-calendar td.has-dot{position:relative}
-.mini-calendar td.has-dot::after{content:'';width:4px;height:4px;background:var(--accent);border-radius:50%;position:absolute;bottom:1px;left:50%;transform:translateX(-50%)}
-
 .activity-item{display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--border-2)}
 .activity-item:last-child{border-bottom:none}
 .activity-ico{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex:0 0 auto}
-
-/* ---------- Benchmark (Property Admin trading-desk style comparison) ---------- */
-.benchmark-parent-card{
-  background:linear-gradient(135deg,var(--brand-600),var(--brand-400));
-  border-radius:var(--radius-lg); padding:22px 26px; position:relative; overflow:hidden;
-  box-shadow:0 16px 40px rgba(56,97,251,.3); margin-bottom:4px;
-}
-.benchmark-parent-card::after{
-  content:''; position:absolute; inset:0; pointer-events:none;
-  background:radial-gradient(400px 200px at 90% -20%, rgba(255,255,255,.25), transparent);
-}
-.benchmark-parent-badge{
-  display:inline-flex; align-items:center; font-size:.68rem; font-weight:700; letter-spacing:.03em; text-transform:uppercase;
-  color:#fff; background:rgba(255,255,255,.18); border:1px solid rgba(255,255,255,.3);
-  padding:3px 10px; border-radius:20px; margin-bottom:12px;
-}
-.benchmark-connector{
-  display:flex; flex-direction:column; align-items:center; gap:2px; color:var(--text-3);
-  font-size:.74rem; font-weight:600; margin:14px 0; text-align:center;
-}
-.benchmark-connector i{font-size:1.1rem;color:var(--brand-400)}
-.benchmark-child-card{
-  background:var(--glass-bg); border:1px solid var(--glass-border); border-radius:var(--radius-md);
-  padding:16px; box-shadow:var(--shadow-sm); height:100%;
-  backdrop-filter:blur(var(--glass-blur)); -webkit-backdrop-filter:blur(var(--glass-blur));
-}
-.benchmark-child-card:hover{transform:translateY(-4px);box-shadow:var(--shadow-lg)}
 
 .room-card{background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:var(--radius-md);overflow:hidden;box-shadow:var(--shadow-sm);backdrop-filter:blur(var(--glass-blur));-webkit-backdrop-filter:blur(var(--glass-blur))}
 .room-card:hover{transform:translateY(-4px);box-shadow:var(--shadow-lg)}
@@ -610,21 +555,6 @@ body:not(.cal-embed) .cal-context-bar{top:var(--header-h)}
 .kv-row .k{color:var(--text-3)}
 .kv-row .v{font-weight:600}
 
-.nav-tabs-modern{
-  border:none; gap:2px; flex-wrap:wrap; display:inline-flex; padding:4px;
-  background:var(--bg-surface-2); border:1px solid var(--border-1); border-radius:12px;
-}
-.nav-tabs-modern .nav-link{
-  border:none; border-radius:9px; color:var(--text-3); font-weight:600; font-size:.79rem;
-  padding:6px 13px; transition:background .15s ease,color .15s ease;
-}
-.nav-tabs-modern .nav-link:hover{color:var(--text-1)}
-.nav-tabs-modern .nav-link.active{background:var(--bg-surface);color:var(--brand-600);box-shadow:var(--shadow-sm)}
-[data-theme="dark"] .nav-tabs-modern .nav-link.active{color:#fff;background:var(--brand-500)}
-
-.sidebar-collapsed .sidebar{transform:translateX(-100%)}
-.sidebar-collapsed .main-wrap{margin-left:0}
-
 @media (max-width:991px){
   .sidebar{transform:translateX(-100%)}
   .main-wrap{margin-left:0}
@@ -649,47 +579,14 @@ body:not(.cal-embed) .cal-context-bar{top:var(--header-h)}
 }
 .kpi-card:hover{transform:translateY(-4px); box-shadow:var(--shadow-lg); border-color:var(--brand-200)}
 [data-theme="dark"] .kpi-card:hover{border-color:rgba(92,134,255,.35)}
-.kpi-card-accent-warn{border-left:3px solid var(--warn)}
-.kpi-card-accent-danger{border-left:3px solid var(--danger)}
 .kpi-icon{width:42px;height:42px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex:0 0 auto}
 .kpi-card .kpi-label{font-size:.7rem;color:var(--text-3);font-weight:600;text-transform:uppercase;letter-spacing:.03em;white-space:nowrap}
 .kpi-card h4{font-size:1.35rem;font-weight:700;margin:1px 0 0}
 .kpi-card .kpi-sub{font-size:.7rem;color:var(--text-3);margin-top:1px}
 
-.mini-bar-row{margin-bottom:12px}
-.mini-bar-row:last-child{margin-bottom:0}
-.mini-bar-row .mbr-top{display:flex;justify-content:space-between;font-size:.8rem;margin-bottom:5px}
-.mini-bar-row .mbr-top .mbr-label{font-weight:600;color:var(--text-1);display:flex;align-items:center;gap:6px}
-.mini-bar-row .mbr-top .mbr-count{color:var(--text-3);font-weight:600}
-.mini-bar-row.clickable{cursor:pointer}
-.mini-bar-row.clickable:hover .mbr-label{color:var(--brand-500)}
-
 .table-sticky-wrap{max-height:460px;overflow:auto;border-radius:12px}
 .table-sticky-wrap thead th{position:sticky;top:0;z-index:2;background:var(--bg-surface);box-shadow:0 1px 0 var(--border-1)}
-
-.alert-item{display:flex;align-items:flex-start;gap:12px;padding:12px 0;border-bottom:1px solid var(--border-2)}
-.alert-item:last-child{border-bottom:none}
-.alert-item .alert-ico{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex:0 0 auto;font-size:.95rem}
-.alert-item .alert-count{font-size:.68rem;font-weight:700;padding:2px 9px;border-radius:20px;flex:0 0 auto}
-
-.alert-tile{
-  display:flex; align-items:flex-start; gap:12px; height:100%;
-  background:var(--glass-bg); border:1px solid var(--glass-border); border-left:3px solid var(--border-1);
-  border-radius:12px; padding:14px; cursor:pointer;
-  backdrop-filter:blur(var(--glass-blur)); -webkit-backdrop-filter:blur(var(--glass-blur));
-}
-.alert-tile:hover, .alert-tile:focus-visible{ transform:translateY(-3px); box-shadow:var(--shadow-lg); outline:none }
-.alert-tile-danger{border-left-color:var(--danger)}
-.alert-tile-warn{border-left-color:var(--warn)}
-.alert-tile .alert-ico{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex:0 0 auto;font-size:.95rem}
-.alert-tile .alert-count{font-size:.66rem;font-weight:700;padding:1px 8px;border-radius:20px;flex:0 0 auto}
-.alert-fix-link{font-size:.72rem;font-weight:700;margin-top:8px;display:inline-flex;align-items:center;gap:4px}
 
 .setup-progress-cell{display:flex;align-items:center;gap:8px;min-width:120px}
 .setup-progress-cell .progress-thin{flex:1}
 .setup-progress-cell .spc-pct{font-size:.75rem;font-weight:700;color:var(--text-2);width:34px;text-align:right}
-
-@media (min-width:992px){
-  .portfolio-col{border-right:1px solid var(--border-2); padding-right:1.5rem}
-  .portfolio-col + .portfolio-col{padding-left:1.5rem}
-}
