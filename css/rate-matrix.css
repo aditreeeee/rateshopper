@@ -30,12 +30,20 @@
 .grid-split-wrap .grid-table-wrap{ border-radius:0 0 16px 16px; border-top:none; }
 
 /* ---------- "My Property" row highlight (label cell + every price cell in its rows) ---------- */
-.grid-sticky-col.mx-mine{ background:var(--brand-50) !important; color:var(--brand-600); font-weight:700; }
+.grid-sticky-col.mx-mine{ background:var(--brand-50) !important; color:var(--brand-600); font-weight:700; box-shadow:inset 3px 0 0 var(--brand-500); }
 [data-theme="dark"] .grid-sticky-col.mx-mine{ background:rgba(56,97,251,.16) !important; }
 .grid-price-cell.mx-mine{ background:var(--brand-50); }
 [data-theme="dark"] .grid-price-cell.mx-mine{ background:rgba(56,97,251,.14); }
 .grid-price-cell.mx-mine .gp-price{ color:var(--brand-600); font-weight:700; }
 .grid-price-cell.mx-empty .gp-price{ color:var(--text-3); font-weight:400; }
+
+/* ---------- Competitor group divider row — a distinct tinted strip (not just bold text on the
+   same plain white row as prices below it) so the eye can immediately tell "this is a section
+   header" from "this is a room's rates" while scanning down a long list of competitors. ---------- */
+.grid-room-row td{ background:color-mix(in srgb, var(--bg-surface-2) 60%, transparent); border-bottom:1px solid var(--border-1); }
+.grid-room-row td.grid-sticky-col{ background:color-mix(in srgb, var(--bg-surface-2) 92%, transparent); }
+.grid-room-row td.grid-sticky-col.mx-mine{ background:var(--brand-50) !important; }
+.mx-group-label{ padding:2px 0; }
 
 .mx-legend-dot{
   display:inline-block; width:10px; height:10px; border-radius:3px; background:var(--brand-50);
@@ -183,13 +191,10 @@
 .mx-range-shiftable .mx-edge-left .bi, .mx-range-shiftable .mx-edge-right .bi,
 .parity-scroll-wrap .mx-edge-left .bi, .parity-scroll-wrap .mx-edge-right .bi{
   display:flex; align-items:center; justify-content:center;
-  width:100%; height:100%; border-radius:10px;
-  background:
-    linear-gradient(155deg, color-mix(in srgb, #fff 22%, transparent), transparent 55%),
-    color-mix(in srgb, var(--bg-surface) 62%, transparent);
-  backdrop-filter:blur(10px) saturate(180%); -webkit-backdrop-filter:blur(10px) saturate(180%);
-  border:1px solid color-mix(in srgb, var(--border-1) 70%, transparent);
-  box-shadow:0 1px 0 0 color-mix(in srgb, #fff 35%, transparent) inset;
+  width:100%; height:100%; border-radius:8px;
+  background:color-mix(in srgb, var(--bg-surface) 35%, transparent);
+  border:1px solid transparent;
+  box-shadow:none;
   color:var(--brand-600); font-size:.8rem;
   transition:background var(--dur-fast) ease, border-color var(--dur-fast) ease, color var(--dur-fast) ease;
 }
@@ -197,26 +202,18 @@
 .mx-range-shiftable .mx-edge-left.is-active .bi, .mx-range-shiftable .mx-edge-right.is-active .bi,
 .parity-scroll-wrap .mx-edge-left:hover .bi, .parity-scroll-wrap .mx-edge-right:hover .bi,
 .parity-scroll-wrap .mx-edge-left.is-active .bi, .parity-scroll-wrap .mx-edge-right.is-active .bi{
-  background:
-    linear-gradient(155deg, color-mix(in srgb, #fff 30%, transparent), transparent 55%),
-    color-mix(in srgb, var(--brand-50) 82%, transparent);
-  border-color:var(--brand-300); color:var(--brand-700);
-  box-shadow:0 1px 0 0 color-mix(in srgb, #fff 45%, transparent) inset;
+  background:color-mix(in srgb, var(--brand-50) 55%, transparent);
+  border-color:color-mix(in srgb, var(--brand-300) 60%, transparent); color:var(--brand-700);
 }
 [data-theme="dark"] .mx-range-shiftable .mx-edge-left .bi, [data-theme="dark"] .mx-range-shiftable .mx-edge-right .bi,
 [data-theme="dark"] .parity-scroll-wrap .mx-edge-left .bi, [data-theme="dark"] .parity-scroll-wrap .mx-edge-right .bi{
-  background:
-    linear-gradient(155deg, color-mix(in srgb, #fff 10%, transparent), transparent 55%),
-    color-mix(in srgb, var(--bg-surface-2) 62%, transparent);
-  box-shadow:0 1px 0 0 color-mix(in srgb, #fff 12%, transparent) inset;
+  background:color-mix(in srgb, var(--bg-surface-2) 35%, transparent);
 }
 [data-theme="dark"] .mx-range-shiftable .mx-edge-left:hover .bi, [data-theme="dark"] .mx-range-shiftable .mx-edge-right:hover .bi,
 [data-theme="dark"] .mx-range-shiftable .mx-edge-left.is-active .bi, [data-theme="dark"] .mx-range-shiftable .mx-edge-right.is-active .bi,
 [data-theme="dark"] .parity-scroll-wrap .mx-edge-left:hover .bi, [data-theme="dark"] .parity-scroll-wrap .mx-edge-right:hover .bi,
 [data-theme="dark"] .parity-scroll-wrap .mx-edge-left.is-active .bi, [data-theme="dark"] .parity-scroll-wrap .mx-edge-right.is-active .bi{
-  background:
-    linear-gradient(155deg, color-mix(in srgb, #fff 16%, transparent), transparent 55%),
-    color-mix(in srgb, var(--brand-900) 55%, transparent);
+  background:color-mix(in srgb, var(--brand-900) 40%, transparent);
 }
 
 /* The bottom hover-scroll zone (.mx-edge-bottom) was physically overlapping the grid-table-wrap's

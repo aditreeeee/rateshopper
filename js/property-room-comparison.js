@@ -803,6 +803,8 @@ document.addEventListener('DOMContentLoaded', ()=>{
       rcPage = 0;
       renderRpta();
       renderAll();
+      refreshValueProp();
+      renderChannelAnalysis(propertyId);
     });
   });
   document.querySelectorAll('#rc_rangeGroup button').forEach(btn=>{
@@ -822,6 +824,8 @@ document.addEventListener('DOMContentLoaded', ()=>{
       this.classList.remove('btn-soft'); this.classList.add('btn-outline-primary');
       renderRpta();
       renderMealPlanComparison(document.getElementById('rc_channel').value);
+      refreshValueProp();
+      renderChannelAnalysis(propertyId);
     });
   });
   // The top Channel/Room selectors also drive the Trend Analysis and Meal Plan Comparison charts.
@@ -843,10 +847,14 @@ document.addEventListener('DOMContentLoaded', ()=>{
       document.getElementById('cmp_tabValueProp').classList.toggle('d-none', this.dataset.tab!=='valueprop');
       document.getElementById('cmp_tabChannels').classList.toggle('d-none', this.dataset.tab!=='channels');
       if(this.dataset.tab==='trend'){ renderRpta(); renderMealPlanComparison(document.getElementById('rc_channel').value); }
-      if(this.dataset.tab==='valueprop'){ renderValueProposition(propertyId, compsAll, PORTALDATA.dateKeyOffset(0)); }
+      if(this.dataset.tab==='valueprop'){ refreshValueProp(); }
       if(this.dataset.tab==='channels'){ renderChannelAnalysis(propertyId); }
     });
   });
+
+  // Value Proposition reads the same shared mealPlanFilter/rcChartStyle state as the rest of the
+  // page (see "Shared filter bar wiring" above) — no filter row of its own.
+  function refreshValueProp(){ renderValueProposition(propertyId, compsAll, PORTALDATA.dateKeyOffset(0)); }
 
   if(!myRooms.length){
     document.getElementById('rcKpis').innerHTML = `<div class="col-12">${PWIDGETS.emptyState('bi-door-closed','No rooms found','Add rooms to your property\'s Master Channel to use Room Rate Comparison.')}</div>`;
@@ -856,7 +864,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   renderAll();
   renderRpta();
   renderMealPlanComparison('');
-  renderValueProposition(propertyId, compsAll, PORTALDATA.dateKeyOffset(0));
+  refreshValueProp();
   renderChannelAnalysis(propertyId);
 });
 
@@ -880,6 +888,16 @@ document.addEventListener('DOMContentLoaded', ()=>{
    ========================================================================== */
 let vpChart = null;
 const VP_WEIGHTS = { amenity:0.3, mealPlan:0.3, cancellation:0.2, roomSize:0.2 };
+// Every property compared here is real (comparisonRealProperties() only — see the top of this
+// file), so a meal-plan-scoped rate always resolves through the real per-room/rate-plan data via
+// mealPlanRateOnDate, same as the Rate Plan Trend Analysis tab. Returns null (not a silent
+// all-plans fallback) when the property has no rooms on that meal plan. Reads the page's shared
+// mealPlanFilter (set by the top filter bar) rather than a filter of its own.
+function vpRate(propertyId, isComp, dateKey){
+  const realId = isComp ? propertyId.realPropertyId : propertyId;
+  return mealPlanFilter ? PORTALDATA.mealPlanRateOnDate(realId, mealPlanFilter, dateKey)
+    : (isComp ? PORTALDATA.competitorRateOnDate(propertyId, dateKey) : PORTALDATA.myRateOnDate(propertyId, dateKey));
+}
 function renderValueProposition(propertyId, comps, today){
   const mealRank = { EP:0, CP:1, MAP:2, AP:3 };
 
@@ -897,9 +915,9 @@ function renderValueProposition(propertyId, comps, today){
     return { amenities, refundablePct, mealPlanAvgRank, avgRoomSize };
   }
 
-  const rows = [{ name:'My Property', isMe:true, rate:PORTALDATA.myRateOnDate(propertyId, today), ...rawProfile(propertyId) }];
+  const rows = [{ name:'My Property', isMe:true, rate:vpRate(propertyId, false, today), ...rawProfile(propertyId) }];
   comps.forEach(c=>{
-    rows.push({ name:c.name, isMe:false, rate:PORTALDATA.competitorRateOnDate(c, today), ...rawProfile(c.realPropertyId) });
+    rows.push({ name:c.name, isMe:false, rate:vpRate(c, true, today), ...rawProfile(c.realPropertyId) });
   });
 
   // Normalize each raw factor against the max seen across THIS comparison set — so the score
@@ -926,24 +944,35 @@ function renderValueProposition(propertyId, comps, today){
     r.amenityScore = Math.round(amenityScore); r.mealPlanQuality = Math.round(mealPlanQuality); r.roomSizeScore = roomSizeScore!=null?Math.round(roomSizeScore):null;
   });
 
-  const compRates = comps.map(c=>PORTALDATA.competitorRateOnDate(c, today));
+  const compRates = comps.map(c=>vpRate(c, true, today)).filter(r=>r!=null);
   const compAvg = compRates.length ? Math.round(compRates.reduce((a,b)=>a+b,0)/compRates.length) : null;
-  rows.forEach(r=>{ r.pricePositionPct = compAvg ? Math.round(((r.rate-compAvg)/compAvg)*1000)/10 : null; });
+  rows.forEach(r=>{ r.pricePositionPct = (compAvg!=null && r.rate!=null) ? Math.round(((r.rate-compAvg)/compAvg)*1000)/10 : null; });
 
   const ranked = [...rows].sort((a,b)=>b.valueScore-a.valueScore);
   const myRank = ranked.findIndex(r=>r.isMe) + 1;
   const mine = rows[0];
+  const planNote = mealPlanFilter ? ` (${mealPlanFilter} rate)` : '';
 
   document.getElementById('vp_summary').textContent = mine.pricePositionPct!=null
-    ? `Value Score rank: #${myRank} of ${rows.length}. Price Position: ${mine.pricePositionPct>=0?'+':''}${mine.pricePositionPct}% vs. the ${comps.length}-competitor average — Value Score is quality (amenities, meal plan, flexibility, room size) normalized 0-100; Price Position is purely how your rate compares.`
-    : `Value Score rank: #${myRank} of ${rows.length}. Add comparison properties to see Price Position.`;
+    ? `Value Score rank: #${myRank} of ${rows.length}. Price Position${planNote}: ${mine.pricePositionPct>=0?'+':''}${mine.pricePositionPct}% vs. the ${comps.length}-competitor average — Value Score is quality (amenities, meal plan, flexibility, room size) normalized 0-100; Price Position is purely how your rate compares.`
+    : mealPlanFilter && mine.rate==null
+      ? `Value Score rank: #${myRank} of ${rows.length}. No ${mealPlanFilter} rooms on this property to show a Price Position for.`
+      : `Value Score rank: #${myRank} of ${rows.length}. Add comparison properties to see Price Position.`;
 
   if(vpChart) vpChart.destroy();
+  const vpIsBar = rcChartStyle==='bar';
   vpChart = new Chart(document.getElementById('vp_chart'), {
-    type:'bar',
-    data:{ labels: ranked.map(r=>r.name), datasets:[{ label:'Value Score', data: ranked.map(r=>r.valueScore), backgroundColor: ranked.map(r=>r.isMe?'#3861fb':'#c3aee8'), borderRadius:5 }] },
-    options:{ indexAxis:'y', responsive:true, animation:chartAnim(true), plugins:{legend:{display:false},
-      tooltip:{callbacks:{label:ctx=>`Value Score: ${ctx.parsed.x}/100`}}}, scales:{x:{min:0,max:100,ticks:{precision:0}}} }
+    type: vpIsBar ? 'bar' : 'line',
+    data:{ labels: ranked.map(r=>r.name), datasets:[{
+      label:'Value Score', data: ranked.map(r=>r.valueScore),
+      backgroundColor: vpIsBar ? ranked.map(r=>r.isMe?'#3861fb':'#c3aee8') : 'rgba(56,97,251,.12)',
+      borderColor: vpIsBar ? undefined : '#3861fb', borderWidth: vpIsBar ? 0 : 2,
+      pointBackgroundColor: ranked.map(r=>r.isMe?'#3861fb':'#c3aee8'), pointRadius: vpIsBar ? 0 : 4,
+      fill: !vpIsBar, tension:.3, borderRadius: vpIsBar ? 5 : 0
+    }] },
+    options:{ indexAxis: vpIsBar ? 'y' : 'x', responsive:true, animation:chartAnim(vpIsBar), plugins:{legend:{display:false},
+      tooltip:{callbacks:{label:ctx=>`Value Score: ${vpIsBar?ctx.parsed.x:ctx.parsed.y}/100`}}},
+      scales: vpIsBar ? {x:{min:0,max:100,ticks:{precision:0}}} : {y:{min:0,max:100,ticks:{precision:0}}} }
   });
 
   function pricePositionCell(pct){
@@ -957,23 +986,27 @@ function renderValueProposition(propertyId, comps, today){
     <thead><tr><th>Property</th><th class="text-end">Rate</th><th class="text-center">Value Score</th><th class="text-center">Price Position</th></tr></thead>
     <tbody>${ranked.map(r=>`<tr class="${r.isMe?'rc-frozen-row':''}">
       <td class="fw-semibold">${r.isMe?'<i class="bi bi-star-fill me-1" style="color:var(--brand-500)"></i>':''}${r.name}</td>
-      <td class="text-end">${APP.fmtCurrency(r.rate)}</td>
+      <td class="text-end">${r.rate!=null?APP.fmtCurrency(r.rate):'<span class="text-muted">—</span>'}</td>
       <td class="text-center fw-bold">${r.valueScore}/100</td>
       <td class="text-center">${pricePositionCell(r.pricePositionPct)}</td>
     </tr>`).join('')}</tbody>`;
 }
 
 let caChart = null;
+let caFiltersWired = false; // ca_room/ca_channel dropdown options only need populating once
+let caParityFiltersWired = false; // ca_room/ca_channel change listeners for the Room/Rate Plan Parity table below
 function renderChannelAnalysis(propertyId){
   const todayKey = DB.fmtDate(new Date());
   const channels = DB.channels.byProperty(propertyId);
   const master = channels.find(c=>c.type==='master');
 
+  // Reads the page's shared mealPlanFilter (top filter bar), same as every other tab.
   function channelAvgRateOnDate(channelId, dateKey){
     const rooms = DB.rooms.byChannel(channelId);
     let sum = 0, count = 0;
     rooms.forEach(room=>{
       DB.ratePlans.byRoom(room.id).forEach(rp=>{
+        if(mealPlanFilter && rp.mealPlan !== mealPlanFilter) return;
         const day = DB.rates.forPlan(rp.id)[dateKey];
         sum += day ? day.price : room.basePrice;
         count++;
@@ -1000,6 +1033,10 @@ function renderChannelAnalysis(propertyId){
     return { channel: ch, current, lowest, highest, average, diff };
   });
 
+  const planNote = mealPlanFilter ? `, ${mealPlanFilter} only` : '';
+  document.getElementById('ca_summary').textContent =
+    `Current, lowest, highest, and average rate per channel over the next 30 days${planNote}, vs. your Direct rate today.`;
+
   document.getElementById('channelCards').innerHTML = channelMetrics.map(m=>{
     const meta = DB.CHANNEL_TYPES[m.channel.type] || DB.CHANNEL_TYPES.custom;
     return `<div class="col-md-6 col-xl-4">
@@ -1021,14 +1058,21 @@ function renderChannelAnalysis(propertyId){
   }).join('');
 
   if(caChart) caChart.destroy();
+  const caIsBar = rcChartStyle==='bar';
   caChart = new Chart(document.getElementById('channelRateChart'), {
-    type:'bar',
+    type: caIsBar ? 'bar' : 'line',
     data:{
       labels: channelMetrics.map(m=>m.channel.name),
-      datasets:[{label:'Current Rate', data: channelMetrics.map(m=>m.current||0), backgroundColor: channelMetrics.map(m=>(DB.CHANNEL_TYPES[m.channel.type]||DB.CHANNEL_TYPES.custom).color), borderRadius:6}]
+      datasets:[{
+        label:'Current Rate', data: channelMetrics.map(m=>m.current||0),
+        backgroundColor: caIsBar ? channelMetrics.map(m=>(DB.CHANNEL_TYPES[m.channel.type]||DB.CHANNEL_TYPES.custom).color) : 'rgba(56,97,251,.12)',
+        borderColor: caIsBar ? undefined : '#3861fb', borderWidth: caIsBar ? 0 : 2,
+        pointBackgroundColor: channelMetrics.map(m=>(DB.CHANNEL_TYPES[m.channel.type]||DB.CHANNEL_TYPES.custom).color), pointRadius: caIsBar ? 0 : 4,
+        fill: !caIsBar, tension:.3, borderRadius: caIsBar ? 6 : 0
+      }]
     },
     options:{
-      responsive:true, animation:chartAnim(true),
+      responsive:true, animation:chartAnim(caIsBar),
       plugins:{ legend:{display:false}, tooltip:{callbacks:{label:ctx=>APP.fmtCurrency(ctx.parsed.y)}} },
       scales:{y:{ticks:{callback:v=>APP.fmtCurrency(v)}}}
     }
@@ -1037,8 +1081,13 @@ function renderChannelAnalysis(propertyId){
   const otaChannelsAll = channels.filter(c=>c.id !== (master && master.id));
   const myRoomsAll = master ? DB.rooms.byChannel(master.id) : [];
 
-  document.getElementById('ca_room').innerHTML = `<option value="">All Rooms</option>` + myRoomsAll.map(r=>`<option value="${r.id}">${r.name}</option>`).join('');
-  document.getElementById('ca_channel').innerHTML = `<option value="">All Channels (OTA Avg.)</option>` + otaChannelsAll.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
+  // Rooms/channels don't change within a session, so the dropdown options only need populating
+  // once rather than being rebuilt (and losing the user's current selection) on every re-render.
+  if(!caFiltersWired){
+    caFiltersWired = true;
+    document.getElementById('ca_room').innerHTML = `<option value="">All Rooms</option>` + myRoomsAll.map(r=>`<option value="${r.id}">${r.name}</option>`).join('');
+    document.getElementById('ca_channel').innerHTML = `<option value="">All Channels (OTA Avg.)</option>` + otaChannelsAll.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
+  }
 
   function renderParityTable(){
     const roomFilter = document.getElementById('ca_room').value;
@@ -1094,7 +1143,10 @@ function renderChannelAnalysis(propertyId){
       </tr>`).join('') || `<tr><td colspan="8" class="text-center text-muted py-4">No rooms found for these filters.</td></tr>`}</tbody>`;
   }
 
-  document.getElementById('ca_room').addEventListener('change', renderParityTable);
-  document.getElementById('ca_channel').addEventListener('change', renderParityTable);
+  if(!caParityFiltersWired){
+    caParityFiltersWired = true;
+    document.getElementById('ca_room').addEventListener('change', renderParityTable);
+    document.getElementById('ca_channel').addEventListener('change', renderParityTable);
+  }
   renderParityTable();
 }

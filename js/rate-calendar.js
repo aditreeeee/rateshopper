@@ -876,5 +876,17 @@ function openRateParity(roomId, planId, occ){
   // constructing a fresh instance every time leaves the previous one's event listeners attached
   // to the same DOM element, which can make the page feel unresponsive ("frozen") after the modal
   // has been opened more than once.
-  bootstrap.Modal.getOrCreateInstance(document.getElementById('parityModal')).show();
+  const parityModalEl = document.getElementById('parityModal');
+  // renderParityGrid() above measures the header via getBoundingClientRect() while the modal is
+  // still display:none, so the edge arrows land at a zeroed-out {0,0,0,0} rect on first paint
+  // (stale/misplaced-looking) until something else re-renders them. Re-run the same alignment
+  // once Bootstrap has actually made the modal visible, so it's correct on the very first open.
+  if(!parityModalEl.dataset.edgeAlignShownWired){
+    parityModalEl.dataset.edgeAlignShownWired = '1';
+    parityModalEl.addEventListener('shown.bs.modal', function(){
+      const parityHost = document.getElementById('parityGridHost');
+      if(parityHost) alignEdgeZonesToHeader(document.querySelector('.parity-scroll-wrap'), parityHost, 'parity_edgeLeft', 'parity_edgeRight');
+    });
+  }
+  bootstrap.Modal.getOrCreateInstance(parityModalEl).show();
 }

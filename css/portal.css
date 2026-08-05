@@ -682,7 +682,9 @@
 
 /* ---- Competitor Rates — a compact ranked table (rank / property / rate / vs market), "you"
    row picked out so your own position in the ranking is immediate. ---- */
-.ric-comp-table{ display:flex; flex-direction:column; gap:1px; }
+/* Capped to 5 rows' worth of height (5 * 22px row + 4 * 1px gap) so a long competitor set scrolls
+   internally instead of pushing the rest of the detail panel down. */
+.ric-comp-table{ display:flex; flex-direction:column; gap:1px; max-height:114px; overflow-y:auto; padding-right:2px; }
 .ric-comp-row-filler{ visibility:hidden; min-height:22px; }
 .ric-comp-row{
   display:grid; grid-template-columns:18px 1fr auto auto; align-items:center; gap:8px;

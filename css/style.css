@@ -310,7 +310,14 @@ input:focus-visible, select:focus-visible, textarea:focus-visible,
 }
 /* Sticky header only inside an explicit scroll container (rate-shopper-table-wrap,
    table-sticky-wrap, grid-table-wrap etc.) — sticky at the bare table level would stick to the
-   viewport top and collide with the fixed topbar on any page long enough to scroll. */
+   viewport top and collide with the fixed topbar on any page long enough to scroll.
+   .table-modern's own overflow:hidden (above, for the rounded corners) counts as a scroll
+   container for position:sticky purposes even though the table itself never actually scrolls —
+   that makes any sticky descendant stick to the (non-scrolling) table instead of to the wrap div
+   that's actually being scrolled, so it silently never appears to "stick". Clear it back to
+   visible here, since the wrap already clips/rounds via its own overflow:auto + border-radius. */
+.rate-shopper-table-wrap .table-modern,
+.table-sticky-wrap .table-modern{ overflow:visible; }
 .rate-shopper-table-wrap .table-modern thead th,
 .table-sticky-wrap .table-modern thead th{
   position:sticky; top:0; z-index:3; backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);
@@ -468,8 +475,8 @@ body:not(.cal-embed) .cal-context-bar{top:var(--header-h)}
   position:sticky; top:0; z-index:4;
   background:color-mix(in srgb, var(--bg-surface-2) 82%, transparent);
   backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
-  padding:10px 12px; font-size:.72rem; letter-spacing:.01em;
-  color:var(--text-3); font-weight:500; text-align:center;
+  padding:12px 12px; font-size:.7rem; letter-spacing:.03em; text-transform:uppercase;
+  color:var(--text-3); font-weight:700; text-align:center;
 }
 .grid-table thead th.today-col{color:var(--brand-600);background:color-mix(in srgb, var(--brand-50) 85%, transparent)}
 [data-theme="dark"] .grid-table thead th.today-col{background:rgba(56,97,251,.22)}
@@ -498,9 +505,9 @@ body:not(.cal-embed) .cal-context-bar{top:var(--header-h)}
 .grid-room-row td.grid-sticky-col{background:color-mix(in srgb, var(--bg-surface-2) 92%, transparent);font-weight:400;color:var(--text-1)}
 .grid-plan-header-row td.grid-sticky-col{background:color-mix(in srgb, var(--bg-surface-2) 92%, transparent)}
 
-.grid-plan-label{padding:8px 14px}
-.grid-plan-label .name{font-size:.82rem;font-weight:400;color:var(--text-1)}
-.grid-plan-label .meta{font-size:.71rem;font-weight:400;color:var(--text-3)}
+.grid-plan-label{padding:10px 14px}
+.grid-plan-label .name{font-size:.83rem;font-weight:600;color:var(--text-1)}
+.grid-plan-label .meta{font-size:.71rem;font-weight:500;color:var(--text-3)}
 .grid-occ-badge{
   display:inline-flex; align-items:center; gap:3px; font-size:.72rem; font-weight:400;
   padding:1px 7px; border-radius:20px; background:var(--bg-surface-2); color:var(--text-2); line-height:1.6;
@@ -509,8 +516,9 @@ body:not(.cal-embed) .cal-context-bar{top:var(--header-h)}
 .grid-price-cell{min-width:92px;max-width:160px;text-align:center;cursor:pointer;transition:background .15s ease}
 .grid-price-cell:hover{background:var(--bg-surface-2)}
 .grid-price-cell.today-col{background:rgba(56,97,251,.05)}
+.gp-cell-inner{padding:10px 8px}
 .grid-price-cell .gp-price{
-  font-size:.82rem; font-weight:400; color:var(--text-1);
+  font-size:.86rem; font-weight:600; color:var(--text-1);
   font-variant-numeric:tabular-nums;
 }
 .grid-price-cell.locked{background:#fff0f1}
@@ -519,6 +527,12 @@ body:not(.cal-embed) .cal-context-bar{top:var(--header-h)}
   font-variant-numeric:tabular-nums;
 }
 .grid-price-cell .gp-flags{font-size:.6rem;font-weight:400;color:var(--text-3);margin-top:2px}
+/* Cheaper/pricier-than-mine indicator, shown under the price on every competitor cell where the
+   gap is meaningful (>=1%) — turns the grid from a wall of numbers you have to mentally diff
+   against your own row into something scannable at a glance. */
+.gp-diff{ font-size:.62rem; font-weight:700; margin-top:2px; font-variant-numeric:tabular-nums; }
+.gp-diff.mx-cheaper{ color:var(--danger); }
+.gp-diff.mx-pricier{ color:var(--success); }
 
 /* ---------- Rate Parity icon (shared image, Company + Property portal Rate Calendar) ---------- */
 .parity-icon{width:14px;height:14px;object-fit:contain;vertical-align:-2px}

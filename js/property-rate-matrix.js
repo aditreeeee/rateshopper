@@ -374,16 +374,21 @@ document.addEventListener('DOMContentLoaded', ()=>{
           }
 
           const myPrice = (myRates[r.ourRoomId]||{})[dateKey];
-          let diffTip = '';
+          let diffTip = '', diffClass = '', diffBadge = '';
           if(!g.isMe && price!=null && myPrice!=null){
             const diffPct = ((price-myPrice)/myPrice)*100;
             diffTip = ` • ${diffPct>=0?'+':''}${diffPct.toFixed(1)}% vs. your rate`;
+            // Cheaper-than-mine reads as a competitive risk (accent red); pricier-than-mine as
+            // headroom (success green) — flat/near-equal (<1%) stays neutral so tiny rounding
+            // noise doesn't paint the whole grid one color or the other.
+            if(Math.abs(diffPct) >= 1) diffClass = diffPct < 0 ? 'mx-cheaper' : 'mx-pricier';
+            diffBadge = Math.abs(diffPct) >= 1 ? `<div class="gp-diff ${diffClass}">${diffPct>=0?'+':''}${diffPct.toFixed(0)}%</div>` : '';
           }
           const tooltip = price!=null
             ? `${g.name} — ${r.roomName} • ${occ} Pax • ${result.plan.mealPlan} • ${result.plan.refundable?'Flexible':'Non-Refundable'} • ${myChannel?myChannel.name:''} • ${APP.fmtDateReadable(dateKey)}: ${APP.fmtCurrency(price)}${diffTip}`
             : `${g.name} — ${r.roomName} — no rate available on ${myChannel?myChannel.name:'this channel'} for ${APP.fmtDateReadable(dateKey)}`;
-          return `<td class="grid-price-cell ${g.isMe?'mx-mine':''} ${price==null?'mx-empty':''} ${isToday?'today-col':''}" title="${tooltip}">
-            <div class="py-2 px-1"><div class="gp-price">${price!=null?APP.fmtCurrency(price):'—'}</div></div>
+          return `<td class="grid-price-cell ${g.isMe?'mx-mine':''} ${price==null?'mx-empty':''} ${isToday?'today-col':''} ${diffClass}" title="${tooltip}">
+            <div class="gp-cell-inner"><div class="gp-price">${price!=null?APP.fmtCurrency(price):'—'}</div>${diffBadge}</div>
           </td>`;
         }).join('');
         const parityBtn = (rowRoomId && rowPlanId)
@@ -489,7 +494,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
           </div>
         </td>
         ${row.prices.map(price=>{
-          return `<td class="grid-price-cell"><div class="py-2 px-1"><div class="gp-price">${price!=null ? APP.fmtCurrency(price) : '—'}</div></div></td>`;
+          return `<td class="grid-price-cell"><div class="gp-cell-inner"><div class="gp-price">${price!=null ? APP.fmtCurrency(price) : '—'}</div></div></td>`;
         }).join('')}
       </tr>`;
     }).join('');
@@ -568,7 +573,19 @@ document.addEventListener('DOMContentLoaded', ()=>{
     // and constructing a fresh instance every time leaves the previous one's event listeners
     // attached to the same DOM element, which is what was causing the page to become unresponsive
     // ("frozen") after the modal had been opened more than once.
-    bootstrap.Modal.getOrCreateInstance(document.getElementById('parityModal')).show();
+    const parityModalEl = document.getElementById('parityModal');
+    // renderParityGrid() above measures the header via getBoundingClientRect() while the modal is
+    // still display:none, so the edge arrows land at a zeroed-out {0,0,0,0} rect on first paint
+    // (stale/misplaced-looking) until something else re-renders them. Re-run the same alignment
+    // once Bootstrap has actually made the modal visible, so it's correct on the very first open.
+    if(!parityModalEl.dataset.edgeAlignShownWired){
+      parityModalEl.dataset.edgeAlignShownWired = '1';
+      parityModalEl.addEventListener('shown.bs.modal', function(){
+        const parityHost = document.getElementById('parityGridHost');
+        if(parityHost) alignEdgeZonesToHeader(document.querySelector('.parity-scroll-wrap'), parityHost, 'parity_edgeLeft', 'parity_edgeRight');
+      });
+    }
+    bootstrap.Modal.getOrCreateInstance(parityModalEl).show();
   }
 
   function resetFilters(){
