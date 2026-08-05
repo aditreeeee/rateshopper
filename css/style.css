@@ -641,10 +641,33 @@ body:not(.cal-embed) .cal-context-bar{top:var(--header-h)}
 [data-theme="dark"] .bulk-bar{ background:rgba(56,97,251,.14); border-color:rgba(56,97,251,.3); }
 .property-card .p-body{padding:16px}
 
-.kv-row{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border-2);font-size:.85rem}
+.kv-row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border-2);font-size:.85rem}
 .kv-row:last-child{border-bottom:none}
-.kv-row .k{color:var(--text-3)}
-.kv-row .v{font-weight:600}
+.kv-row .k{color:var(--text-3);display:flex;align-items:center;white-space:nowrap}
+.kv-row .v{font-weight:600;text-align:right}
+
+/* ---------- Profile page — cover band + overlapping avatar, camera-icon edit affordance
+   (a <label for="pf_avatarUrl">, so clicking it just focuses the URL field below rather than
+   needing separate JS wiring), and a proper kv-row list instead of the page building its own
+   ad-hoc DOM. ---------- */
+.pf-summary-card{ position:relative; }
+.pf-cover{
+  height:84px;
+  background:linear-gradient(120deg, var(--brand-500), var(--accent));
+}
+.pf-avatar-wrap{ position:relative; width:104px; height:104px; margin:-52px auto 10px; }
+.pf-avatar{
+  width:104px; height:104px; border-radius:50%; object-fit:cover;
+  border:4px solid var(--bg-surface); box-shadow:var(--shadow-md); display:block;
+}
+.pf-avatar-edit{
+  position:absolute; right:0; bottom:2px; width:30px; height:30px; border-radius:50%;
+  background:var(--brand-500); color:#fff; display:flex; align-items:center; justify-content:center;
+  font-size:.78rem; border:3px solid var(--bg-surface); cursor:pointer; transition:background .15s ease, transform .15s ease;
+}
+.pf-avatar-edit:hover{ background:var(--brand-600); transform:scale(1.06); }
+.pf-avatar-url-field{ margin:0 0 4px; }
+.pf-avatar-url-field small{ display:block; margin-top:4px; font-size:.7rem; }
 
 @media (max-width:991px){
   .sidebar{transform:translateX(-100%)}

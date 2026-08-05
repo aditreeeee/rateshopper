@@ -140,21 +140,22 @@ function render(){
   tbody.innerHTML = pageRows.map(u=>{
     const isCompanyLevel = u.role==='company_admin';
     const manageable = RBAC.canManageUser(u);
-    let propertyCell;
+    let parentCell, competitorsCell;
     if(isCompanyLevel){
-      propertyCell = '<span class="text-muted small">All properties</span>';
+      parentCell = '<span class="text-muted small">All properties</span>';
+      competitorsCell = '<span class="text-muted small">—</span>';
     } else {
       const parent = DB.properties.get(u.parentPropertyId);
-      const extraNames = (u.assignedProperties||[]).filter(id=>id!==u.parentPropertyId).map(id=>{ const p=DB.properties.get(id); return p?p.name:null; }).filter(Boolean);
-      propertyCell = parent
-        ? `<span class="badge bg-primary-subtle text-primary me-1">${parent.name}</span>${extraNames.map(n=>`<span class="badge bg-light text-dark border me-1">${n}</span>`).join('')}`
-        : '<span class="text-muted">—</span>';
+      parentCell = parent ? `<span class="badge bg-primary-subtle text-primary">${parent.name}</span>` : '<span class="text-muted">—</span>';
+      const compNames = (u.assignedProperties||[]).filter(id=>id!==u.parentPropertyId).map(id=>{ const p=DB.properties.get(id); return p?p.name:null; }).filter(Boolean);
+      competitorsCell = compNames.length ? compNames.map(n=>`<span class="badge bg-light text-dark border me-1">${n}</span>`).join('') : '<span class="text-muted">—</span>';
     }
     return `<tr data-select-id="${u.id}">
       <td>${manageable ? `<input class="form-check-input" type="checkbox" ${selectedUsers.has(u.id)?'checked':''} onchange="toggleSelectUser('${u.id}', this.checked)">` : ''}</td>
       <td><div class="d-flex align-items-center gap-2"><img src="${u.avatar}" class="avatar-thumb"><div><div class="fw-semibold">${u.name}</div><div class="text-muted" style="font-size:.75rem">${u.email}</div></div></div></td>
       <td><span class="badge bg-primary-subtle text-primary">${RBAC.ROLE_LABELS[u.role]}</span></td>
-      <td>${propertyCell}</td>
+      <td>${parentCell}</td>
+      <td>${competitorsCell}</td>
       <td><span class="badge-status ${u.status==='active'?'badge-active':'badge-inactive'}">${u.status}</span></td>
       <td class="text-end">
         ${manageable ? `

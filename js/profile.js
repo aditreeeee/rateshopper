@@ -9,10 +9,11 @@ document.addEventListener('DOMContentLoaded', ()=>{
   const me = RBAC.currentUser();
   document.getElementById('pf_avatarPreview').src = me.avatar;
   document.getElementById('pf_nameDisplay').textContent = me.name;
-  document.getElementById('pf_roleDisplay').textContent = RBAC.ROLE_LABELS[me.role];
+  document.getElementById('pf_roleBadge').textContent = RBAC.ROLE_LABELS[me.role];
   document.getElementById('pf_hmsUserIdDisplay').textContent = me.hmsUserId || '—';
   document.getElementById('pf_emailDisplay').textContent = me.email;
   document.getElementById('pf_phoneDisplay').textContent = me.phone || '—';
+  document.getElementById('pf_memberSince').textContent = me.createdAt ? APP.fmtDateReadable(me.createdAt) : '—';
   document.getElementById('pf_avatarUrl').value = me.avatar;
   document.getElementById('pf_name').value = me.name;
   document.getElementById('pf_role').value = RBAC.ROLE_LABELS[me.role];
@@ -21,11 +22,13 @@ document.addEventListener('DOMContentLoaded', ()=>{
   document.getElementById('pf_bio').value = me.bio || '';
 
   if(!RBAC.isCompanyLevel(me.role)){
-    const names = (me.assignedProperties||[]).map(id=>{ const p = DB.properties.get(id); return p ? p.name : null; }).filter(Boolean);
-    const note = document.createElement('div');
-    note.className = 'kv-row';
-    note.innerHTML = `<span class="k">Assigned Properties</span><span class="v">${names.join(', ') || '—'}</span>`;
-    document.querySelector('.section-card:has(#pf_avatarPreview)')?.appendChild(note);
+    const parent = me.parentPropertyId ? DB.properties.get(me.parentPropertyId) : null;
+    document.getElementById('pf_parentValue').textContent = parent ? parent.name : '—';
+    document.getElementById('pf_parentRow').classList.remove('d-none');
+
+    const compNames = (me.assignedProperties||[]).map(id=>{ const p = DB.properties.get(id); return p ? p.name : null; }).filter(Boolean);
+    document.getElementById('pf_competitorsValue').textContent = compNames.join(', ') || '—';
+    document.getElementById('pf_competitorsRow').classList.remove('d-none');
   }
 
   document.getElementById('pf_avatarUrl').addEventListener('input', function(){

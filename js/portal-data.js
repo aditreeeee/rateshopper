@@ -306,34 +306,6 @@ const PORTALDATA = (() => {
   }
   function saveSettings(propertyId, s){ DB.set(KEYS.settings+propertyId, s); }
 
-  // ---- pricing recommendations (computed on the fly from today's comparison) — every reason
-  // here is driven by rate/market signals only (competitor movement, weekend/holiday rate
-  // patterns, local events), never occupancy or booking-pace/volume data. ---------------------
-  function recommendations(propertyId){
-    const comps = competitors(propertyId);
-    const today = dateKeyOffset(0);
-    const myRate = myRateOnDate(propertyId, today);
-    const marketAvg = Math.round(comps.reduce((s,c)=>s+competitorRateOnDate(c,today),0)/comps.length);
-    const items = [];
-
-    const diffPct = ((marketAvg-myRate)/myRate)*100;
-    if(diffPct > 6){
-      items.push(mkRec('increase', Math.round((marketAvg-myRate)*0.6/10)*10, 'Competitor movement — market average is running above your rate', 82, propertyId, today));
-    } else if(diffPct < -6){
-      items.push(mkRec('decrease', Math.round((myRate-marketAvg)*0.5/10)*10, 'You are priced above the market — risk of losing share to competitors', 76, propertyId, today));
-    } else {
-      items.push(mkRec('hold', 0, 'Your rate is well aligned with the current market average', 90, propertyId, today));
-    }
-
-    if(isWeekend(dateKeyOffset(2))){
-      items.push(mkRec('increase', DB.rand(150,400), 'Upcoming weekend — this market typically commands higher Fri/Sat rates', 71, propertyId, dateKeyOffset(2)));
-    }
-    const evt = localEventOn(dateKeyOffset(5));
-    if(evt){
-      items.push(mkRec('increase', DB.rand(300,700), `Local event detected: ${evt} — consider pricing ahead of the market`, 68, propertyId, dateKeyOffset(5)));
-    }
-    return items;
-  }
   // Deterministic "last scraped" moment for a given property+date, so the stale-data badge
   // stays stable across re-renders in the same session instead of flickering on every reload.
   function lastScrapedAt(seed){
@@ -399,16 +371,6 @@ const PORTALDATA = (() => {
     return total ? Math.round(100 - (violations/total*100)) : 100;
   }
 
-  function mkRec(action, amount, reason, confidence, propertyId, dateKey){
-    const current = myRateOnDate(propertyId, dateKey);
-    const expected = action==='increase' ? current+amount : action==='decrease' ? current-amount : current;
-    return {
-      id: DB.uid('prec'), action, amount, reason, confidence, date: dateKey,
-      currentRate: current, expectedRate: Math.max(500,expected),
-      expectedADR: Math.max(500,expected)
-    };
-  }
-
   return {
     KEYS, CHANNELS, ROOM_TYPES, MEAL_PLANS, CANCEL_POLICIES, LOCAL_EVENTS,
     init, dateKeyOffset, dayOfWeek, isWeekend, isHoliday, dayOffsetFromToday,
@@ -417,6 +379,6 @@ const PORTALDATA = (() => {
     myBaseRate, myRateOnDate, channelRate, channelVariance, mealPlanBaseRate, mealPlanRateOnDate,
     localEventOn,
     notifications, addNotification, markNotificationRead, markAllNotificationsRead, unreadNotificationCount,
-    settings, saveSettings, recommendations, lastScrapedAt, parityScore, firstParityViolation
+    settings, saveSettings, lastScrapedAt, parityScore, firstParityViolation
   };
 })();

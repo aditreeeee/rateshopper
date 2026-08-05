@@ -16,17 +16,29 @@
 
 <div class="row g-3">
   <div class="col-lg-4">
-    <div class="section-card text-center">
-      <img id="pf_avatarPreview" src="" class="rounded-circle mb-3" style="width:110px;height:110px;object-fit:cover;border:4px solid var(--brand-100)">
-      <h5 class="fw-bold mb-0" id="pf_nameDisplay"></h5>
-      <div class="text-muted small mb-3" id="pf_roleDisplay"></div>
-      <input type="text" class="form-control mb-2" id="pf_avatarUrl" placeholder="Avatar image URL">
-      <div class="text-muted small">Paste a new avatar URL and save to update your photo (demo mode).</div>
-      <hr>
-      <div class="text-start">
-        <div class="kv-row"><span class="k">User ID</span><span class="v" id="pf_hmsUserIdDisplay"></span></div>
-        <div class="kv-row"><span class="k">Email</span><span class="v" id="pf_emailDisplay"></span></div>
-        <div class="kv-row"><span class="k">Phone</span><span class="v" id="pf_phoneDisplay"></span></div>
+    <div class="section-card p-0 overflow-hidden pf-summary-card">
+      <div class="pf-cover"></div>
+      <div class="text-center px-3 pb-2">
+        <div class="pf-avatar-wrap">
+          <img id="pf_avatarPreview" src="" class="pf-avatar">
+          <label class="pf-avatar-edit" for="pf_avatarUrl" title="Update photo"><i class="bi bi-camera-fill"></i></label>
+        </div>
+        <h5 class="fw-bold mb-1" id="pf_nameDisplay"></h5>
+        <span class="badge bg-primary-subtle text-primary mb-3" id="pf_roleBadge"></span>
+
+        <div class="pf-avatar-url-field text-start">
+          <input type="text" class="form-control form-control-sm" id="pf_avatarUrl" placeholder="Paste an avatar image URL...">
+          <small class="text-muted">Save below to update your photo (demo mode — no file upload).</small>
+        </div>
+      </div>
+      <hr class="my-3">
+      <div class="text-start px-3 pb-3">
+        <div class="kv-row"><span class="k"><i class="bi bi-fingerprint me-2"></i>User ID</span><span class="v" id="pf_hmsUserIdDisplay"></span></div>
+        <div class="kv-row"><span class="k"><i class="bi bi-envelope me-2"></i>Email</span><span class="v" id="pf_emailDisplay"></span></div>
+        <div class="kv-row"><span class="k"><i class="bi bi-telephone me-2"></i>Phone</span><span class="v" id="pf_phoneDisplay"></span></div>
+        <div class="kv-row"><span class="k"><i class="bi bi-calendar3 me-2"></i>Member Since</span><span class="v" id="pf_memberSince"></span></div>
+        <div class="kv-row d-none" id="pf_parentRow"><span class="k"><i class="bi bi-house-door me-2"></i>Parent Property</span><span class="v" id="pf_parentValue"></span></div>
+        <div class="kv-row d-none" id="pf_competitorsRow"><span class="k"><i class="bi bi-building me-2"></i>Competitor Properties</span><span class="v" id="pf_competitorsValue"></span></div>
       </div>
     </div>
   </div>
@@ -34,24 +46,32 @@
   <div class="col-lg-8">
     <form id="profileForm">
       <div class="section-card mb-3">
-        <div class="section-title mb-3">Personal Information</div>
+        <div class="rc-section-title mb-3">
+          <span class="rc-section-icon"><i class="bi bi-person-vcard"></i></span>
+          <div class="fw-bold">Personal Information</div>
+        </div>
         <div class="row g-3">
           <div class="col-md-6"><label class="form-label">Full Name</label><input class="form-control" id="pf_name" required></div>
           <div class="col-md-6"><label class="form-label">Role</label><input class="form-control" id="pf_role" disabled></div>
           <div class="col-md-6"><label class="form-label">Email Address</label><input type="email" class="form-control" id="pf_email" required></div>
           <div class="col-md-6"><label class="form-label">Phone Number</label><input class="form-control" id="pf_phone"></div>
-          <div class="col-12"><label class="form-label">Bio</label><textarea class="form-control" rows="3" id="pf_bio"></textarea></div>
+          <div class="col-12"><label class="form-label">Bio</label><textarea class="form-control" rows="3" id="pf_bio" placeholder="A short line about your role or focus..."></textarea></div>
         </div>
       </div>
 
       <div class="section-card mb-3">
-        <div class="section-title mb-3">Change Password</div>
-        <div class="row g-3">
-          <div class="col-md-4"><label class="form-label">Current Password</label><input type="password" class="form-control" placeholder="••••••••"></div>
-          <div class="col-md-4"><label class="form-label">New Password</label><input type="password" class="form-control" placeholder="••••••••"></div>
-          <div class="col-md-4"><label class="form-label">Confirm New Password</label><input type="password" class="form-control" placeholder="••••••••"></div>
+        <div class="rc-section-title mb-3">
+          <span class="rc-section-icon" style="background:linear-gradient(135deg,var(--text-3),var(--text-2))"><i class="bi bi-shield-lock"></i></span>
+          <div>
+            <div class="fw-bold">Change Password</div>
+            <div class="text-muted small">Disabled in this frontend-only demo — nothing here is saved.</div>
+          </div>
         </div>
-        <small class="text-muted d-block mt-2"><i class="bi bi-info-circle me-1"></i>Password change is disabled in this frontend-only demo.</small>
+        <div class="row g-3">
+          <div class="col-md-4"><label class="form-label">Current Password</label><input type="password" class="form-control" placeholder="••••••••" disabled></div>
+          <div class="col-md-4"><label class="form-label">New Password</label><input type="password" class="form-control" placeholder="••••••••" disabled></div>
+          <div class="col-md-4"><label class="form-label">Confirm New Password</label><input type="password" class="form-control" placeholder="••••••••" disabled></div>
+        </div>
       </div>
 
       <div class="d-flex justify-content-end gap-2">

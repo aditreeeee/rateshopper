@@ -180,6 +180,7 @@ function render(){
               <a href="property-details.html?id=${p.id}" class="text-decoration-none"><h6 class="fw-bold mb-0 text-body">${p.name}</h6></a>
               <div class="text-warning" style="font-size:.72rem">${'★'.repeat(p.stars)}${'☆'.repeat(5-p.stars)}</div>
             </div>
+            <div class="text-muted mb-1" style="font-size:.68rem"><i class="bi bi-fingerprint me-1"></i>${p.hmsPropertyId||'—'}</div>
             <div class="text-muted small mb-2"><i class="bi bi-geo-alt me-1"></i>${p.city}${p.country?', '+p.country:''} • ${p.type}</div>
             <div class="d-flex gap-3 small text-muted mb-3">
               <span><i class="bi bi-door-open me-1"></i>${p.rooms} rooms</span>
@@ -199,7 +200,7 @@ function render(){
       <tbody>${pageRows.map(p=>`
         <tr data-select-id="${p.id}">
           ${canBulk ? `<td><input class="form-check-input" type="checkbox" ${selectedProperties.has(p.id)?'checked':''} onchange="toggleSelect('${p.id}', this.checked)"></td>` : ''}
-          <td><a href="property-details.html?id=${p.id}" class="d-flex align-items-center gap-2 text-decoration-none text-body"><img src="${p.logo}" class="avatar-thumb"><div><div class="fw-semibold">${p.name}</div><div class="text-muted" style="font-size:.75rem">${p.email}</div></div></a></td>
+          <td><a href="property-details.html?id=${p.id}" class="d-flex align-items-center gap-2 text-decoration-none text-body"><img src="${p.logo}" class="avatar-thumb"><div><div class="fw-semibold">${p.name}</div><div class="text-muted" style="font-size:.75rem"><i class="bi bi-fingerprint me-1"></i>${p.hmsPropertyId||'—'}</div></div></a></td>
           <td>${p.city}</td>
           <td>${p.country||'-'}</td>
           <td>${p.type}</td>

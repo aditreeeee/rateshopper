@@ -15,25 +15,30 @@
 <div id="app-shell">
 
 <div class="filters-bar">
-  <div class="row g-2 align-items-center mb-2">
+  <div class="row g-2 align-items-end mb-2">
     <div class="col-md-4">
+      <label class="form-label mb-1" style="font-size:.72rem" for="searchInput">Search</label>
       <div class="search-box w-100" style="width:100% !important;max-width:100%">
         <i class="bi bi-search"></i>
         <input type="text" class="form-control w-100" id="searchInput" placeholder="Search properties by name or city...">
       </div>
     </div>
     <div class="col-md-2">
+      <label class="form-label mb-1" style="font-size:.72rem" for="countryFilter">Country</label>
       <select class="form-select" id="countryFilter"><option value="">All Countries</option></select>
     </div>
     <div class="col-md-2">
+      <label class="form-label mb-1" style="font-size:.72rem" for="cityFilter">City</label>
       <select class="form-select" id="cityFilter"><option value="">All Cities</option></select>
     </div>
     <div class="col-md-2">
+      <label class="form-label mb-1" style="font-size:.72rem" for="typeFilter">Property Type</label>
       <select class="form-select" id="typeFilter">
         <option value="">All Types</option>
       </select>
     </div>
     <div class="col-md-2">
+      <label class="form-label mb-1" style="font-size:.72rem" for="statusFilter">Status</label>
       <select class="form-select" id="statusFilter">
         <option value="">All Status</option>
         <option value="active">Active</option>
@@ -46,7 +51,7 @@
       <button class="btn btn-light btn-sm" id="resetFiltersBtn"><i class="bi bi-x-circle me-1"></i>Reset Filters</button>
     </div>
     <div class="col-md-2">
-      <select class="form-select" id="sortBy">
+      <select class="form-select form-select-sm" id="sortBy">
         <option value="name">Sort: Name (A-Z)</option>
         <option value="rooms">Sort: Rooms</option>
         <option value="stars">Sort: Star Rating</option>
