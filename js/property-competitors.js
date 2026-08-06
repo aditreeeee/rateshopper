@@ -225,7 +225,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
       if(profileTrendChart) profileTrendChart.destroy();
       profileChart = new Chart(document.getElementById('cprof_histChart'), {
         type:'line',
-        data:{ labels:histLabels, datasets:[{label:hotel.name, data:histData, borderColor:'#3861fb', backgroundColor:'rgba(56,97,251,.08)', tension:.35, fill:true, spanGaps:true, pointRadius:0, pointHoverRadius:5, pointHitRadius:12, pointBackgroundColor:'#3861fb', borderWidth:2}] },
+        data:{ labels:histLabels, datasets:[{label:hotel.name, data:histData, borderColor:'#0041d9', backgroundColor:'rgba(56,97,251,.08)', tension:.35, fill:true, spanGaps:true, pointRadius:0, pointHoverRadius:5, pointHitRadius:12, pointBackgroundColor:'#0041d9', borderWidth:2}] },
         options:{
           responsive:true, animation:chartAnim(false),
           interaction:{ mode:'index', intersect:false },

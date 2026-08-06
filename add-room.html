@@ -18,7 +18,10 @@
 <div class="row g-3">
   <div class="col-lg-8">
     <div class="section-card mb-3">
-      <div class="section-title mb-3">Room Information</div>
+      <div class="rc-section-title">
+        <span class="rc-section-icon"><i class="bi bi-door-open-fill"></i></span>
+        <div class="section-title">Room Information</div>
+      </div>
       <div class="row g-3">
         <div class="col-md-6">
           <label class="form-label">Property *</label>
@@ -72,22 +75,31 @@
     </div>
 
     <div class="section-card mb-3">
-      <div class="section-title mb-3">Meal Plans Allowed</div>
-      <div class="section-sub mb-2">Which meal plans can be sold for this room. Rate plans linked to this room should offer one of these.</div>
+      <div class="rc-section-title mb-1">
+        <span class="rc-section-icon"><i class="bi bi-egg-fried"></i></span>
+        <div class="section-title">Meal Plans Allowed</div>
+      </div>
+      <div class="section-sub mb-3">Which meal plans can be sold for this room. Rate plans linked to this room should offer one of these.</div>
       <div class="row g-2" id="roomMealPlanGrid"></div>
     </div>
 
     <div class="section-card mb-3">
-      <div class="section-title mb-3">Room Amenities</div>
+      <div class="rc-section-title">
+        <span class="rc-section-icon"><i class="bi bi-stars"></i></span>
+        <div class="section-title">Room Amenities</div>
+      </div>
       <div class="row g-2" id="roomAmenitiesGrid"></div>
     </div>
 
     <div class="section-card" id="linkedRatePlansCard">
-      <div class="d-flex justify-content-between align-items-center mb-2">
-        <div class="section-title mb-0">Linked Rate Plans</div>
-        <a href="add-rate-plan.html" id="createRpLink" class="small">+ Create new rate plan</a>
+      <div class="d-flex justify-content-between align-items-start mb-1">
+        <div class="rc-section-title mb-0">
+          <span class="rc-section-icon"><i class="bi bi-link-45deg"></i></span>
+          <div class="section-title">Linked Rate Plans</div>
+        </div>
+        <a href="add-rate-plan.html" id="createRpLink" class="small fw-semibold">+ Create new rate plan</a>
       </div>
-      <div class="section-sub mb-2">Select which rate plans apply to this room. A rate plan can only be linked to one room at a time — checking a plan here will move it to this room.</div>
+      <div class="section-sub mb-3">Select which rate plans apply to this room. A rate plan can only be linked to one room at a time — checking a plan here will move it to this room.</div>
       <div class="form-check mb-2 pb-2 border-bottom" id="selectAllRpWrap" style="border-color:var(--border-1) !important">
         <input class="form-check-input" type="checkbox" id="rp_selectAll">
         <label class="form-check-label small fw-semibold" for="rp_selectAll">Select All</label>
@@ -98,13 +110,19 @@
 
   <div class="col-lg-4">
     <div class="section-card mb-3">
-      <div class="section-title mb-3">Room Image</div>
-      <img id="roomImgPreview" src="https://images.unsplash.com/photo-1611892440504-42a792e24d32?w=500&q=60" class="w-100 mb-2" style="border-radius:14px;height:160px;object-fit:cover">
-      <input type="text" class="form-control" id="roomImgInput" placeholder="Image URL">
+      <div class="rc-section-title">
+        <span class="rc-section-icon"><i class="bi bi-image-fill"></i></span>
+        <div class="section-title">Room Image</div>
+      </div>
+      <img id="roomImgPreview" src="https://images.unsplash.com/photo-1611892440504-42a792e24d32?w=500&q=60" class="w-100 mb-2" style="border-radius:14px;height:160px;object-fit:cover;border:1px solid var(--border-1)">
+      <input type="text" class="form-control" id="roomImgInput" placeholder="Paste an image URL">
     </div>
     <div class="section-card">
-      <div class="section-title mb-2">Save Room</div>
-      <p class="text-muted small">This room type will appear under the selected property.</p>
+      <div class="rc-section-title mb-1">
+        <span class="rc-section-icon"><i class="bi bi-save-fill"></i></span>
+        <div class="section-title">Save Room</div>
+      </div>
+      <p class="text-muted small mb-3">This room type will appear under the selected property.</p>
       <button type="submit" class="btn btn-primary w-100 mb-2"><i class="bi bi-check2-circle me-1"></i><span id="submitLabel">Save Room</span></button>
       <a href="properties.html" id="cancelBtn" class="btn btn-light w-100">Cancel</a>
     </div>
@@ -118,6 +136,7 @@
 <script src="js/data.js"></script>
 <script src="js/rbac.js"></script>
 <script src="js/main.js"></script>
+<script src="js/global-search.js"></script>
 <script src="js/portal-data.js"></script>
 <script src="js/portal-shell.js"></script>
 <script src="js/add-room.js"></script>

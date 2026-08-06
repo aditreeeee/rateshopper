@@ -54,7 +54,7 @@ const rsEndValuePlugin = {
     ctx.arcTo(x, y+h/2, x, y-h/2, r);
     ctx.arcTo(x, y-h/2, x+w, y-h/2, r);
     ctx.closePath();
-    ctx.fillStyle = '#3861fb';
+    ctx.fillStyle = '#0041d9';
     ctx.fill();
     ctx.fillStyle = '#fff';
     ctx.textBaseline = 'middle';
@@ -232,7 +232,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   // Stable color per property regardless of sort/filter order, so a given benchmark property
   // always shows the same muted color across the legend and the chart.
   function seriesColor(s){
-    if(s.isMe) return '#3861fb';
+    if(s.isMe) return '#0041d9';
     const others = seriesList().filter(x=>!x.isMe);
     const idx = others.findIndex(x=>x.key===s.key);
     return OTHER_LINE_COLORS[idx % OTHER_LINE_COLORS.length];

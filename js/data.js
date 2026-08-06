@@ -17,7 +17,7 @@ const DB = (() => {
   // 'master' channel (its own direct inventory); OTA channels (Goibibo, MakeMyTrip, Booking.com,
   // Agoda, Yatra...) and free-form 'custom' channels are added on top for rate-shopping comparisons.
   const CHANNEL_TYPES = {
-    master:     { label:'Master Channel', icon:'bi-house-door-fill', color:'#3861fb' },
+    master:     { label:'Master Channel', icon:'bi-house-door-fill', color:'#0041d9' },
     goibibo:    { label:'GoIBIBO MMT V3', icon:'bi-globe2',          color:'#e0117a' },
     makemytrip: { label:'MakeMyTrip',     icon:'bi-globe2',          color:'#d0021b' },
     booking:    { label:'Booking.com',    icon:'bi-globe2',          color:'#003580' },
@@ -481,7 +481,12 @@ const DB = (() => {
     byProperty: pid=> rooms.all().filter(r=>r.propertyId===pid),
     byChannel: chanId=> rooms.all().filter(r=>r.channelId===chanId),
     get: id=> rooms.all().find(r=>r.id===id),
-    save: r=>{ const list=rooms.all(); if(r.id){ const i=list.findIndex(x=>x.id===r.id); list[i]=r; } else { r.id=uid('room'); list.push(r);} set(KEYS.rooms,list); return r; },
+    save: r=>{ const list=rooms.all(); if(r.id){ const i=list.findIndex(x=>x.id===r.id); list[i]=r; } else { r.id=uid('room');
+        // New rooms go to the end of their channel's manual ordering (see sortOrder, used by
+        // the Rooms list's Move Up/Down controls) — mirrors how ratePlans.save() assigns sortOrder.
+        if(r.sortOrder==null){ const siblings = list.filter(x=>x.channelId===r.channelId); r.sortOrder = siblings.length ? Math.max(...siblings.map(x=>x.sortOrder||0))+1 : 0; }
+        list.push(r);
+      } set(KEYS.rooms,list); return r; },
     remove: id=>{ set(KEYS.rooms, rooms.all().filter(r=>r.id!==id)); ratePlans.all().filter(rp=>rp.roomId===id).forEach(rp=>ratePlans.remove(rp.id)); }
   };
   const ratePlans = {
@@ -490,7 +495,12 @@ const DB = (() => {
     byProperty: pid=> ratePlans.all().filter(r=>r.propertyId===pid),
     byChannel: chanId=> ratePlans.all().filter(r=>r.channelId===chanId),
     get: id=> ratePlans.all().find(r=>r.id===id),
-    save: rp=>{ const list=ratePlans.all(); if(rp.id){ const i=list.findIndex(x=>x.id===rp.id); list[i]=rp; } else { rp.id=uid('rp'); rp.createdAt=fmtDate(new Date()); list.push(rp);
+    save: rp=>{ const list=ratePlans.all(); if(rp.id){ const i=list.findIndex(x=>x.id===rp.id); list[i]=rp; } else { rp.id=uid('rp'); rp.createdAt=fmtDate(new Date());
+        // New rate plans go to the end of their room's manual ordering (see sortOrder, used by
+        // the Rate Plans list's Move Up/Down controls) rather than sharing a sortOrder with
+        // whatever else already exists — sortOrder is only ever meant to be unique per room.
+        if(rp.sortOrder==null){ const siblings = list.filter(x=>x.roomId===rp.roomId); rp.sortOrder = siblings.length ? Math.max(...siblings.map(x=>x.sortOrder||0))+1 : 0; }
+        list.push(rp);
         const rates = get(KEYS.rates,{}); if(!rates[rp.id]){ rates[rp.id]={}; const room=rooms.get(rp.roomId); const base= room?room.basePrice:5000; const maxOcc= room?room.maxOccupancy:2;
           const today=new Date(); for(let d=-7; d<97; d++){ const date=new Date(today); date.setDate(today.getDate()+d); rates[rp.id][fmtDate(date)]={price:base,occPrices:buildOccPrices(base, rp.baseOccupancy||2, rp.extraAdultPrice||0, maxOcc)}; } set(KEYS.rates,rates); }
       } set(KEYS.ratePlans,list); return rp; },
@@ -615,6 +625,17 @@ const DB = (() => {
     allRooms.forEach(r=>{
       if(!r.mealPlans){ r.mealPlans = [MEAL_PLANS[0]]; roomsChanged = true; }
     });
+    // Backfill sortOrder (Rooms list's Move Up/Down) on any room saved before that feature
+    // existed — per-channel counters, assigned in existing array order, same pattern as the
+    // Rate Plans list's sortOrder backfill below.
+    const roomSortCounters = {};
+    allRooms.forEach(r=>{
+      if(r.sortOrder == null){
+        roomSortCounters[r.channelId] = (roomSortCounters[r.channelId] ?? -1) + 1;
+        r.sortOrder = roomSortCounters[r.channelId];
+        roomsChanged = true;
+      }
+    });
     if(roomsChanged) set(KEYS.rooms, allRooms);
 
     const allRatePlans = ratePlans.all();
@@ -623,6 +644,17 @@ const DB = (() => {
     allRatePlans.forEach(rp=>{
       if(!rp.channelId){
         rp.channelId = roomChannel[rp.roomId] || masterByProperty[rp.propertyId];
+        ratePlansChanged = true;
+      }
+    });
+    // Backfill sortOrder (Rate Plans list's Move Up/Down) on any rate plan saved before that
+    // feature existed — per-room counters, assigned in existing array order, so a first-time
+    // reorder starts from exactly the order the list was already showing rather than jumbling it.
+    const sortCounters = {};
+    allRatePlans.forEach(rp=>{
+      if(rp.sortOrder == null){
+        sortCounters[rp.roomId] = (sortCounters[rp.roomId] ?? -1) + 1;
+        rp.sortOrder = sortCounters[rp.roomId];
         ratePlansChanged = true;
       }
     });

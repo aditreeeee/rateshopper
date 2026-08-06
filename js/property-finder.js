@@ -81,6 +81,20 @@ const PropertyFinder = (() => {
     return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   }
 
+  // Grey shimmer rows shaped like a real .pf-row (checkbox + title line + meta line), standing
+  // in for the "Searching..."/"Loading more..." text — a skeleton in the shape of the real
+  // content reads as faster than a spinner or a loading message, even at the same actual delay.
+  function skeletonRowsHtml(n){
+    return Array(n).fill(0).map(()=>`
+      <div class="pf-skel-row">
+        <div class="skeleton pf-skel-check"></div>
+        <div class="pf-skel-body">
+          <div class="skeleton pf-skel-line pf-skel-title"></div>
+          <div class="skeleton pf-skel-line pf-skel-meta"></div>
+        </div>
+      </div>`).join('');
+  }
+
   /**
    * mount(container, options) -> controller
    * options.mode:        'multi' (default) | 'single' — single caps selection at one property
@@ -166,16 +180,16 @@ const PropertyFinder = (() => {
           <div class="pf-single-selected d-none"></div>
           <div class="pf-picker-area">
             ${searchFilterMarkup}
-            <div class="pf-results-meta text-muted small mb-1 mt-2">Searching...</div>
-            <div class="pf-results"></div>
+            <div class="pf-results-meta text-muted small mb-1 mt-2">&nbsp;</div>
+            <div class="pf-results">${skeletonRowsHtml(4)}</div>
           </div>
         </div>`
       : `<div class="pf-widget">
           ${searchFilterMarkup}
           <div class="row g-3 mt-1">
             <div class="col-lg-7">
-              <div class="pf-results-meta text-muted small mb-1">Searching...</div>
-              <div class="pf-results"></div>
+              <div class="pf-results-meta text-muted small mb-1">&nbsp;</div>
+              <div class="pf-results">${skeletonRowsHtml(4)}</div>
             </div>
             <div class="col-lg-5">
               <div class="pf-selected-panel">
@@ -332,9 +346,9 @@ const PropertyFinder = (() => {
       const token = ++searchToken;
       if(reset){
         page = 1;
-        els.results.innerHTML = `<div class="pf-loading text-muted small p-3"><i class="bi bi-hourglass-split me-1"></i>Searching...</div>`;
+        els.results.innerHTML = skeletonRowsHtml(4);
       } else {
-        els.results.insertAdjacentHTML('beforeend', `<div class="pf-loading-more text-muted small p-2 text-center"><i class="bi bi-hourglass-split me-1"></i>Loading more...</div>`);
+        els.results.insertAdjacentHTML('beforeend', `<div class="pf-loading-more">${skeletonRowsHtml(2)}</div>`);
       }
       const res = await fetchPage({ query, filters, sort, page, pageSize: PAGE_SIZE, excludeIds: excludeId ? [excludeId] : [] });
       if(token !== searchToken) return; // a newer search superseded this one — drop the stale response

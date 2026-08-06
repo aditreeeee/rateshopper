@@ -356,7 +356,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
     const palette = ['#a9b0c9','#9fd6ca','#c3aee8','#f2c194','#e6a8c4','#a6d9a6','#e3a6a6','#a9c6e8'];
     const datasets = [
-      { label:'My Rate', data:myData, borderColor:'#3861fb', backgroundColor:'rgba(56,97,251,.1)', borderWidth:3, fill:true, tension:.3, pointRadius:0, spanGaps:true },
+      { label:'My Rate', data:myData, borderColor:'#0041d9', backgroundColor:'rgba(56,97,251,.1)', borderWidth:3, fill:true, tension:.3, pointRadius:0, spanGaps:true },
       { label:'Market Average', data:marketAvgData, borderColor:'#8c5cf7', backgroundColor:'transparent', borderDash:[5,4], borderWidth:2, tension:.3, pointRadius:0, spanGaps:true }
     ];
     compSeries.forEach((s,i)=> datasets.push({ label:s.name, data:s.data, borderColor:palette[i%palette.length], backgroundColor:'transparent', borderWidth:1.25, tension:.3, pointRadius:0, spanGaps:true }));
@@ -491,7 +491,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     if(rp4Chart) rp4Chart.destroy();
     rp4Chart = new Chart(document.getElementById('rp4_chart'), {
       type:'bar',
-      data:{ labels: compRates.map(c=>c.comp.name), datasets:[{ data: compRates.map(c=>c.rate), backgroundColor:'#3861fb', borderRadius:6 }] },
+      data:{ labels: compRates.map(c=>c.comp.name), datasets:[{ data: compRates.map(c=>c.rate), backgroundColor:'#0041d9', borderRadius:6 }] },
       options:{ indexAxis:'y', responsive:true, animation:chartAnim(true), plugins:{legend:{display:false}}, scales:{x:{ticks:{callback:v=>APP.fmtCurrency(v)}}} }
     });
 

@@ -22,7 +22,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     actions: canCreateProperty ? `<a href="add-property.html" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i>Add Property</a>` : ''
   });
 
-  const COLOR_HEX = { success:'#12b76a', brand:'#3861fb', warn:'#b9791a', danger:'#ff4d5e' };
+  const COLOR_HEX = { success:'#12b76a', brand:'#0041d9', warn:'#b9791a', danger:'#ff4d5e' };
 
   function escapeHtml(s){
     return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -90,14 +90,14 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
   /* =========================== KPI Cards =========================== */
   const kpis = [
-    {icon:'bi-building', color:'#3861fb', bg:'#eef4ff', label:'Total Properties', value:properties.length},
+    {icon:'bi-building', color:'#0041d9', bg:'#e6e6fa', label:'Total Properties', value:properties.length},
     {icon:'bi-people', color:'#00c2a8', bg:'#e6faf7', label:'Total Users', value:users.length},
-    {icon:'bi-person-badge', color:'#8cadff', bg:'#eef4ff', label:'Property Owners', value:owners.length},
-    {icon:'bi-shield-lock', color:'#1e37b0', bg:'#eef4ff', label:'Company Admins', value:admins.length},
+    {icon:'bi-person-badge', color:'#7f97ec', bg:'#e6e6fa', label:'Property Owners', value:owners.length},
+    {icon:'bi-shield-lock', color:'#022a8f', bg:'#e6e6fa', label:'Company Admins', value:admins.length},
   ];
   document.getElementById('kpiCards').innerHTML = kpis.map(k=>`
     <div class="col-6 col-md-4 col-xl-3">
-      <div class="kpi-card ${k.accent?`kpi-card-accent-${k.accent}`:''}">
+      <div class="kpi-card">
         <div class="kpi-icon" style="background:${k.bg};color:${k.color}"><i class="bi ${k.icon}"></i></div>
         <div>
           <div class="kpi-label">${k.label}</div>

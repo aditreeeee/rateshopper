@@ -78,7 +78,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   });
 
   document.getElementById('sendResetBtn').addEventListener('click', function(){
-    APP.toast('Reset Link Sent', 'Check your inbox for password reset instructions (demo only).', 'success');
+    APP.toast('Reset Link Sent', 'Check your inbox for password reset instructions.', 'success');
     bootstrap.Modal.getInstance(document.getElementById('forgotModal')).hide();
   });
 });

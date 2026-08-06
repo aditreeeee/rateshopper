@@ -27,7 +27,7 @@
   --fa-tint-strong: color-mix(in srgb, var(--fa-4) 42%, var(--bg-surface-2));
 }
 
-.portal-logo-badge{ background:linear-gradient(135deg,#3861fb,#8c5cf7) !important; }
+.portal-logo-badge{ background:linear-gradient(135deg,#0041d9,#8c5cf7) !important; }
 
 /* ==========================================================================
    Premium sticky tab bar (Room Rate Comparison's 4 tabs, Forecast & Actions' 2 tabs) — a single
@@ -559,45 +559,52 @@
 .ric-detail-col{ flex:1 1 320px; min-width:280px; max-width:380px; }
 @media (max-width:991.98px){ .ric-detail-col{ flex-basis:100%; max-width:none; } }
 
-.ric-grid{ display:grid; grid-template-columns:repeat(7, 1fr); gap:8px; }
-.ric-dow{ text-align:center; font-size:.62rem; font-weight:700; color:var(--ric-text-muted); text-transform:uppercase; letter-spacing:.06em; padding-bottom:7px; }
+/* ---- Continuous calendar surface — one unified grid instead of a grid of separate glass
+   tiles. Hairline dividers between cells (border-right/border-bottom on every grid item, cleared
+   on the last column/row) replace the old per-cell gap+border+shadow+radius; the 8–10px radius
+   now lives ONLY on the outer .ric-grid (via overflow:hidden clipping the corner cells), never on
+   an individual cell. No backdrop-filter, no box-shadow, no hover lift/scale — a day only stands
+   out from the rest of the surface via a background tint (today/pinned/hover), the same way a
+   spreadsheet's active-cell highlight works, just without the gridline-heavy spreadsheet feel
+   (borders are near-invisible, one background color throughout, compact row height). ---- */
+.ric-dow{ text-align:center; font-size:.62rem; font-weight:700; color:var(--ric-text-muted); text-transform:uppercase; letter-spacing:.06em; padding:0 0 8px; }
 
-/* ---- Frosted-glass date cell — a rounded square (not a flat rectangle) with a soft ambient
-   shadow at rest and a lifted glow + slight scale-up on hover/focus, so interaction reads as
-   physical elevation rather than a flat color swap. Backdrop-filter is what actually produces
-   the "frosted glass" look (blurring whatever's behind the semi-transparent --ric-glass-bg);
-   transform-origin center keeps the scale-up symmetric instead of drifting toward one edge. ---- */
+.ric-grid{
+  display:grid; grid-template-columns:repeat(7, 1fr); gap:0;
+  background:var(--ric-surface); border:1px solid var(--ric-border);
+  border-radius:10px; overflow:hidden;
+}
+/* border:none first (.ric-cell is a <button>, which otherwise keeps the browser's default
+   button border on whichever sides nothing here overrides), then add back only the right/bottom
+   hairline — all in one rule so there's no cross-rule cascade-order ambiguity with .ric-cell. */
+.ric-grid > *{ border:none; border-right:1px solid var(--ric-border); border-bottom:1px solid var(--ric-border); }
+.ric-grid > *:nth-child(7n){ border-right:none; }
+.ric-grid > *:nth-last-child(-n+7){ border-bottom:none; }
+.ric-dow{ background:color-mix(in srgb, var(--ric-1) 6%, transparent); padding-top:9px; }
+
 .ric-cell{
-  position:relative; aspect-ratio:1/0.92; width:100%; border-radius:14px; padding:8px 8px 7px;
-  border:1px solid var(--ric-glass-border); background:var(--ric-glass-bg);
-  backdrop-filter:blur(10px) saturate(140%); -webkit-backdrop-filter:blur(10px) saturate(140%);
-  box-shadow:var(--ric-glass-shadow); overflow:hidden; transform-origin:center;
+  position:relative; min-height:58px; padding:7px 8px;
+  background:transparent; overflow:hidden;
   display:flex; flex-direction:column; align-items:flex-start; justify-content:space-between;
   cursor:pointer; -webkit-tap-highlight-color:transparent;
-  transition:border-color var(--dur-med) var(--ease-premium), background var(--dur-med) var(--ease-premium),
-             box-shadow var(--dur-med) var(--ease-premium), transform var(--dur-med) var(--ease-premium);
+  transition:background var(--dur-fast) ease;
 }
-.ric-cell.ric-empty{ background:transparent; border-color:transparent; box-shadow:none; backdrop-filter:none; cursor:default; }
+.ric-cell.ric-empty{ cursor:default; }
 .ric-cell:not(.ric-empty):hover, .ric-cell:not(.ric-empty):focus-visible{
-  border-color:var(--ric-2); box-shadow:var(--ric-glass-shadow-hover), var(--ric-glow);
-  transform:translateY(-2px) scale(1.035); z-index:2; outline:none; background:var(--ric-hover-bg);
+  background:var(--ric-hover-bg); outline:none;
 }
-.ric-cell.is-today{
-  border-color:var(--ric-3); background:color-mix(in srgb, var(--ric-1) 26%, var(--ric-glass-bg));
-}
-/* "Selected" (pinned/clicked) gets the strongest, most deliberate accent — a persistent glow
-   ring plus a bit more lift — so it's unambiguous even next to a hovered neighbor. */
+/* Today and the pinned/selected day are the only cells allowed to stand out — a flat background
+   tint plus a 2px inset accent line down the left edge (not a border around the whole cell, so
+   it never disrupts the hairline grid lines it sits inside). */
+.ric-cell.is-today{ background:color-mix(in srgb, var(--ric-1) 16%, transparent); }
 .ric-cell.is-pinned{
-  border-color:var(--ric-3); background:color-mix(in srgb, var(--ric-2) 24%, var(--ric-glass-bg));
-  box-shadow:var(--ric-glass-shadow-hover), 0 0 0 2px var(--ric-3), 0 0 20px color-mix(in srgb, var(--ric-3) 40%, transparent);
-  transform:translateY(-1px); z-index:3;
+  background:color-mix(in srgb, var(--ric-2) 18%, transparent);
+  box-shadow:inset 3px 0 0 var(--ric-3); z-index:1;
 }
 
-/* Thin top accent — the only place status color appears on the grid, and only for the minority
-   of days that are actually an opportunity or a risk. Aligned days stay silent/neutral. */
-.ric-cell-bar{ position:absolute; top:0; left:0; right:0; height:3px; border-radius:14px 14px 0 0; background:transparent; }
-.ric-cell.tone-opp .ric-cell-bar{ background:var(--ric-opp); }
-.ric-cell.tone-risk .ric-cell-bar{ background:var(--ric-risk); }
+/* The old thick top accent bar is gone — opportunity/risk on a given day is now only ever
+   signaled by the small action dot below, never a bar spanning the cell's full width. */
+.ric-cell-bar{ display:none; }
 
 .ric-date{
   font-size:.74rem; font-weight:600; color:var(--ric-text-muted); line-height:1; display:flex; align-items:center; gap:4px;
@@ -608,11 +615,10 @@
 .ric-rate{ font-size:.72rem; font-weight:700; color:var(--ric-text); font-variant-numeric:tabular-nums; line-height:1; white-space:nowrap; letter-spacing:-.01em; }
 .ric-action-dot{
   position:absolute; top:7px; right:7px; width:6px; height:6px; border-radius:50%;
-  background:var(--ric-border); transition:box-shadow var(--dur-med) var(--ease-premium);
+  background:var(--ric-border); transition:box-shadow var(--dur-fast) ease;
 }
-/* A pending pricing decision is the one thing worth calling out with real color, in the same
-   direction as the top accent bar — quiet dot, not a glowing badge; it does pick up a soft halo
-   so an "event" day still reads as distinct even before the top accent bar catches the eye. */
+/* A pending pricing decision is the one thing worth calling out with real color — a quiet dot
+   with a soft halo, not a glowing badge or a bar. */
 .ric-cell.has-action.tone-opp .ric-action-dot{ background:var(--ric-opp); box-shadow:0 0 6px color-mix(in srgb, var(--ric-opp) 60%, transparent); }
 .ric-cell.has-action.tone-risk .ric-action-dot{ background:var(--ric-risk); box-shadow:0 0 6px color-mix(in srgb, var(--ric-risk) 60%, transparent); }
 .ric-cell.has-action.tone-aligned .ric-action-dot{ background:var(--ric-3); box-shadow:0 0 6px color-mix(in srgb, var(--ric-3) 50%, transparent); }

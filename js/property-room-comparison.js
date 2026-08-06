@@ -254,7 +254,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const rangeLabel = rcDays===365 ? '1 year' : `${rcDays} days`;
 
     document.getElementById('rcKpis').innerHTML = [
-      PWIDGETS.kpiCard({icon:'bi-house-door-fill', color:'#3861fb', bg:'#eef4ff', label:'Our Avg. Rate', value:APP.fmtCurrency(ourAvg),
+      PWIDGETS.kpiCard({icon:'bi-house-door-fill', color:'#0041d9', bg:'#e6e6fa', label:'Our Avg. Rate', value:APP.fmtCurrency(ourAvg),
         desc:`Average rate over the last ${rangeLabel}, across the rooms in scope, on the selected channel.`}),
       PWIDGETS.kpiCard({icon:'bi-buildings', color:'#8c5cf7', bg:'#f3eeff', label:'Competitors Avg. Rate', value:APP.fmtCurrency(compAvg),
         desc:'The average rate across every matched competitor room in the current filter selection.'}),
@@ -421,7 +421,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
       }
       const labels = ['My Room', ...top5.map(t=>t.comp.name)];
       const data = [myRate, ...top5.map(t=>t.rate)];
-      const colors = ['#3861fb', ...top5.map((_,i)=>['#a9b0c9','#9fd6ca','#c3aee8','#f2c194','#e6a8c4'][i%5])];
+      const colors = ['#0041d9', ...top5.map((_,i)=>['#a9b0c9','#9fd6ca','#c3aee8','#f2c194','#e6a8c4'][i%5])];
       setDistChartHeight(labels.length, 36);
       if(rcDistChart) rcDistChart.destroy();
       rcDistChart = new Chart(document.getElementById('rc_distChart'), {
@@ -444,7 +444,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     rcDistChart = new Chart(document.getElementById('rc_distChart'), {
       type: 'bar', // horizontal comparison always reads best as bars
       data:{ labels, datasets:[
-        { label:'My Rate', data:myData, backgroundColor:'#3861fb', borderRadius:6 },
+        { label:'My Rate', data:myData, backgroundColor:'#0041d9', borderRadius:6 },
         { label:'Market Avg', data:marketData, backgroundColor:'#c3aee8', borderRadius:6 }
       ]},
       options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false, animation:chartAnim(true), plugins:{legend:{position:'bottom'}}, scales:{x:{ticks:{callback:v=>v!=null?APP.fmtCurrency(v):''}}} }
@@ -672,9 +672,9 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const compSeries = compSeriesRaw.filter(cs=> cs.data.some(v=>v!=null));
     const datasets = [{
       label: 'My Property', data: myData,
-      borderColor:'#3861fb', backgroundColor: styleIsBar ? '#3861fb' : 'rgba(56,97,251,.12)',
+      borderColor:'#0041d9', backgroundColor: styleIsBar ? '#0041d9' : 'rgba(56,97,251,.12)',
       borderWidth: styleIsBar ? 0 : 4, fill: !styleIsBar, tension:.35, pointRadius: styleIsBar?0:3,
-      pointBackgroundColor:'#3861fb', order:0
+      pointBackgroundColor:'#0041d9', order:0
     }];
     compSeries.forEach(cs=>{
       datasets.push({
@@ -705,7 +705,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const highest = sorted[0], lowest = sorted[sorted.length-1];
 
     document.getElementById('rpta_kpis').innerHTML = [
-      PWIDGETS.kpiCard({icon:'bi-house-door-fill', color:'#3861fb', bg:'#eef4ff', label:`My 12-Mo. Avg (${planLabel})`, value:APP.fmtCurrency(myAvg),
+      PWIDGETS.kpiCard({icon:'bi-house-door-fill', color:'#0041d9', bg:'#e6e6fa', label:`My 12-Mo. Avg (${planLabel})`, value:APP.fmtCurrency(myAvg),
         desc:`Your average ${planLabel} rate across the trailing 12 months, on ${channelLabel}.`}),
       PWIDGETS.kpiCard({icon:'bi-graph-up-arrow', color:'#8c5cf7', bg:'#f3eeff', label:'Market Average', value: marketAvg!=null?APP.fmtCurrency(marketAvg):'—',
         desc: marketAvg!=null ? `The average ${planLabel} rate across every tracked competitor, same 12-month window.` : `No tracked competitors offer ${planLabel}.`}),
@@ -776,7 +776,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     })).filter(cs=> cs.data.some(v=>v!=null));
 
     const datasets = [
-      { label:'My Property', data:myData, backgroundColor:'#3861fb', borderColor:'#3861fb', borderRadius: isBar?6:0, borderWidth: isBar?0:3, fill:false, tension:.3 },
+      { label:'My Property', data:myData, backgroundColor:'#0041d9', borderColor:'#0041d9', borderRadius: isBar?6:0, borderWidth: isBar?0:3, fill:false, tension:.3 },
       ...compSeries.map(cs=>({ label:cs.comp.name, data:cs.data, backgroundColor:cs.color, borderColor:cs.color, borderRadius: isBar?6:0, borderWidth: isBar?0:2, fill:false, tension:.3 }))
     ];
 
@@ -965,9 +965,9 @@ function renderValueProposition(propertyId, comps, today){
     type: vpIsBar ? 'bar' : 'line',
     data:{ labels: ranked.map(r=>r.name), datasets:[{
       label:'Value Score', data: ranked.map(r=>r.valueScore),
-      backgroundColor: vpIsBar ? ranked.map(r=>r.isMe?'#3861fb':'#c3aee8') : 'rgba(56,97,251,.12)',
-      borderColor: vpIsBar ? undefined : '#3861fb', borderWidth: vpIsBar ? 0 : 2,
-      pointBackgroundColor: ranked.map(r=>r.isMe?'#3861fb':'#c3aee8'), pointRadius: vpIsBar ? 0 : 4,
+      backgroundColor: vpIsBar ? ranked.map(r=>r.isMe?'#0041d9':'#c3aee8') : 'rgba(56,97,251,.12)',
+      borderColor: vpIsBar ? undefined : '#0041d9', borderWidth: vpIsBar ? 0 : 2,
+      pointBackgroundColor: ranked.map(r=>r.isMe?'#0041d9':'#c3aee8'), pointRadius: vpIsBar ? 0 : 4,
       fill: !vpIsBar, tension:.3, borderRadius: vpIsBar ? 5 : 0
     }] },
     options:{ indexAxis: vpIsBar ? 'y' : 'x', responsive:true, animation:chartAnim(vpIsBar), plugins:{legend:{display:false},
@@ -1066,7 +1066,7 @@ function renderChannelAnalysis(propertyId){
       datasets:[{
         label:'Current Rate', data: channelMetrics.map(m=>m.current||0),
         backgroundColor: caIsBar ? channelMetrics.map(m=>(DB.CHANNEL_TYPES[m.channel.type]||DB.CHANNEL_TYPES.custom).color) : 'rgba(56,97,251,.12)',
-        borderColor: caIsBar ? undefined : '#3861fb', borderWidth: caIsBar ? 0 : 2,
+        borderColor: caIsBar ? undefined : '#0041d9', borderWidth: caIsBar ? 0 : 2,
         pointBackgroundColor: channelMetrics.map(m=>(DB.CHANNEL_TYPES[m.channel.type]||DB.CHANNEL_TYPES.custom).color), pointRadius: caIsBar ? 0 : 4,
         fill: !caIsBar, tension:.3, borderRadius: caIsBar ? 6 : 0
       }]

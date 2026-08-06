@@ -10,6 +10,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link href="css/style.css" rel="stylesheet">
 <link href="css/portal.css" rel="stylesheet">
+<link href="css/rate-matrix.css" rel="stylesheet">
 </head>
 <body>
 <div id="app-shell">
@@ -18,7 +19,10 @@
 <div class="row g-3">
   <div class="col-lg-8">
     <div class="section-card mb-3">
-      <div class="section-title mb-3">Rate Plan Details</div>
+      <div class="rc-section-title">
+        <span class="rc-section-icon"><i class="bi bi-clipboard-check-fill"></i></span>
+        <div class="section-title">Rate Plan Details</div>
+      </div>
       <div class="row g-3">
         <div class="col-md-4">
           <label class="form-label">Property *</label>
@@ -68,17 +72,32 @@
     </div>
 
     <div class="section-card">
-      <div class="section-title mb-3">Occupancy Pricing</div>
-      <div class="row g-3">
+      <div class="rc-section-title">
+        <span class="rc-section-icon"><i class="bi bi-currency-rupee"></i></span>
+        <div class="section-title">Occupancy Pricing</div>
+      </div>
+      <div class="row g-3 mb-3">
         <div class="col-md-4">
           <label class="form-label">Base Occupancy (guests)</label>
           <input type="number" class="form-control" id="f_baseOcc" value="2" min="1">
         </div>
-        <div class="col-md-4">
+      </div>
+
+      <label class="form-label mb-2">Price by Occupancy</label>
+      <div class="bu-occ-grid">
+        <div class="bu-occ-field"><label for="f_occ1">1 Guest</label><input type="number" class="form-control form-control-sm" id="f_occ1" min="0" placeholder="Auto"></div>
+        <div class="bu-occ-field"><label for="f_occ2">2 Guests</label><input type="number" class="form-control form-control-sm" id="f_occ2" min="0" placeholder="Auto"></div>
+        <div class="bu-occ-field"><label for="f_occ3">3 Guests</label><input type="number" class="form-control form-control-sm" id="f_occ3" min="0" placeholder="Auto"></div>
+        <div class="bu-occ-field"><label for="f_occ4">4 Guests</label><input type="number" class="form-control form-control-sm" id="f_occ4" min="0" placeholder="Auto"></div>
+      </div>
+      <div class="text-muted small mt-2 mb-3"><i class="bi bi-info-circle me-1"></i>Leave an occupancy blank to auto-calculate it from the room's base price plus the extra guest surcharge below. These set the plan's starting price across its whole calendar — fine-tune individual dates afterward in the Rate Calendar.</div>
+
+      <div class="row g-3">
+        <div class="col-md-6">
           <label class="form-label">Extra Adult Price</label>
           <input type="number" class="form-control" id="f_extraAdult" value="800" min="0">
         </div>
-        <div class="col-md-4">
+        <div class="col-md-6">
           <label class="form-label">Extra Child Price</label>
           <input type="number" class="form-control" id="f_extraChild" value="400" min="0">
         </div>
@@ -88,7 +107,10 @@
 
   <div class="col-lg-4">
     <div class="section-card mb-3">
-      <div class="section-title mb-3">Status</div>
+      <div class="rc-section-title">
+        <span class="rc-section-icon"><i class="bi bi-toggle-on"></i></span>
+        <div class="section-title">Status</div>
+      </div>
       <select class="form-select" id="f_status">
         <option value="active">Active</option>
         <option value="inactive">Inactive</option>
@@ -98,8 +120,11 @@
       </div>
     </div>
     <div class="section-card">
-      <div class="section-title mb-2">Save Rate Plan</div>
-      <button type="submit" class="btn btn-primary w-100 mb-2"><i class="bi bi-check2-circle me-1"></i><span id="submitLabel">Save Rate Plan</span></button>
+      <div class="rc-section-title mb-1">
+        <span class="rc-section-icon"><i class="bi bi-save-fill"></i></span>
+        <div class="section-title">Save Rate Plan</div>
+      </div>
+      <button type="submit" class="btn btn-primary w-100 mb-2 mt-2"><i class="bi bi-check2-circle me-1"></i><span id="submitLabel">Save Rate Plan</span></button>
       <a href="properties.html" id="cancelBtn" class="btn btn-light w-100">Cancel</a>
     </div>
   </div>
@@ -112,6 +137,7 @@
 <script src="js/data.js"></script>
 <script src="js/rbac.js"></script>
 <script src="js/main.js"></script>
+<script src="js/global-search.js"></script>
 <script src="js/portal-data.js"></script>
 <script src="js/portal-shell.js"></script>
 <script src="js/add-rate-plan.js"></script>

@@ -102,7 +102,8 @@ const APP = (() => {
         <button class="icon-btn d-lg-none" onclick="APP.toggleSidebarMobile()"><i class="bi bi-list"></i></button>
         <div class="search-box">
           <i class="bi bi-search"></i>
-          <input type="text" class="form-control" placeholder="Search properties, rooms, rate plans...">
+          <input type="text" class="form-control" id="globalSearchInput" placeholder="Search properties, rooms, rate plans, users..." autocomplete="off">
+          <div class="gs-results d-none" id="globalSearchResults"></div>
         </div>
       </div>
       <div class="d-flex align-items-center gap-2">
@@ -142,6 +143,9 @@ const APP = (() => {
       </div>
       <div class="toast-stack" id="toast-stack"></div>
     `;
+    if(typeof GLOBAL_SEARCH !== 'undefined'){
+      GLOBAL_SEARCH.wire(document.getElementById('globalSearchInput'), document.getElementById('globalSearchResults'), GLOBAL_SEARCH.searchCompany);
+    }
   }
 
   function setBreadcrumb(crumbs){
@@ -189,7 +193,7 @@ const APP = (() => {
       <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content" style="border-radius:18px;border:none">
           <div class="modal-body p-4 text-center">
-            <div class="mx-auto mb-3 d-flex align-items-center justify-content-center" style="width:60px;height:60px;border-radius:16px;background:${opts.danger?'#fff0f1':'#eef4ff'}">
+            <div class="mx-auto mb-3 d-flex align-items-center justify-content-center" style="width:60px;height:60px;border-radius:16px;background:${opts.danger?'#fff0f1':'#e6e6fa'}">
               <i class="bi ${opts.danger?'bi-trash3':'bi-question-circle'}" style="font-size:1.6rem;color:${opts.danger?'var(--danger)':'var(--brand-500)'}"></i>
             </div>
             <h5 class="fw-bold mb-2">${opts.title}</h5>

@@ -2,13 +2,19 @@
    Hotel Owner Panel — Core Theme
    ========================================================================== */
 :root{
-  --brand-50:#eef4ff; --brand-100:#dbe7ff; --brand-200:#b8ceff; --brand-300:#8cadff;
-  --brand-400:#5c86ff; --brand-500:#3861fb; --brand-600:#2646e0; --brand-700:#1e37b0;
-  --brand-800:#1a2f8f; --brand-900:#172a73;
-  --accent:#00c2a8; --warn:#ffb020; --danger:#ff4d5e; --info:#3861fb; --success:#12b76a;
+  /* ---- Brand identity colors — named directly so the scale below is traceable back to them:
+     Absolute Blue and True Blue anchor the primary/hover mid-tones, Dark Navy anchors the
+     darkest end (also reused as the sidebar background), Lavender anchors the lightest tint
+     instead of the previous pale-blue/cream tones. ---- */
+  --absolute-blue:#0041d9; --true-blue:#0073cf; --dark-navy:#02075d; --lavender:#e6e6fa;
+
+  --brand-50:#e6e6fa; --brand-100:#d6d9f7; --brand-200:#b3bdf2; --brand-300:#7f97ec;
+  --brand-400:#0073cf; --brand-500:#0041d9; --brand-600:#0036b8; --brand-700:#022a8f;
+  --brand-800:#041d66; --brand-900:#02075d;
+  --accent:#00c2a8; --warn:#ffb020; --danger:#ff4d5e; --info:#0073cf; --success:#12b76a;
 
   --bg-body:#f3f5fb; --bg-surface:#ffffff; --bg-surface-2:#f8f9fd;
-  --bg-sidebar:#12173a; --bg-sidebar-hover:rgba(255,255,255,.06);
+  --bg-sidebar:#02075d; --bg-sidebar-hover:rgba(255,255,255,.06);
   --text-1:#151a34; --text-2:#5b6178; --text-3:#8a90a6;
   --border-1:#e7e9f3; --border-2:#eef0f8;
   --shadow-sm:0 1px 2px rgba(20,24,60,.06);
@@ -92,7 +98,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible,
    something is interactive, without being distracting. ---------- */
 .btn, .form-control, .form-select, .kpi-card, .stat-card, .rec-card, .insight-card,
 .channel-perf-card, .room-card, .competitor-card, .card-surface, .section-card, .chart-card,
-.ticker-card, .alert-tile, .benchmark-child-card, .property-card, .table-modern tbody tr,
+.ticker-card, .property-card, .table-modern tbody tr,
 .pagination .page-link, .icon-btn, .nav-link{
   transition:transform var(--dur-med) var(--ease-premium), box-shadow var(--dur-med) var(--ease-premium),
              background var(--dur-fast) ease, border-color var(--dur-fast) ease, color var(--dur-fast) ease;
@@ -110,15 +116,15 @@ input:focus-visible, select:focus-visible, textarea:focus-visible,
   min-height:100vh; display:flex; align-items:center; justify-content:center;
   position:relative; overflow:hidden;
   background:
-    radial-gradient(1200px 600px at 10% -10%, #2b3fe0 0%, transparent 60%),
+    radial-gradient(1200px 600px at 10% -10%, #0041d9 0%, transparent 60%),
     radial-gradient(1000px 600px at 110% 110%, #00c2a8 0%, transparent 55%),
-    linear-gradient(135deg,#0c1030,#161b45 55%,#0c1030);
+    linear-gradient(135deg,#02075d,#0a1050 55%,#02075d);
   padding:24px;
 }
 /* Slow-drifting blurred color fields — the only "background art" on the page,
    pure CSS radial blobs eased around a loop so the wash never feels static. */
 .auth-orb{position:absolute;border-radius:50%;filter:blur(70px);opacity:.55;pointer-events:none}
-.auth-orb.o1{width:420px;height:420px;background:#5c86ff;top:-140px;left:-110px;animation:orbDrift1 22s ease-in-out infinite}
+.auth-orb.o1{width:420px;height:420px;background:#0073cf;top:-140px;left:-110px;animation:orbDrift1 22s ease-in-out infinite}
 .auth-orb.o2{width:460px;height:460px;background:#00c2a8;bottom:-170px;right:-130px;animation:orbDrift2 26s ease-in-out infinite}
 .auth-orb.o3{width:300px;height:300px;background:#8c5cf7;top:40%;left:50%;opacity:.28;animation:orbDrift3 30s ease-in-out infinite}
 @keyframes orbDrift1{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(40px,50px) scale(1.12)}}
@@ -170,17 +176,41 @@ input:focus-visible, select:focus-visible, textarea:focus-visible,
 .auth-panel-right{
   flex:1 1 400px; border-radius:24px; overflow:hidden; position:relative;
   background:
-    radial-gradient(420px 260px at 85% 0%, rgba(92,134,255,.35), transparent 60%),
+    radial-gradient(420px 260px at 85% 0%, rgba(0,115,207,.35), transparent 60%),
     radial-gradient(360px 300px at 100% 100%, rgba(0,194,168,.28), transparent 55%),
-    linear-gradient(155deg,#0a0d28,#141a42 60%,#0a0d28);
+    linear-gradient(155deg,#02075d,#0d1454 60%,#02075d);
   display:flex; align-items:center;
   box-shadow:inset 0 1px 0 rgba(255,255,255,.08);
 }
 .auth-panel-right-inner{ position:relative; z-index:2; padding:38px 34px; width:100%; }
-.auth-demo-title{ font-size:1.02rem; }
+
+/* ---- Right panel marketing copy — brand eyebrow, headline, short pitch, and a small feature
+   list built from the app's actual capabilities (not fabricated stats/testimonials), then a
+   divider into the demo-account shortcuts below. ---- */
+.auth-eyebrow{
+  display:inline-flex; align-items:center; font-size:.68rem; font-weight:700; letter-spacing:.06em; text-transform:uppercase;
+  color:#c9d6ff; background:rgba(92,134,255,.16); border:1px solid rgba(92,134,255,.35);
+  padding:5px 12px; border-radius:20px; margin-bottom:16px;
+}
+.auth-marketing-title{ color:#fff; font-weight:800; font-size:1.5rem; line-height:1.28; letter-spacing:-.01em; margin-bottom:10px; }
+.auth-marketing-sub{ font-size:.86rem; line-height:1.55; margin-bottom:22px; max-width:340px; }
+.auth-feature-list{ display:flex; flex-direction:column; gap:12px; margin-bottom:26px; }
+.auth-feature-item{
+  display:flex; align-items:center; gap:10px; font-size:.82rem; color:rgba(255,255,255,.85);
+}
+.auth-feature-item i{
+  flex:0 0 auto; width:30px; height:30px; border-radius:9px; display:flex; align-items:center; justify-content:center;
+  background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.14); color:#7f97ec; font-size:.85rem;
+}
+.auth-demo-divider{
+  display:flex; align-items:center; gap:10px; margin-bottom:14px;
+  color:rgba(255,255,255,.45); font-size:.68rem; font-weight:700; letter-spacing:.05em; text-transform:uppercase;
+}
+.auth-demo-divider::before, .auth-demo-divider::after{ content:''; flex:1; height:1px; background:rgba(255,255,255,.14); }
 @media (max-width:860px){
   .auth-frame{ flex-direction:column; max-width:460px; }
   .auth-panel-right{ order:-1; min-height:220px; }
+  .auth-feature-list{ display:none; }
 }
 @keyframes floatIn{from{opacity:0;transform:translateY(18px) scale(.98)}to{opacity:1;transform:none}}
 
@@ -332,6 +362,33 @@ input:focus-visible, select:focus-visible, textarea:focus-visible,
   padding:9px 14px 9px 38px; font-size:.86rem; color:var(--text-1);
 }
 .topbar .search-box i{position:absolute;left:13px;top:50%;transform:translateY(-50%);color:var(--text-3)}
+
+/* ---------- Universal Search dropdown (js/global-search.js) — a grouped results panel
+   anchored under the topbar search box, same glass-surface language as the rest of the app. ---------- */
+.gs-results{
+  position:absolute; top:calc(100% + 8px); left:0; width:100%; min-width:340px; max-width:none;
+  background:var(--glass-bg-strong); border:1px solid var(--border-1); border-radius:14px;
+  box-shadow:var(--shadow-lg); backdrop-filter:blur(var(--glass-blur)); -webkit-backdrop-filter:blur(var(--glass-blur));
+  max-height:420px; overflow-y:auto; z-index:1030; padding:6px;
+}
+.gs-group-label{
+  font-size:.66rem; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--text-3);
+  padding:8px 10px 4px;
+}
+.gs-item{
+  display:flex; align-items:center; gap:10px; padding:8px 10px; border-radius:10px;
+  text-decoration:none; color:var(--text-1); transition:background .12s ease;
+}
+.gs-item:hover, .gs-item:focus{ background:var(--brand-50); color:var(--text-1); }
+[data-theme="dark"] .gs-item:hover, [data-theme="dark"] .gs-item:focus{ background:rgba(0,115,207,.16); }
+.gs-item-icon{
+  width:32px; height:32px; border-radius:9px; flex:0 0 auto; display:flex; align-items:center; justify-content:center;
+  background:var(--bg-surface-2); color:var(--brand-500); font-size:.85rem;
+}
+.gs-item-body{ min-width:0; display:flex; flex-direction:column; }
+.gs-item-title{ font-size:.85rem; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.gs-item-sub{ font-size:.72rem; color:var(--text-3); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.gs-empty{ padding:18px 12px; text-align:center; color:var(--text-3); font-size:.82rem; }
 .icon-btn{
   width:40px;height:40px;border-radius:12px;border:1px solid var(--border-1);background:var(--bg-surface-2);
   display:flex;align-items:center;justify-content:center;color:var(--text-2);position:relative;cursor:pointer;transition:.15s;
@@ -378,6 +435,45 @@ input:focus-visible, select:focus-visible, textarea:focus-visible,
 .section-card .section-title{font-weight:700;font-size:1.02rem;margin-bottom:2px}
 .section-card .section-sub{color:var(--text-3);font-size:.8rem}
 
+/* ---------- Chip-style multi-select checkboxes — Room Amenities / Meal Plans on Add Room.
+   A checkbox+label pair styled as a toggleable pill instead of a plain tickbox+text row reads
+   faster at a glance (filled = selected) and is a larger, easier click/tap target. The real
+   checkbox stays in the DOM (just visually hidden) so existing :checked-based JS keeps working
+   unchanged. ---------- */
+.chip-check{ position:relative; }
+.chip-check input{ position:absolute; opacity:0; width:1px; height:1px; }
+.chip-check label{
+  display:flex; align-items:center; justify-content:center; gap:6px;
+  padding:10px 10px; border-radius:11px; border:1px solid var(--border-1); background:var(--bg-surface-2);
+  font-size:.82rem; font-weight:600; color:var(--text-2); cursor:pointer; text-align:center;
+  transition:background var(--dur-fast,.15s) ease, border-color var(--dur-fast,.15s) ease, color var(--dur-fast,.15s) ease;
+  width:100%; height:100%;
+}
+.chip-check label i{ font-size:.85rem; opacity:0; transform:scale(.6); transition:opacity .15s ease, transform .15s ease; }
+.chip-check input:checked + label{
+  background:color-mix(in srgb, var(--brand-500) 12%, transparent);
+  border-color:var(--brand-500); color:var(--brand-600);
+}
+.chip-check input:checked + label i{ opacity:1; transform:scale(1); }
+.chip-check label:hover{ border-color:var(--brand-300); }
+.chip-check input:focus-visible + label{ outline:2px solid var(--brand-300); outline-offset:2px; }
+
+/* ---------- Linked Rate Plans rows (Add Room) — a clear filled/highlighted state when checked,
+   plus hover feedback, so a long list of plans stays scannable for which ones are linked to this
+   room without having to read every checkbox individually. ---------- */
+.rp-link-row{ cursor:pointer; transition:background var(--dur-fast,.15s) ease, border-color var(--dur-fast,.15s) ease; }
+.rp-link-row:hover{ border-color:var(--brand-300) !important; background:var(--bg-surface-2); }
+.rp-link-row-active{
+  background:color-mix(in srgb, var(--brand-500) 8%, transparent);
+  border-color:var(--brand-500) !important;
+}
+
+/* ---------- Section title with a small icon badge — reuses .rc-section-title/.rc-section-icon
+   (css/portal.css) so form pages (Add Room, Add Rate Plan) share the same "icon badge + heading"
+   language already used for tab section headers elsewhere in the app. ---------- */
+.section-card > .rc-section-title{ margin-bottom:16px; }
+.section-card > .rc-section-title .section-title{ margin-bottom:0; }
+
 /* ---------- Buttons ---------- */
 .btn{border-radius:11px;font-weight:600;font-size:.86rem}
 .btn-primary{background:var(--brand-500);border-color:var(--brand-500)}
@@ -390,6 +486,18 @@ input:focus-visible, select:focus-visible, textarea:focus-visible,
 .btn-light-danger:hover{background:var(--danger);color:#fff}
 .btn-sm-icon{width:34px;height:34px;padding:0;display:inline-flex;align-items:center;justify-content:center;border-radius:9px}
 .icon-btn:hover{ transform:translateY(-1px); box-shadow:var(--shadow-sm); }
+
+/* ---------- Reorder (Move up/down) buttons — Rooms and Rate Plans lists. When a button is at
+   the top/bottom of its group it's disabled; Bootstrap's default ~65% opacity still reads as "a
+   greyed-out but present button," which invites clicking it. Fading it almost fully away instead
+   communicates "nothing to do here" without a dead click target competing for attention next to
+   the one that still works. ---------- */
+.btn-reorder{ transition:opacity var(--dur-fast,.15s) ease, background var(--dur-fast,.15s) ease, transform var(--dur-fast,.15s) ease; }
+.btn-reorder:disabled{
+  opacity:.12; background:transparent; border-color:transparent; box-shadow:none;
+  pointer-events:none;
+}
+.btn-reorder:not(:disabled):hover{ transform:translateY(-1px); }
 
 /* ---------- Table — premium: rounded container, tinted sticky header, zebra rows, hover
    elevation with pointer cursor so rows read as clickable/scannable, not just static data. ---- */

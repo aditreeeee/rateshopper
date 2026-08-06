@@ -50,13 +50,13 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
   // ---- Section 1: Your Property ----
   document.getElementById('kpiYourProperty').innerHTML = [
-    PWIDGETS.kpiCard({icon:'bi-cash-coin', color:'#3861fb', bg:'#eef4ff', label:'Current Hotel Rate', value:APP.fmtCurrency(myRate), sub:`${rateChangePct>=0?'+':''}${rateChangePct}% vs yesterday`, subDir: rateChangePct>=0?'up':'down',
+    PWIDGETS.kpiCard({icon:'bi-cash-coin', color:'#0041d9', bg:'#e6e6fa', label:'Current Hotel Rate', value:APP.fmtCurrency(myRate), sub:`${rateChangePct>=0?'+':''}${rateChangePct}% vs yesterday`, subDir: rateChangePct>=0?'up':'down',
       desc:"Your own property's rate for today, on your Direct (Master) channel."}),
     PWIDGETS.kpiCard({icon:'bi-percent', color: rateChangePct>=0?'#12b76a':'#ff4d5e', bg: rateChangePct>=0?'#e7faf1':'#fff0f1', label:'Rate Change %', value:`${rateChangePct>=0?'+':''}${rateChangePct}%`,
       desc:"How much your own rate has moved compared to yesterday."}),
-    PWIDGETS.kpiCard({icon:'bi-speedometer', color:'#b9791a', bg:'#fff8e6', label:'Price Index', value:`${priceIndex}`, sub:'vs. market = 100',
+    PWIDGETS.kpiCard({icon:'bi-speedometer', color:'#0073cf', bg:'#e6e6fa', label:'Price Index', value:`${priceIndex}`, sub:'vs. market = 100',
       desc:'Your rate as a percentage of the market average. 100 = exactly at market; above 100 means you\'re priced higher than the market, below means lower.'}),
-    PWIDGETS.kpiCard({icon:'bi-signpost-split', color:'#3861fb', bg:'#eef4ff', label:'Rate Position', value:ratePosition,
+    PWIDGETS.kpiCard({icon:'bi-signpost-split', color:'#0041d9', bg:'#e6e6fa', label:'Rate Position', value:ratePosition,
       desc:"Whether your rate sits below, within, or above the range set by your cheapest and most expensive comparison properties."}),
     PWIDGETS.kpiCard({icon:'bi-shield-check', color:'#00c2a8', bg:'#e6fbf8', label:'Rate Parity Score', value:`${parityScore}/100`,
       desc:'How consistently your rate is honored across channels — a lower score means one or more OTAs may be undercutting your Direct rate.'}),
@@ -121,7 +121,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     rateTrendChart = new Chart(document.getElementById('rateTrendChart'), {
       type:'line',
       data:{ labels, datasets:[
-        {label:'Our Property Avg. Rate', data:myLine, borderColor:'#3861fb', backgroundColor:'rgba(56,97,251,.1)', borderWidth:3, tension:.35, fill:true, pointRadius:0, pointHoverRadius:5},
+        {label:'Our Property Avg. Rate', data:myLine, borderColor:'#0041d9', backgroundColor:'rgba(56,97,251,.1)', borderWidth:3, tension:.35, fill:true, pointRadius:0, pointHoverRadius:5},
         {label:'Market Average', data:marketLine, borderColor:'#ff9f43', backgroundColor:'transparent', borderDash:[5,4], borderWidth:2, tension:.35, fill:false, pointRadius:0, pointHoverRadius:4},
         {label:'Highest Competitor', data:highLine, borderColor:'#ff4d5e', backgroundColor:'transparent', borderDash:[2,3], borderWidth:1.5, tension:.35, fill:false, pointRadius:0, pointHoverRadius:4},
         {label:'Lowest Competitor', data:lowLine, borderColor:'#12b76a', backgroundColor:'transparent', borderDash:[2,3], borderWidth:1.5, tension:.35, fill:false, pointRadius:0, pointHoverRadius:4}
@@ -163,7 +163,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   // ---- Price Trends: merged daily/weekly/monthly, tab-switchable ----
   const dailyLabels=[], dailyData=[];
   for(let d=-13; d<=0; d++){ const dk=PORTALDATA.dateKeyOffset(d); dailyLabels.push(dk.slice(5)); dailyData.push(PORTALDATA.myRateOnDate(propertyId,dk)); }
-  trendDatasets.daily = { labels:dailyLabels, data:dailyData, color:'#3861fb', legendLabel:'My Rate — Daily (last 14 days)' };
+  trendDatasets.daily = { labels:dailyLabels, data:dailyData, color:'#0041d9', legendLabel:'My Rate — Daily (last 14 days)' };
 
   const weeklyLabels=[], weeklyData=[];
   for(let w=11; w>=0; w--){
@@ -307,8 +307,8 @@ document.addEventListener('DOMContentLoaded', ()=>{
   }
 
   const brief = generateRevenueBrief();
-  const toneIcon = { warn:'#b9791a', danger:'#ff4d5e', success:'#12b76a', info:'#3861fb' };
-  const toneBg = { warn:'#fff8e6', danger:'#fff0f1', success:'#e7faf1', info:'#eef4ff' };
+  const toneIcon = { warn:'#b9791a', danger:'#ff4d5e', success:'#12b76a', info:'#0041d9' };
+  const toneBg = { warn:'#fff8e6', danger:'#fff0f1', success:'#e7faf1', info:'#e6e6fa' };
 
   document.getElementById('revenueBriefChip').innerHTML = `<i class="bi bi-stars me-1"></i>${brief.length} Insight${brief.length===1?'':'s'}`;
   document.getElementById('ratePositionWidget').innerHTML = `

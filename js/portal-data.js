@@ -21,7 +21,7 @@ const PORTALDATA = (() => {
   };
 
   const CHANNELS = [
-    { key:'direct',     label:'Direct',       icon:'bi-house-door-fill', color:'#3861fb' },
+    { key:'direct',     label:'Direct',       icon:'bi-house-door-fill', color:'#0041d9' },
     { key:'booking',    label:'Booking.com',  icon:'bi-globe2',          color:'#003580' },
     { key:'agoda',      label:'Agoda',        icon:'bi-globe2',          color:'#5392f9' },
     { key:'goibibo',    label:'Goibibo',      icon:'bi-globe2',          color:'#e0117a' },

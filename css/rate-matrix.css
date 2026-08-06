@@ -118,6 +118,32 @@
 .mx-seg-btn.dropdown-toggle::after{ margin-left:6px; vertical-align:.15em; }
 #mx_dateRangeLabel{ font-size:.78rem; font-weight:600; }
 
+/* ---------- Quick Range dropdown (Rate Calendar) — a generic "Quick Range" trigger (icon +
+   label, never swapping to show the selected value) opening a real menu of named presets
+   (This Week/Next Week/Next 14/30/90 Days), instead of three separate always-visible pills.
+   The active preset is shown with a checkmark INSIDE the menu, not on the trigger, so the
+   trigger stays a stable, recognizable button. ---------- */
+.mx-quick-range-btn{ display:inline-flex; align-items:center; gap:7px; }
+.mx-quick-range-btn i{ font-size:.85rem; color:var(--text-3); transition:color .16s ease; }
+.mx-quick-range-btn.active i{ color:#fff; }
+.mx-quick-range-menu{
+  min-width:190px; padding:6px; border-radius:14px; overflow:hidden;
+  box-shadow:var(--shadow-lg); border:1px solid var(--border-1);
+}
+.mx-quick-range-menu .dropdown-item{
+  display:flex; align-items:center; gap:8px; border-radius:9px; padding:8px 10px; font-size:.83rem; font-weight:600;
+  color:var(--text-2); transition:background .14s ease, color .14s ease;
+}
+.mx-quick-range-menu .dropdown-item i{
+  font-size:.78rem; color:transparent; flex:0 0 auto; width:14px; text-align:center; transition:color .14s ease;
+}
+.mx-quick-range-menu .dropdown-item:hover, .mx-quick-range-menu .dropdown-item:focus{
+  background:var(--bg-surface-2); color:var(--text-1);
+}
+.mx-quick-range-menu .dropdown-item.active{ background:var(--brand-50); color:var(--brand-700); }
+.mx-quick-range-menu .dropdown-item.active i{ color:var(--brand-500); }
+[data-theme="dark"] .mx-quick-range-menu .dropdown-item.active{ background:rgba(56,97,251,.16); color:var(--brand-300); }
+
 #mx_dateRangeMenu{ border-radius:16px; overflow:hidden; box-shadow:var(--shadow-lg); border:1px solid var(--border-1); }
 .mx-drp-custom{ padding:14px 16px; width:452px; }
 .mx-drp-cal{ display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:2px; flex:1; min-width:0; overflow:hidden; }
@@ -268,5 +294,57 @@
 .page-rate-shopper .modal-backdrop, .cal-embed .modal-backdrop{
   background:color-mix(in srgb, var(--bg-body) 45%, transparent);
   backdrop-filter:blur(7px); -webkit-backdrop-filter:blur(7px);
+}
+
+/* ---------- Rate Calendar's Bulk Update modal — grouped into titled sections (Target/Date
+   Scope/Pricing) instead of one flat stack of fields, so the modal stays scannable now that it
+   carries per-occupancy price inputs on top of the original date-scope controls. ---------- */
+.bu-modal .bu-section{ padding:14px 0; border-bottom:1px solid var(--border-1); }
+.bu-modal .bu-section:first-of-type{ padding-top:0; }
+.bu-modal .bu-section:last-of-type{ border-bottom:none; padding-bottom:6px; }
+.bu-section-title{
+  display:flex; align-items:center; gap:8px;
+  font-weight:700; font-size:.85rem; letter-spacing:.02em; text-transform:uppercase;
+  color:var(--text-3); margin-bottom:10px;
+}
+.bu-section-title i{ font-size:.95rem; color:var(--brand-500); }
+
+/* Fixed-height, internally scrolling modal body — the per-room pricing cards below can grow
+   arbitrarily tall (one card per targeted room), so the modal itself stays a stable size instead
+   of stretching to fill/exceed the viewport. */
+.bu-modal-body{ max-height:min(64vh, 560px); overflow-y:auto; padding-right:16px; }
+
+.bu-room-card{
+  border:1px solid var(--border-1); border-radius:14px; padding:14px;
+  background:var(--bg-surface-2); margin-bottom:12px;
+}
+.bu-room-card:last-child{ margin-bottom:0; }
+.bu-room-card-title{
+  display:flex; align-items:center; gap:8px;
+  font-weight:700; font-size:.9rem; color:var(--text-1); margin-bottom:10px;
+}
+.bu-room-card-title i{ color:var(--brand-500); }
+
+.bu-occ-grid{
+  display:grid; grid-template-columns:repeat(4, 1fr); gap:10px;
+}
+.bu-occ-grid-2{ grid-template-columns:repeat(2, 1fr); }
+.bu-occ-field label{
+  display:block; font-size:.72rem; font-weight:700; color:var(--text-3);
+  margin-bottom:4px; text-transform:uppercase; letter-spacing:.02em;
+}
+
+.bu-summary{
+  margin-top:6px; padding:10px 14px; border-radius:12px;
+  background:color-mix(in srgb, var(--brand-500) 8%, transparent);
+  color:var(--text-1); font-size:.85rem;
+}
+.bu-summary.bu-summary-warn{
+  background:color-mix(in srgb, #E0A800 12%, transparent);
+  color:var(--text-1);
+}
+
+@media (max-width:576px){
+  .bu-occ-grid{ grid-template-columns:repeat(2, 1fr); }
 }
 .page-rate-shopper .modal-backdrop.show, .cal-embed .modal-backdrop.show{ opacity:1; }

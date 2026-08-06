@@ -46,17 +46,17 @@ document.addEventListener('DOMContentLoaded', ()=>{
   document.getElementById('f_property').innerHTML = RBAC.filterProperties(DB.properties.all()).map(p=>`<option value="${p.id}">${p.name}</option>`).join('');
   document.getElementById('roomAmenitiesGrid').innerHTML = ROOM_AMENITIES.map(a=>`
     <div class="col-md-4 col-6">
-      <div class="form-check">
-        <input class="form-check-input ram-check" type="checkbox" value="${a}" id="ram_${a.replace(/\s/g,'')}">
-        <label class="form-check-label small" for="ram_${a.replace(/\s/g,'')}">${a}</label>
+      <div class="chip-check">
+        <input class="ram-check" type="checkbox" value="${a}" id="ram_${a.replace(/\s/g,'')}">
+        <label for="ram_${a.replace(/\s/g,'')}"><i class="bi bi-check2"></i>${a}</label>
       </div>
     </div>`).join('');
 
   document.getElementById('roomMealPlanGrid').innerHTML = DB.MEAL_PLANS.map(mp=>`
     <div class="col-md-3 col-6">
-      <div class="form-check">
-        <input class="form-check-input rmp-check" type="checkbox" value="${mp}" id="rmp_${mp}">
-        <label class="form-check-label small" for="rmp_${mp}" title="${DB.MEAL_LABELS[mp]}">${mp}</label>
+      <div class="chip-check">
+        <input class="rmp-check" type="checkbox" value="${mp}" id="rmp_${mp}">
+        <label for="rmp_${mp}" title="${DB.MEAL_LABELS[mp]}"><i class="bi bi-check2"></i>${mp}</label>
       </div>
     </div>`).join('');
 
@@ -118,7 +118,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     host.innerHTML = plans.map(rp=>{
       const linkedToThisRoom = existing && rp.roomId === existing.id;
       const otherRoom = DB.rooms.get(rp.roomId);
-      return `<label class="d-flex align-items-center gap-2 p-2 border rounded-3" style="border-color:var(--border-1) !important">
+      return `<label class="rp-link-row d-flex align-items-center gap-2 p-2 border rounded-3 ${linkedToThisRoom?'rp-link-row-active':''}" style="border-color:var(--border-1) !important">
         <input type="checkbox" class="form-check-input rp-link-check flex-shrink-0" value="${rp.id}" ${linkedToThisRoom?'checked':''}>
         <span class="flex-grow-1">
           <span class="d-block fw-semibold" style="font-size:.85rem">${rp.name}</span>
@@ -129,7 +129,10 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
     selectAll.checked = false;
     syncSelectAllState();
-    document.querySelectorAll('.rp-link-check').forEach(cb=> cb.addEventListener('change', syncSelectAllState));
+    document.querySelectorAll('.rp-link-check').forEach(cb=> cb.addEventListener('change', function(){
+      this.closest('.rp-link-row').classList.toggle('rp-link-row-active', this.checked);
+      syncSelectAllState();
+    }));
   }
 
   function syncSelectAllState(){
@@ -139,7 +142,10 @@ document.addEventListener('DOMContentLoaded', ()=>{
   }
 
   document.getElementById('rp_selectAll').addEventListener('change', function(){
-    document.querySelectorAll('.rp-link-check').forEach(cb=> cb.checked = this.checked);
+    document.querySelectorAll('.rp-link-check').forEach(cb=>{
+      cb.checked = this.checked;
+      cb.closest('.rp-link-row').classList.toggle('rp-link-row-active', this.checked);
+    });
   });
 
   refreshLinkedRatePlans();

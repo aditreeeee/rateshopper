@@ -144,8 +144,8 @@ function renderOverview(){
 
   document.getElementById('p_stats').innerHTML = [
     {label:'Channels', value:channels.length, icon:'bi-diagram-3', color:'#8c5cf7', bg:'#f3edff'},
-    {label:'Room Types', value:rooms.length, icon:'bi-door-open', color:'#3861fb', bg:'#eef4ff'},
-    {label:'Rate Plans', value:ratePlans.length, icon:'bi-tags', color:'#b9791a', bg:'#fff8e6'}
+    {label:'Room Types', value:rooms.length, icon:'bi-door-open', color:'#0041d9', bg:'#e6e6fa'},
+    {label:'Rate Plans', value:ratePlans.length, icon:'bi-tags', color:'#0073cf', bg:'#dceefc'}
   ].map(s=>`<div class="col-md-4 col-xl-3 col-6"><div class="stat-card"><div class="stat-icon" style="background:${s.bg};color:${s.color}"><i class="bi ${s.icon}"></i></div><div><div class="stat-label">${s.label}</div><h3 style="font-size:1.25rem">${s.value}</h3></div></div></div>`).join('');
 
   document.getElementById('kv_hmsPropertyId').textContent = p.hmsPropertyId || '—';
@@ -213,7 +213,22 @@ function renderRooms(){
   const canDelete = RBAC.can(RBAC.MODULES.ROOMS, 'delete');
   document.getElementById('roomsCount').textContent = `${rooms.length} room type(s)`;
 
-  document.getElementById('roomsGrid').innerHTML = rooms.length ? rooms.map(r=>`
+  // Grouped by channel (then sortOrder within each channel) so "move up/down" only ever means
+  // "within this channel's own room list" — same reordering pattern as Rate Plans, scoped to
+  // whichever grouping the plans/rooms actually belong to.
+  rooms = [...rooms].sort((a,b)=>{
+    const chanA = DB.channels.get(a.channelId), chanB = DB.channels.get(b.channelId);
+    return (chanA?chanA.name:'').localeCompare(chanB?chanB.name:'') || (a.sortOrder||0)-(b.sortOrder||0);
+  });
+  function roomPos(r){
+    const siblings = DB.rooms.byChannel(r.channelId).sort((a,b)=>(a.sortOrder||0)-(b.sortOrder||0));
+    const pos = siblings.findIndex(x=>x.id===r.id);
+    return { isFirst: pos<=0, isLast: pos>=siblings.length-1 };
+  }
+
+  document.getElementById('roomsGrid').innerHTML = rooms.length ? rooms.map(r=>{
+    const {isFirst, isLast} = roomPos(r);
+    return `
     <div class="col-md-6 col-xl-4">
       <div class="room-card h-100">
         <div class="room-img" style="background-image:url('${r.img}')"></div>
@@ -225,6 +240,11 @@ function renderRooms(){
           <div class="d-flex justify-content-between align-items-center">
             <span class="fw-bold text-primary">${APP.fmtCurrency(r.basePrice)}<small class="text-muted fw-normal">/night</small></span>
             <div class="d-flex gap-1">
+              ${canEdit ? `
+                <div class="btn-group btn-group-sm" role="group" aria-label="Reorder within channel">
+                  <button class="btn btn-sm-icon btn-soft btn-reorder" title="Move up" ${isFirst?'disabled':''} onclick="moveRoom('${r.id}',-1)"><i class="bi bi-arrow-up"></i></button>
+                  <button class="btn btn-sm-icon btn-soft btn-reorder" title="Move down" ${isLast?'disabled':''} onclick="moveRoom('${r.id}',1)"><i class="bi bi-arrow-down"></i></button>
+                </div>` : ''}
               ${canEdit ? `<a href="add-room.html?id=${r.id}" class="btn btn-sm-icon btn-soft" title="Edit"><i class="bi bi-pencil"></i></a>` : ''}
               ${canCreate ? `<button class="btn btn-sm-icon btn-soft" title="Duplicate" onclick="duplicatePropertyRoom('${r.id}')"><i class="bi bi-copy"></i></button>` : ''}
               ${canDelete ? `<button class="btn btn-sm-icon btn-light-danger" title="Delete" onclick="deletePropertyRoom('${r.id}')"><i class="bi bi-trash3"></i></button>` : ''}
@@ -232,9 +252,12 @@ function renderRooms(){
           </div>
         </div>
       </div>
-    </div>`).join('') : `<div class="col-12"><div class="empty-state"><i class="bi bi-door-closed"></i><h5>No rooms yet</h5><p>Add a room type to this channel.</p></div></div>`;
+    </div>`;
+  }).join('') : `<div class="col-12"><div class="empty-state"><i class="bi bi-door-closed"></i><h5>No rooms yet</h5><p>Add a room type to this channel.</p></div></div>`;
 
-  document.getElementById('roomsListBody').innerHTML = rooms.length ? rooms.map(r=>`
+  document.getElementById('roomsListBody').innerHTML = rooms.length ? rooms.map(r=>{
+    const {isFirst, isLast} = roomPos(r);
+    return `
     <tr>
       <td class="fw-semibold">${r.name}</td>
       <td>${channelBadge(r.channelId)}</td>
@@ -243,11 +266,35 @@ function renderRooms(){
       <td>${(r.mealPlans||[]).map(mp=>`<span class="badge bg-light text-dark border me-1" style="font-size:.68rem" title="${DB.MEAL_LABELS[mp]}">${mp}</span>`).join('') || '—'}</td>
       <td class="text-end fw-semibold">${APP.fmtCurrency(r.basePrice)}</td>
       <td class="text-end">
+        ${canEdit ? `
+          <div class="btn-group btn-group-sm me-1" role="group" aria-label="Reorder within channel">
+            <button class="btn btn-sm-icon btn-soft btn-reorder" title="Move up" ${isFirst?'disabled':''} onclick="moveRoom('${r.id}',-1)"><i class="bi bi-arrow-up"></i></button>
+            <button class="btn btn-sm-icon btn-soft btn-reorder" title="Move down" ${isLast?'disabled':''} onclick="moveRoom('${r.id}',1)"><i class="bi bi-arrow-down"></i></button>
+          </div>` : ''}
         ${canEdit ? `<a href="add-room.html?id=${r.id}" class="btn btn-sm-icon btn-soft" title="Edit"><i class="bi bi-pencil"></i></a>` : ''}
         ${canCreate ? `<button class="btn btn-sm-icon btn-soft" title="Duplicate" onclick="duplicatePropertyRoom('${r.id}')"><i class="bi bi-copy"></i></button>` : ''}
         ${canDelete ? `<button class="btn btn-sm-icon btn-light-danger" title="Delete" onclick="deletePropertyRoom('${r.id}')"><i class="bi bi-trash3"></i></button>` : ''}
       </td>
-    </tr>`).join('') : `<tr><td colspan="7"><div class="empty-state"><i class="bi bi-door-closed"></i><h5>No rooms yet</h5><p>Add a room type to this channel.</p></div></td></tr>`;
+    </tr>`;
+  }).join('') : `<tr><td colspan="7"><div class="empty-state"><i class="bi bi-door-closed"></i><h5>No rooms yet</h5><p>Add a room type to this channel.</p></div></td></tr>`;
+}
+
+// Swaps this room's sortOrder with its neighbor within the SAME channel's own ordered list
+// (dir: -1 up, +1 down) — mirrors moveRatePlan() below, including the re-normalize-before-swap
+// self-healing for rooms saved before sortOrder existed.
+function moveRoom(roomId, dir){
+  const r = DB.rooms.get(roomId);
+  if(!r) return;
+  const siblings = DB.rooms.byChannel(r.channelId)
+    .sort((a,b)=> (a.sortOrder||0)-(b.sortOrder||0) || String(a.id).localeCompare(String(b.id)));
+  siblings.forEach((s,i)=>{ if(s.sortOrder !== i){ s.sortOrder = i; DB.rooms.save(s); } });
+
+  const idx = siblings.findIndex(x=>x.id===roomId);
+  const swapIdx = idx + dir;
+  if(swapIdx<0 || swapIdx>=siblings.length) return;
+  DB.rooms.save({ ...siblings[idx], sortOrder: swapIdx });
+  DB.rooms.save({ ...siblings[swapIdx], sortOrder: idx });
+  renderRooms();
 }
 
 function renderRatePlans(){
@@ -259,8 +306,21 @@ function renderRatePlans(){
   const canCreate = RBAC.can(RBAC.MODULES.RATE_PLANS, 'create');
   const canDelete = RBAC.can(RBAC.MODULES.RATE_PLANS, 'delete');
   document.getElementById('rpCount').textContent = `${ratePlans.length} rate plan(s)`;
+
+  // Grouped by room (then sortOrder within each room) rather than raw array order, so a room's
+  // rate plans always sit together — "move up/down" only ever means "within this room's own
+  // list," never jumping across a totally different room's plans that just happen to be adjacent
+  // in storage. Move Up/Down are disabled at each room's own first/last plan, not the table's.
+  ratePlans = [...ratePlans].sort((a,b)=>{
+    const roomA = DB.rooms.get(a.roomId), roomB = DB.rooms.get(b.roomId);
+    return (roomA?roomA.name:'').localeCompare(roomB?roomB.name:'') || (a.sortOrder||0)-(b.sortOrder||0);
+  });
+
   document.getElementById('rpBody').innerHTML = ratePlans.length ? ratePlans.map(rp=>{
     const room = DB.rooms.get(rp.roomId);
+    const roomSiblings = DB.ratePlans.byRoom(rp.roomId).sort((a,b)=>(a.sortOrder||0)-(b.sortOrder||0));
+    const posInRoom = roomSiblings.findIndex(x=>x.id===rp.id);
+    const isFirst = posInRoom<=0, isLast = posInRoom>=roomSiblings.length-1;
     return `<tr>
       <td class="fw-semibold">${rp.name}</td>
       <td>${channelBadge(rp.channelId)}</td>
@@ -269,7 +329,11 @@ function renderRatePlans(){
       <td class="small text-muted">${rp.refundable?'Refundable':'Non-Refundable'}</td>
       <td><span class="badge-status ${rp.status==='active'?'badge-active':'badge-inactive'}">${rp.status}</span></td>
       <td class="text-end">
-        ${canEdit ? `<button class="btn btn-sm-icon btn-soft" title="Set Price for Date Range" onclick="openPriceRangeModal('${rp.id}')"><i class="bi bi-calendar-range"></i></button>` : ''}
+        ${canEdit ? `
+          <div class="btn-group btn-group-sm me-1" role="group" aria-label="Reorder within ${room?room.name:'room'}">
+            <button class="btn btn-sm-icon btn-soft btn-reorder" title="Move up" ${isFirst?'disabled':''} onclick="moveRatePlan('${rp.id}',-1)"><i class="bi bi-arrow-up"></i></button>
+            <button class="btn btn-sm-icon btn-soft btn-reorder" title="Move down" ${isLast?'disabled':''} onclick="moveRatePlan('${rp.id}',1)"><i class="bi bi-arrow-down"></i></button>
+          </div>` : ''}
         ${canEdit ? `<a href="add-rate-plan.html?id=${rp.id}" class="btn btn-sm-icon btn-outline-primary" title="Edit Rate Plan"><i class="bi bi-pencil"></i></a>` : ''}
         ${canCreate ? `<button class="btn btn-sm-icon btn-soft" title="Duplicate" onclick="duplicatePropertyRatePlan('${rp.id}')"><i class="bi bi-copy"></i></button>` : ''}
         ${canDelete ? `<button class="btn btn-sm-icon btn-light-danger" title="Delete Rate Plan" onclick="deletePropertyRatePlan('${rp.id}')"><i class="bi bi-trash3"></i></button>` : ''}
@@ -278,27 +342,26 @@ function renderRatePlans(){
   }).join('') : `<tr><td colspan="7"><div class="empty-state"><i class="bi bi-tags"></i><h5>No rate plans</h5></div></td></tr>`;
 }
 
-function openPriceRangeModal(ratePlanId){
+// Swaps this rate plan's sortOrder with its neighbor within the SAME room's own ordered list
+// (dir: -1 up, +1 down) — reordering is always scoped to one room's plans, never across rooms,
+// since "position" only means anything relative to the other plans on the same room.
+function moveRatePlan(ratePlanId, dir){
   const rp = DB.ratePlans.get(ratePlanId);
   if(!rp) return;
-  const room = DB.rooms.get(rp.roomId);
-  document.getElementById('prPlanName').textContent = `${rp.name}${room?` — ${room.name}`:''}`;
-  document.getElementById('prStart').value = '';
-  document.getElementById('prEnd').value = '';
-  document.getElementById('prPrice').value = '';
-  document.getElementById('prApply').onclick = ()=>{
-    const start = document.getElementById('prStart').value;
-    const end = document.getElementById('prEnd').value;
-    const price = Number(document.getElementById('prPrice').value);
-    if(!start || !end){ APP.toast('Missing Dates', 'Please pick a start and end date.', 'danger'); return; }
-    if(start > end){ APP.toast('Invalid Range', 'The start date must be before the end date.', 'danger'); return; }
-    if(!price || price<=0){ APP.toast('Invalid Price', 'Please enter a price greater than 0.', 'danger'); return; }
-    const maxOcc = Math.max((room && room.maxOccupancy) || 1, rp.baseOccupancy || 1);
-    DB.rates.setRange(rp.id, start, end, price, rp.baseOccupancy, rp.extraAdultPrice, maxOcc);
-    bootstrap.Modal.getInstance(document.getElementById('priceRangeModal')).hide();
-    APP.toast('Pricing Range Applied', `${rp.name} updated for ${start} – ${end}.`, 'success');
-  };
-  new bootstrap.Modal(document.getElementById('priceRangeModal')).show();
+  // Stable sort with an id tiebreaker, then re-normalize to guaranteed-distinct 0..n-1 sortOrder
+  // values before swapping — if sortOrder was ever missing/duplicated on two siblings (e.g. a
+  // rate plan saved before this feature existed), swapping their raw values directly would just
+  // write the same number back to both and silently no-op instead of actually moving anything.
+  const siblings = DB.ratePlans.byRoom(rp.roomId)
+    .sort((a,b)=> (a.sortOrder||0)-(b.sortOrder||0) || String(a.id).localeCompare(String(b.id)));
+  siblings.forEach((s,i)=>{ if(s.sortOrder !== i){ s.sortOrder = i; DB.ratePlans.save(s); } });
+
+  const idx = siblings.findIndex(x=>x.id===ratePlanId);
+  const swapIdx = idx + dir;
+  if(swapIdx<0 || swapIdx>=siblings.length) return;
+  DB.ratePlans.save({ ...siblings[idx], sortOrder: swapIdx });
+  DB.ratePlans.save({ ...siblings[swapIdx], sortOrder: idx });
+  renderRatePlans();
 }
 
 function renderContact(){

@@ -23,6 +23,21 @@ document.addEventListener('DOMContentLoaded', ()=>{
   document.getElementById('countryFilter').innerHTML += countries.map(c=>`<option value="${c}">${c}</option>`).join('');
   refreshCityOptions();
 
+  // Deep-link support for the topbar's universal search — a "City" result links here as
+  // properties.html?city=X, a "Property" result goes straight to property-details.html instead
+  // (no query param needed there), so this is the only param this page needs to honor.
+  const qCity = APP.qs('city');
+  if(qCity){
+    document.getElementById('cityFilter').value = qCity;
+    // Country filter drives which cities refreshCityOptions() even offers, so a city whose
+    // country isn't selected would silently fail to set — cross-check it actually stuck.
+    if(document.getElementById('cityFilter').value !== qCity){
+      document.getElementById('countryFilter').value = '';
+      refreshCityOptions();
+      document.getElementById('cityFilter').value = qCity;
+    }
+  }
+
   // Any filter/search/sort change can change which properties are even visible and how many
   // pages there are, so a stale selection (e.g. "3 selected" including rows that just got
   // filtered out) or a stranded page number would be confusing — simplest correct behavior is to

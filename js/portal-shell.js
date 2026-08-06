@@ -105,7 +105,8 @@ const PORTAL = (() => {
         <button class="icon-btn d-lg-none" onclick="APP.toggleSidebarMobile()"><i class="bi bi-list"></i></button>
         <div class="search-box">
           <i class="bi bi-search"></i>
-          <input type="text" class="form-control" placeholder="Search competitors, channels, dates...">
+          <input type="text" class="form-control" id="globalSearchInput" placeholder="Search rooms, rate plans, channels, competitors..." autocomplete="off">
+          <div class="gs-results d-none" id="globalSearchResults"></div>
         </div>
       </div>
       <div class="d-flex align-items-center gap-2">
@@ -199,6 +200,10 @@ const PORTAL = (() => {
       <div class="toast-stack" id="toast-stack"></div>
     `;
     refreshBell(me);
+    if(typeof GLOBAL_SEARCH !== 'undefined'){
+      const propertyId = activePropertyId(me);
+      GLOBAL_SEARCH.wire(document.getElementById('globalSearchInput'), document.getElementById('globalSearchResults'), q=>GLOBAL_SEARCH.searchProperty(q, propertyId));
+    }
     return me;
   }
 

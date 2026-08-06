@@ -35,7 +35,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
 });
 
 function render(){
-  const colors = {success:'#12b76a', brand:'#3861fb', warn:'#b9791a', danger:'#ff4d5e'};
+  const colors = {success:'#12b76a', brand:'#0041d9', warn:'#b9791a', danger:'#ff4d5e'};
   // This page deliberately shows every notification, including ones from a category muted in
   // Settings — muting only quiets the bell badge/unread count (DB.notifications.visible(), used
   // by main.js), it doesn't erase history from the one place you came here to actually review it.

@@ -100,7 +100,10 @@ function fadeAndRerender(host, renderFn){
 }
 
 let calRangeStart = null, calRangeEnd = null; // the calendar's active date range — drives the grid, bulk-update scopes, and Rate Parity alike
-let calPreset = '14';
+let calPreset = 'next14';
+// Labels for the quick-range dropdown's own button — kept alongside calPresetRange() so the
+// button always shows which quick range (if any) is actually active, instead of a static label.
+const CAL_QUICK_RANGE_LABELS = { thisWeek:'This Week', nextWeek:'Next Week', next14:'Next 14 Days', next30:'Next 30 Days', next90:'Next 90 Days' };
 let calApplyRange = null; // set inside setupDateRangePicker() — exposed at module scope so calShiftRange (called from the edge-scroll wiring, outside that closure) can reach it
 let gridWorking = {};             // { ratePlanId: { dateKey: {price, occPrices:{occ:price}} } }
 let gridHistory = [];             // undo stack of gridWorking snapshots
@@ -120,9 +123,15 @@ function calPresetRange(key){
   const today = calStartOfDay(new Date());
   if(key==='today') return { start:today, end:today };
   if(key==='yesterday'){ const y=calAddDays(today,-1); return { start:y, end:y }; }
+  // This/Next Week both run Sunday–Saturday, matching the custom-range calendar's own week
+  // layout below (its grid starts each row on Sunday) — so "this week" always means the same
+  // week the picker itself would show as the current row, not a rolling 7-days-from-today window.
+  if(key==='thisWeek'){ const start = calAddDays(today, -today.getDay()); return { start, end: calAddDays(start,6) }; }
+  if(key==='nextWeek'){ const start = calAddDays(today, -today.getDay()+7); return { start, end: calAddDays(start,6) }; }
+  if(key==='next14' || key==='14') return { start:today, end:calAddDays(today,13) };
+  if(key==='next30' || key==='30') return { start:today, end:calAddDays(today,29) };
+  if(key==='next90') return { start:today, end:calAddDays(today,89) };
   if(key==='7') return { start:today, end:calAddDays(today,6) };
-  if(key==='14') return { start:today, end:calAddDays(today,13) };
-  if(key==='30') return { start:today, end:calAddDays(today,29) };
   if(key==='lastMonth'){
     const firstOfThisMonth = new Date(today.getFullYear(), today.getMonth(), 1);
     const lastMonthEnd = calAddDays(firstOfThisMonth,-1);
@@ -203,9 +212,14 @@ document.addEventListener('DOMContentLoaded', ()=>{
   document.getElementById('bulkModal').addEventListener('show.bs.modal', refreshBulkTargetOptions);
   document.getElementById('bu_channel').addEventListener('change', refreshBulkRoomOptions);
   document.getElementById('bu_room').addEventListener('change', refreshBulkPlanOptions);
-  document.getElementById('bu_scope').addEventListener('change', updateBulkScopeUI);
+  document.getElementById('bu_ratePlan').addEventListener('change', function(){ renderBulkRoomPricing(); updateBulkSummary(); });
+  document.getElementById('bu_scope').addEventListener('change', function(){ updateBulkScopeUI(); updateBulkSummary(); });
   document.getElementById('bu_apply').addEventListener('click', applyBulkUpdate);
   document.getElementById('bu_clearRates').addEventListener('click', clearBulkRates);
+  ['bu_singleDate','bu_fromDate','bu_toDate','bu_wdFrom','bu_wdTo'].forEach(id=>{
+    document.getElementById(id).addEventListener('change', updateBulkSummary);
+  });
+  document.getElementById('bu_weekdayBtns').addEventListener('click', ()=> setTimeout(updateBulkSummary));
 
   setupDateRangePicker();
   buildWeekdayButtons();
@@ -258,6 +272,16 @@ function setupDateRangePicker(){
 
   function setActiveSeg(presetKey){
     document.querySelectorAll('.mx-seg-btn[data-preset]').forEach(b=> b.classList.toggle('active', b.dataset.preset===presetKey));
+    // The trigger button always reads "Quick Range" — it's a menu label, not a value display —
+    // but still gets an .active/pressed look whenever one of ITS options (not Custom) is the
+    // active range, and the currently-selected option inside the menu gets a checkmark, so the
+    // selection is still visible at a glance without the button text having to change.
+    const quickBtn = document.getElementById('mx_quickRangeBtn');
+    const isQuickRangeActive = !!CAL_QUICK_RANGE_LABELS[presetKey];
+    if(quickBtn) quickBtn.classList.toggle('active', isQuickRangeActive);
+    document.querySelectorAll('#mx_quickRangeMenu .dropdown-item').forEach(item=>{
+      item.classList.toggle('active', isQuickRangeActive && item.dataset.preset===presetKey);
+    });
   }
 
   function applyRange(start, end, presetKey){
@@ -269,8 +293,10 @@ function setupDateRangePicker(){
 
     // Range-shift arrows live embedded in the grid's own date header row (the .mx-edge-left/right
     // zones) and only make sense once the window is wide enough that paging by a whole period is
-    // actually useful — 30D/Custom, never 7D/14D (rate-matrix.css hides them entirely otherwise).
-    document.querySelector('.cal-grid-card').classList.toggle('mx-range-shiftable', presetKey!=='7' && presetKey!=='14');
+    // actually useful — Next 30/90 Days or Custom, never This/Next Week or Next 14 Days
+    // (rate-matrix.css hides them entirely otherwise).
+    const shiftablePresets = ['next30','next90','30','custom'];
+    document.querySelector('.cal-grid-card').classList.toggle('mx-range-shiftable', shiftablePresets.includes(presetKey));
 
     // Cross-fade the grid instead of an instant column-count jump — going from 7D to 14D/30D
     // roughly doubles the date columns, which felt like a jarring, "choppy" jump when swapped in
@@ -333,8 +359,8 @@ function setupDateRangePicker(){
     bootstrap.Dropdown.getOrCreateInstance(document.getElementById('mx_customBtn')).hide();
   }
 
-  // 7D/14D/30D — plain single-select pills, applied immediately on click.
-  document.querySelectorAll('.mx-seg-btn[data-preset]:not(#mx_customBtn)').forEach(btn=>{
+  // Quick Range dropdown (This Week / Next Week / Next 14/30/90 Days) — applied immediately on click.
+  document.querySelectorAll('#mx_quickRangeMenu [data-preset]').forEach(btn=>{
     btn.addEventListener('click', ()=>{
       const { start, end } = calPresetRange(btn.dataset.preset);
       applyRange(start, end, btn.dataset.preset);
@@ -551,15 +577,61 @@ function refreshBulkTargetOptions(){
   const channels = DB.channels.byProperty(propertyId);
   channelSel.innerHTML = `<option value="">All Channels</option>` + channels.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
   channelSel.value = currentChannelId; // default to whatever the page-level Channel filter is set to
+  document.getElementById('bu_priceAction').value = 'fixed';
   refreshBulkRoomOptions();
 }
-function refreshBulkRoomOptions(){
+function bulkTargetRooms(){
   const propertyId = currentPropertyId;
   const channelId = document.getElementById('bu_channel').value;
-  const rooms = channelId ? DB.rooms.byChannel(channelId) : DB.rooms.byProperty(propertyId);
+  return channelId ? DB.rooms.byChannel(channelId) : DB.rooms.byProperty(propertyId);
+}
+function refreshBulkRoomOptions(){
+  const rooms = bulkTargetRooms();
   const roomSel = document.getElementById('bu_room');
   roomSel.innerHTML = `<option value="">All Rooms</option>` + rooms.map(r=>`<option value="${r.id}">${r.name}</option>`).join('');
   refreshBulkPlanOptions();
+}
+// Rooms that pricing cards should be rendered for: the specific room if one is picked, the
+// specific rate plan's room if a rate plan is picked, otherwise every room the Channel filter
+// resolves to — this is what lets "All Rooms" list out a distinct pricing card per room.
+function resolveBulkRooms(){
+  const ratePlanId = document.getElementById('bu_ratePlan').value;
+  const roomId = document.getElementById('bu_room').value;
+  if(ratePlanId){
+    const rp = DB.ratePlans.get(ratePlanId);
+    const room = rp ? DB.rooms.get(rp.roomId) : null;
+    return room ? [room] : [];
+  }
+  if(roomId){
+    const room = DB.rooms.get(roomId);
+    return room ? [room] : [];
+  }
+  return bulkTargetRooms();
+}
+function renderBulkRoomPricing(){
+  const list = document.getElementById('bu_roomPricingList');
+  const rooms = resolveBulkRooms();
+  if(!rooms.length){
+    list.innerHTML = `<div class="text-muted small">No rooms found for this selection.</div>`;
+    return;
+  }
+  list.innerHTML = rooms.map(r=>`
+    <div class="bu-room-card" data-room-id="${r.id}">
+      <div class="bu-room-card-title"><i class="bi bi-door-open"></i>${r.name}</div>
+      <label class="form-label mb-2 small">Occupancy Pricing</label>
+      <div class="bu-occ-grid">
+        <div class="bu-occ-field"><label>1 Guest</label><input type="number" class="form-control form-control-sm bu-occ-input" data-occ="1" min="0" placeholder="—"></div>
+        <div class="bu-occ-field"><label>2 Guests</label><input type="number" class="form-control form-control-sm bu-occ-input" data-occ="2" min="0" placeholder="—"></div>
+        <div class="bu-occ-field"><label>3 Guests</label><input type="number" class="form-control form-control-sm bu-occ-input" data-occ="3" min="0" placeholder="—"></div>
+        <div class="bu-occ-field"><label>4 Guests</label><input type="number" class="form-control form-control-sm bu-occ-input" data-occ="4" min="0" placeholder="—"></div>
+      </div>
+      <div class="bu-occ-grid bu-occ-grid-2 mt-2">
+        <div class="bu-occ-field"><label>Extra Adult</label><input type="number" class="form-control form-control-sm bu-extra-adult" min="0" placeholder="—"></div>
+        <div class="bu-occ-field"><label>Extra Child</label><input type="number" class="form-control form-control-sm bu-extra-child" min="0" placeholder="—"></div>
+      </div>
+      <div class="text-muted small mt-2">Leave an occupancy blank to leave its price unchanged. A room with fewer guest slots simply ignores the extra fields.</div>
+    </div>
+  `).join('');
 }
 function refreshBulkPlanOptions(){
   const roomId = document.getElementById('bu_room').value;
@@ -570,6 +642,8 @@ function refreshBulkPlanOptions(){
   else if(channelId) plans = DB.ratePlans.byChannel(channelId);
   else plans = DB.ratePlans.byProperty(propertyId);
   document.getElementById('bu_ratePlan').innerHTML = `<option value="">All Rate Plans</option>` + plans.map(rp=>`<option value="${rp.id}">${rp.name}</option>`).join('');
+  renderBulkRoomPricing();
+  updateBulkSummary();
 }
 function bulkTargetPlanIds(){
   const propertyId = currentPropertyId;
@@ -580,6 +654,20 @@ function bulkTargetPlanIds(){
   if(roomId) return DB.ratePlans.byRoom(roomId).map(rp=>rp.id);
   if(channelId) return DB.ratePlans.byChannel(channelId).map(rp=>rp.id);
   return DB.ratePlans.byProperty(propertyId).map(rp=>rp.id);
+}
+function updateBulkSummary(){
+  const summary = document.getElementById('bu_summary');
+  if(!summary) return;
+  const dates = collectBulkDates();
+  const planIds = bulkTargetPlanIds();
+  const roomIds = new Set(planIds.map(id=>{ const rp = DB.ratePlans.get(id); return rp ? rp.roomId : null; }).filter(Boolean));
+  if(!dates.length || !planIds.length){
+    summary.innerHTML = `<i class="bi bi-exclamation-circle me-1"></i>Select a valid date scope and target to see what will be updated.`;
+    summary.classList.add('bu-summary-warn');
+    return;
+  }
+  summary.classList.remove('bu-summary-warn');
+  summary.innerHTML = `<i class="bi bi-check-circle me-1"></i>This will update <strong>${planIds.length}</strong> rate plan(s) across <strong>${roomIds.size}</strong> room(s) for <strong>${dates.length}</strong> date(s).`;
 }
 
 function updateBulkScopeUI(){
@@ -613,9 +701,34 @@ function collectBulkDates(){
       }
     }
   } else if(scope==='weekends'){
-    dates = currentDates().filter(d=> d.getDay()===5 || d.getDay()===6).map(d=>keyOf(d));
+    dates = currentDates().filter(d=> d.getDay()===5 || d.getDay()===6 || d.getDay()===0).map(d=>keyOf(d));
   }
   return dates;
+}
+
+function applyBulkPrice(curPrice, action, value){
+  if(action==='fixed') return value;
+  if(action==='incAmt') return curPrice + value;
+  if(action==='decAmt') return Math.max(0, curPrice - value);
+  if(action==='incPct') return Math.round(curPrice * (1 + value/100));
+  if(action==='decPct') return Math.max(0, Math.round(curPrice * (1 - value/100)));
+  return curPrice;
+}
+// Reads one room card's inputs — each targeted room gets its own occupancy/surcharge values
+// rather than one shared set applied to every room, since a room's price tiers/max occupancy
+// are its own.
+function bulkRoomCardValues(roomId){
+  const card = document.querySelector(`.bu-room-card[data-room-id="${roomId}"]`);
+  if(!card) return { occValues:{}, extraAdultRaw:'', extraChildRaw:'' };
+  const occValues = {};
+  card.querySelectorAll('.bu-occ-input').forEach(input=>{
+    if(input.value !== '') occValues[Number(input.dataset.occ)] = Number(input.value);
+  });
+  return {
+    occValues,
+    extraAdultRaw: card.querySelector('.bu-extra-adult').value,
+    extraChildRaw: card.querySelector('.bu-extra-child').value
+  };
 }
 
 function applyBulkUpdate(){
@@ -625,36 +738,75 @@ function applyBulkUpdate(){
   if(!planIds.length){ APP.toast('No Rate Plans', 'The selected room/property has no rate plans to update.', 'danger'); return; }
 
   const priceAction = document.getElementById('bu_priceAction').value;
-  const priceValue = Number(document.getElementById('bu_priceValue').value)||0;
-
-  pushGridHistory();
-  planIds.forEach(planId=>{
-    if(!gridWorking[planId]) gridWorking[planId] = {};
-    const rp = DB.ratePlans.get(planId);
-    const room = rp ? DB.rooms.get(rp.roomId) : null;
-    const maxOcc = Math.max((room && room.maxOccupancy) || 1, (rp && rp.baseOccupancy) || 1);
-    dates.forEach(key=>{
-      const cur = gridWorking[planId][key] || {price:0, occPrices:{}};
-      const occPrices = {...(cur.occPrices||{})};
-      for(let occ=1; occ<=maxOcc; occ++){
-        const curOccPrice = occPrices[occ]!=null ? occPrices[occ] : cur.price;
-        let price = curOccPrice;
-        if(priceAction==='fixed') price = priceValue;
-        else if(priceAction==='incAmt') price = curOccPrice + priceValue;
-        else if(priceAction==='decAmt') price = Math.max(0, curOccPrice - priceValue);
-        else if(priceAction==='incPct') price = Math.round(curOccPrice * (1 + priceValue/100));
-        else if(priceAction==='decPct') price = Math.max(0, Math.round(curOccPrice * (1 - priceValue/100)));
-        occPrices[occ] = price;
-      }
-      const basePrice = rp ? (occPrices[rp.baseOccupancy] != null ? occPrices[rp.baseOccupancy] : cur.price) : cur.price;
-      gridWorking[planId][key] = { price: basePrice, occPrices };
-    });
+  const rooms = resolveBulkRooms();
+  const roomEdits = {};
+  let hasAnyEdit = false;
+  rooms.forEach(room=>{
+    const v = bulkRoomCardValues(room.id);
+    const hasOccEdit = Object.keys(v.occValues).length > 0 && priceAction !== 'none';
+    const hasExtraEdit = v.extraAdultRaw !== '' || v.extraChildRaw !== '';
+    roomEdits[room.id] = { ...v, hasOccEdit, hasExtraEdit };
+    if(hasOccEdit || hasExtraEdit) hasAnyEdit = true;
   });
 
-  markGridDirty();
-  renderGrid();
+  if(!hasAnyEdit){
+    APP.toast('Nothing to Update', 'Enter at least one occupancy price or an extra guest surcharge for a room.', 'warn');
+    return;
+  }
+
+  const plansByRoom = {};
+  planIds.forEach(planId=>{
+    const rp = DB.ratePlans.get(planId);
+    if(!rp) return;
+    (plansByRoom[rp.roomId] = plansByRoom[rp.roomId] || []).push(rp);
+  });
+
+  let datePlanCount = 0, extraPlanCount = 0, historyPushed = false;
+  Object.keys(roomEdits).forEach(roomId=>{
+    const edit = roomEdits[roomId];
+    const roomPlans = plansByRoom[roomId] || [];
+    if(!roomPlans.length) return;
+    const room = DB.rooms.get(roomId);
+    const maxOcc = Math.max((room && room.maxOccupancy) || 1, 1);
+
+    if(edit.hasOccEdit){
+      if(!historyPushed){ pushGridHistory(); historyPushed = true; }
+      roomPlans.forEach(rp=>{
+        if(!gridWorking[rp.id]) gridWorking[rp.id] = {};
+        dates.forEach(key=>{
+          const cur = gridWorking[rp.id][key] || {price:0, occPrices:{}};
+          const occPrices = {...(cur.occPrices||{})};
+          Object.keys(edit.occValues).forEach(occStr=>{
+            const occ = Number(occStr);
+            if(occ > maxOcc) return;
+            const curOccPrice = occPrices[occ]!=null ? occPrices[occ] : cur.price;
+            occPrices[occ] = applyBulkPrice(curOccPrice, priceAction, edit.occValues[occ]);
+          });
+          const basePrice = occPrices[rp.baseOccupancy] != null ? occPrices[rp.baseOccupancy] : cur.price;
+          gridWorking[rp.id][key] = { price: basePrice, occPrices };
+        });
+        datePlanCount++;
+      });
+    }
+
+    if(edit.hasExtraEdit){
+      roomPlans.forEach(rp=>{
+        const updated = {...rp};
+        if(edit.extraAdultRaw !== '') updated.extraAdultPrice = applyBulkPrice(rp.extraAdultPrice||0, priceAction, Number(edit.extraAdultRaw));
+        if(edit.extraChildRaw !== '') updated.extraChildPrice = applyBulkPrice(rp.extraChildPrice||0, priceAction, Number(edit.extraChildRaw));
+        DB.ratePlans.save(updated);
+        extraPlanCount++;
+      });
+    }
+  });
+
+  if(historyPushed){ markGridDirty(); renderGrid(); }
+
   bootstrap.Modal.getInstance(document.getElementById('bulkModal')).hide();
-  APP.toast('Bulk Update Applied', `Updated ${dates.length} date(s) across ${planIds.length} rate plan(s) in draft. Click "Save Changes" to publish.`, 'success');
+  const parts = [];
+  if(datePlanCount) parts.push(`occupancy pricing for ${dates.length} date(s) across ${datePlanCount} rate plan(s) in draft`);
+  if(extraPlanCount) parts.push(`extra guest surcharge on ${extraPlanCount} rate plan(s) saved immediately`);
+  APP.toast('Bulk Update Applied', parts.join('; ') + (datePlanCount ? '. Click "Save Changes" to publish pricing.' : '.'), 'success');
 }
 
 function clearBulkRates(){

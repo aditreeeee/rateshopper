@@ -74,6 +74,14 @@ document.addEventListener('DOMContentLoaded', ()=>{
     document.getElementById('f_extraAdult').value = existing.extraAdultPrice;
     document.getElementById('f_extraChild').value = existing.extraChildPrice;
     document.getElementById('f_status').value = existing.status;
+    // Prefill with today's occupancy prices as a representative snapshot so the fields aren't
+    // blank on edit — left untouched, the override below is skipped and nothing changes.
+    const todayRates = DB.rates.forPlan(existing.id)[DB.fmtDate(new Date())];
+    if(todayRates && todayRates.occPrices){
+      [1,2,3,4].forEach(occ=>{
+        if(todayRates.occPrices[occ] != null) document.getElementById('f_occ'+occ).value = todayRates.occPrices[occ];
+      });
+    }
   } else {
     const startProperty = preselectProperty || propertySelect.value;
     if(preselectProperty) propertySelect.value = preselectProperty;
@@ -112,6 +120,33 @@ document.addEventListener('DOMContentLoaded', ()=>{
       status: document.getElementById('f_status').value
     };
     const saved = DB.ratePlans.save(payload);
+
+    // Occupancy price fields left blank keep whatever DB.ratePlans.save() auto-derived from the
+    // room's base price; any filled-in tier overrides that starting price across every date
+    // already seeded for this plan (same "blank = unchanged" convention as the Rate Calendar's
+    // Bulk Update).
+    const occOverrides = {};
+    [1,2,3,4].forEach(occ=>{
+      const raw = document.getElementById('f_occ'+occ).value;
+      if(raw !== '') occOverrides[occ] = Number(raw);
+    });
+    if(Object.keys(occOverrides).length){
+      const room = DB.rooms.get(saved.roomId);
+      const maxOcc = Math.max((room && room.maxOccupancy) || 1, 1);
+      const planRates = DB.rates.forPlan(saved.id);
+      Object.keys(planRates).forEach(dateKey=>{
+        const cur = planRates[dateKey];
+        const occPrices = {...(cur.occPrices||{})};
+        Object.keys(occOverrides).forEach(occStr=>{
+          const occ = Number(occStr);
+          if(occ <= maxOcc) occPrices[occ] = occOverrides[occ];
+        });
+        const price = occPrices[saved.baseOccupancy] != null ? occPrices[saved.baseOccupancy] : cur.price;
+        planRates[dateKey] = { price, occPrices };
+      });
+      DB.rates.saveAll(saved.id, planRates);
+    }
+
     APP.toast(existing?'Rate Plan Updated':'Rate Plan Created', `${saved.name} saved successfully.`, 'success');
     // Editing returns you to where you came from (Rate Plans tab); creating a brand new
     // plan takes you straight to its calendar so you can set initial pricing.

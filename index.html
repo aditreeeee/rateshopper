@@ -25,7 +25,7 @@
         <div class="logo-badge"><i class="bi bi-building-fill-check"></i></div>
         <div>
           <h5 class="mb-0 fw-bold">Hotel Owner Panel</h5>
-          <small class="text-white-50">Revenue Management System</small>
+          <small class="text-white-50">by eGlobe Solutions</small>
         </div>
       </div>
 
@@ -61,15 +61,24 @@
       </form>
 
       <div class="mt-4">
-        <small class="text-white-50">© 2026 Hotel Owner Panel. Frontend Demo Build.</small>
+        <small class="text-white-50">© 2026 eGlobe Solutions. All rights reserved.</small>
       </div>
     </div>
 
     <div class="auth-panel auth-panel-right">
       <div class="auth-spark" aria-hidden="true"></div>
       <div class="auth-panel-right-inner">
-        <div class="mb-1 fw-bold text-white auth-demo-title"><i class="bi bi-lightning-charge-fill me-1" style="color:#ffce54"></i>Quick Demo Access</div>
-        <p class="text-white-50 small mb-3">This build ships with a mock RBAC hierarchy. Pick a role to sign in instantly and explore what that role can see.</p>
+        <span class="auth-eyebrow"><i class="bi bi-stars me-1"></i>eGlobe Solutions</span>
+        <h3 class="auth-marketing-title">Smarter rate intelligence,<br>built for hoteliers.</h3>
+        <p class="text-white-50 auth-marketing-sub">Track competitor rates, catch parity leaks before they cost you, and act on pricing recommendations — all from one panel.</p>
+
+        <div class="auth-feature-list">
+          <div class="auth-feature-item"><i class="bi bi-graph-up-arrow"></i><span>Real-time rate shopping across every channel</span></div>
+          <div class="auth-feature-item"><i class="bi bi-shield-check"></i><span>Automatic rate parity monitoring</span></div>
+          <div class="auth-feature-item"><i class="bi bi-lightning-charge"></i><span>AI-assisted pricing recommendations</span></div>
+        </div>
+
+        <div class="auth-demo-divider"><span>Try it now</span></div>
         <div class="d-flex flex-column gap-2" id="demoAccessList"></div>
       </div>
     </div>
@@ -81,11 +90,11 @@
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content" style="border-radius:18px;border:none">
       <div class="modal-body p-4">
-        <div class="mx-auto mb-3 d-flex align-items-center justify-content-center" style="width:60px;height:60px;border-radius:16px;background:#eef4ff">
-          <i class="bi bi-key" style="font-size:1.6rem;color:#3861fb"></i>
+        <div class="mx-auto mb-3 d-flex align-items-center justify-content-center" style="width:60px;height:60px;border-radius:16px;background:#e6e6fa">
+          <i class="bi bi-key" style="font-size:1.6rem;color:#0041d9"></i>
         </div>
         <h5 class="fw-bold text-center mb-2">Reset Password</h5>
-        <p class="text-muted small text-center mb-4">Enter your registered email and we'll send a password reset link (demo only).</p>
+        <p class="text-muted small text-center mb-4">Enter your registered email and we'll send a password reset link.</p>
         <input type="email" class="form-control mb-3" placeholder="you@eglobe.com">
         <button class="btn btn-primary w-100" id="sendResetBtn">Send Reset Link</button>
       </div>
@@ -99,6 +108,7 @@
 <script src="js/data.js"></script>
 <script src="js/rbac.js"></script>
 <script src="js/main.js"></script>
+<script src="js/global-search.js"></script>
 <script src="js/login.js"></script>
 </body>
 </html>

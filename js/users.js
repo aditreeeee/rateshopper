@@ -16,6 +16,11 @@ document.addEventListener('DOMContentLoaded', ()=>{
   const roles = [...new Set(RBAC.visibleUsers().map(u=>u.role))];
   document.getElementById('roleFilter').innerHTML += roles.map(r=>`<option value="${r}">${RBAC.ROLE_LABELS[r]}</option>`).join('');
 
+  // Deep-link support for the topbar's universal search — a "User" result links here as
+  // users.html?q=NAME, pre-filling the same search box this page's own filters already use.
+  const qSearch = APP.qs('q');
+  if(qSearch) document.getElementById('searchInput').value = qSearch;
+
   function onFilterChange(){ usersPage = 0; selectedUsers.clear(); render(); }
   ['searchInput','roleFilter','statusFilter','sortBy'].forEach(id=>{
     document.getElementById(id).addEventListener('input', onFilterChange);

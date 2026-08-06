@@ -1,7 +1,7 @@
 /* ---------- Reports: hero banner ---------- */
 .rp-hero{
   position:relative; overflow:hidden; border-radius:18px; padding:22px 26px;
-  background:linear-gradient(120deg, #3861fb 0%, #6d5bf0 55%, #8c5cf7 100%);
+  background:linear-gradient(120deg, #0041d9 0%, #6d5bf0 55%, #8c5cf7 100%);
   color:#fff; display:flex; align-items:center; justify-content:space-between; gap:16px;
   box-shadow:0 10px 28px rgba(56,97,251,.28);
 }
