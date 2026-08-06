@@ -84,17 +84,20 @@ function fitDateColumnsToWidth(host, dayCount){
 
 // Cross-fade a grid re-render instead of swapping its content instantly. Swapping content after
 // a single requestAnimationFrame (~16ms after the fade-out class was added) is nowhere near
-// enough time for the opacity transition (220ms, matching #gridHost/#parityGridHost's CSS
-// transition-duration) to actually get low — the column-count/width jump was happening in full
-// view; the "fade" never got a chance to mask it. This defers the re-render until the fade-out
-// transition has actually finished.
+// enough time for the opacity transition to actually get low — the column-count/width jump was
+// happening in full view; the "fade" never got a chance to mask it. This defers the re-render
+// until the fade-out transition has actually finished. Duration defaults to matching
+// #parityGridHost's CSS transition (220ms, css/rate-matrix.css); the main grid (#gridHost) uses
+// its own longer, gentler fade (320ms, see css/rate-matrix.css's #gridHost override) since a
+// same-length date shift (arrows, or switching between two same-size Quick Range presets) barely
+// changes the column count, so the shorter/sharper default fade read as an abrupt flicker there.
 const GRID_FADE_MS = 220;
-function fadeAndRerender(host, renderFn){
+function fadeAndRerender(host, renderFn, durationMs){
   host.classList.add('mx-grid-fade');
   setTimeout(()=>{
     renderFn();
     requestAnimationFrame(()=> host.classList.remove('mx-grid-fade'));
-  }, GRID_FADE_MS);
+  }, durationMs || GRID_FADE_MS);
 }
 
 let calRangeStart = null, calRangeEnd = null; // the calendar's active date range — drives the grid, bulk-update scopes, and Rate Parity alike
@@ -298,7 +301,7 @@ function setupDateRangePicker(){
     // Cross-fade the grid instead of an instant column-count jump — going from 7D to 14D/30D
     // roughly doubles the date columns, which felt like a jarring, "choppy" jump when swapped in
     // instantly.
-    fadeAndRerender(document.getElementById('gridHost'), renderGrid);
+    fadeAndRerender(document.getElementById('gridHost'), renderGrid, 320);
   }
   calApplyRange = applyRange;
 

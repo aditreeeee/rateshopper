@@ -178,6 +178,17 @@
 #mx_gridHost, #gridHost, #parityGridHost{ transition:opacity .22s ease; }
 #mx_gridHost.mx-grid-fade, #gridHost.mx-grid-fade, #parityGridHost.mx-grid-fade{ opacity:.35; }
 
+/* Rate Calendar's own main grid (#gridHost) only — Rate Matrix and Rate Parity keep the snappier
+   default above. A same-length shift (the range-shift arrows, or switching between two Quick
+   Range presets with the same day count — This Week -> Next Week, etc.) barely changes the
+   column count, so the sharp .35 dip + short 220ms duration reads as an abrupt flicker rather
+   than a transition — there's no big layout change to "hide" inside it the way a 7D -> 30D jump
+   has. A longer, gentler fade (never dipping below 55% opacity) reads as an intentional slide
+   between two nearby dates instead of a jarring cut, without slowing down bigger jumps any less
+   than before. */
+#gridHost{ transition:opacity .32s ease-out; }
+#gridHost.mx-grid-fade{ opacity:.55; }
+
 /* ---------- Range-shift arrows, embedded in the date header row itself (the .mx-edge-left/right
    hover-scroll zones already sit exactly there — see the height:46px override below) instead of
    floating in the toolbar above the table. Only meaningful once the window is wide enough that
