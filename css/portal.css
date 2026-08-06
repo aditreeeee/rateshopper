@@ -32,8 +32,8 @@
 /* ==========================================================================
    Premium sticky tab bar (Room Rate Comparison's 4 tabs, Forecast & Actions' 2 tabs) — a single
    shared component so the two pages' single-page-with-tabs structure reads identically. Sticks
-   just below the app's own sticky topbar (same top:var(--header-h)/z-index convention as
-   .cal-context-bar) so the active section is always reachable no matter how far the page has
+   just below the app's own sticky topbar (same top:var(--header-h)/z-index convention used
+   elsewhere in the app) so the active section is always reachable no matter how far the page has
    scrolled. Separation from the content below comes from a hairline border + backdrop blur
    (matches the topbar's own glass treatment) rather than a heavy drop shadow — present at rest,
    not just something that appears on scroll, so there's never a jarring, wobbly threshold. The
@@ -282,14 +282,6 @@
 /* ---------- Competitor list view ---------- */
 .comp-list-thumb{ width:42px; height:42px; border-radius:10px; background-size:cover; background-position:center; flex:0 0 auto; background-color:var(--bg-surface-2); }
 
-/* ---------- Score ring ---------- */
-.score-ring{ position:relative; width:88px; height:88px; }
-.score-ring svg{ transform:rotate(-90deg); }
-.score-ring .score-value{
-  position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
-  font-weight:800; font-size:1.15rem; color:var(--text-1);
-}
-
 /* ---------- Sticky rate-shopper table ---------- */
 .rate-shopper-table-wrap{ max-height:70vh; overflow:auto; border-radius:14px; }
 .rate-shopper-table-wrap table{ border-collapse:separate; border-spacing:0; }
@@ -334,11 +326,6 @@
    for the scrollbar thumb (same bug as the Rate Matrix/Rate Calendar grids). A fixed px offset
    can't reliably clear it (containing-block padding-edge quirk), so it's positioned exactly via
    JS instead — see alignVerticalEdgeZones() in js/property-room-comparison.js. */
-
-/* ---------- Skeleton shimmer (reuses .skeleton base if present, adds fallback) ---------- */
-.portal-skeleton{ background:linear-gradient(90deg,var(--bg-surface-2) 25%,var(--border-2) 37%,var(--bg-surface-2) 63%);
-  background-size:400% 100%; animation:portal-shimmer 1.4s ease infinite; border-radius:10px; }
-@keyframes portal-shimmer{ 0%{background-position:100% 50%} 100%{background-position:0 50%} }
 
 /* ---------- Misc ---------- */
 .trend-up{ color:var(--danger); }   /* rate went up = usually flagged, matches rest of app's convention */
@@ -555,7 +542,10 @@
    content — bigger, easier-to-scan calendar cells and a roomier detail panel — rather than sitting
    unused. ---- */
 .ric-body{ display:flex; gap:20px; align-items:stretch; flex-wrap:wrap; }
-.ric-calendar-col{ flex:1 1 60%; min-width:320px; }
+/* Flex column so .ric-grid (flex:1 below) can grow to actually fill the column's stretched
+   height (matching whatever height the detail panel ends up needing) instead of sitting at a
+   fixed cell size and leaving blank space underneath the grid. */
+.ric-calendar-col{ flex:1 1 60%; min-width:320px; display:flex; flex-direction:column; }
 .ric-detail-col{ flex:1 1 320px; min-width:280px; max-width:380px; }
 @media (max-width:991.98px){ .ric-detail-col{ flex-basis:100%; max-width:none; } }
 
@@ -570,7 +560,13 @@
 .ric-dow{ text-align:center; font-size:.62rem; font-weight:700; color:var(--ric-text-muted); text-transform:uppercase; letter-spacing:.06em; padding:0 0 8px; }
 
 .ric-grid{
-  display:grid; grid-template-columns:repeat(7, 1fr); gap:0;
+  display:grid; grid-template-columns:repeat(7, 1fr);
+  /* First row is the S/M/T/W/T/F/S header (auto height); every week row below it shares the
+     rest of the grid's height equally, so the grid always fills exactly the height the flex
+     column above gives it — no leftover whitespace under a short month, no clipping on a
+     six-week one. */
+  grid-template-rows:auto repeat(6, 1fr);
+  flex:1; gap:0;
   background:var(--ric-surface); border:1px solid var(--ric-border);
   border-radius:10px; overflow:hidden;
 }
@@ -583,7 +579,7 @@
 .ric-dow{ background:color-mix(in srgb, var(--ric-1) 6%, transparent); padding-top:9px; }
 
 .ric-cell{
-  position:relative; min-height:58px; padding:7px 8px;
+  position:relative; min-height:58px; height:100%; padding:7px 8px;
   background:transparent; overflow:hidden;
   display:flex; flex-direction:column; align-items:flex-start; justify-content:space-between;
   cursor:pointer; -webkit-tap-highlight-color:transparent;
@@ -601,10 +597,6 @@
   background:color-mix(in srgb, var(--ric-2) 18%, transparent);
   box-shadow:inset 3px 0 0 var(--ric-3); z-index:1;
 }
-
-/* The old thick top accent bar is gone — opportunity/risk on a given day is now only ever
-   signaled by the small action dot below, never a bar spanning the cell's full width. */
-.ric-cell-bar{ display:none; }
 
 .ric-date{
   font-size:.74rem; font-weight:600; color:var(--ric-text-muted); line-height:1; display:flex; align-items:center; gap:4px;

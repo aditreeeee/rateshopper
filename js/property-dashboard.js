@@ -564,20 +564,26 @@ function initRevenueCalendar(propertyId, comps){
       if(dk===todayKey) cellClasses.push('is-today');
       if(info.action!=='Hold') cellClasses.push('has-action');
       html += `<button type="button" class="${cellClasses.join(' ')}" data-dk="${dk}" aria-label="${date.toDateString()}: ${info.action} recommended, our rate ${APP.fmtCurrency(info.myR)}">
-        <span class="ric-cell-bar"></span>
         <span class="ric-date">${d}${dk===todayKey?'<i class=\"ric-today-dot\"></i>':''}</span>
         <span class="ric-rate">${APP.fmtCurrency(info.myR)}</span>
         <span class="ric-action-dot"></span>
       </button>`;
     }
-    // Always render at least 5 full weeks (35 cells) — some months (e.g. a 28-day February
-    // starting on Sunday) only need 4 rows of real dates, which made the grid visibly shorter
-    // and shifted layout when navigating between months. Trailing filler cells make up the
-    // difference; months that already need 5 or 6 rows are untouched.
+    // Always render full weeks (a whole number of 7-cell rows), minimum 5 — some months (e.g. a
+    // 28-day February starting on Sunday) only need 4 rows of real dates, and any month can end
+    // mid-row (e.g. August 2026 needs 6 rows but the last one only has 2 real dates in it).
+    // Trailing filler cells complete whatever the final row is, so every row — including a mostly-
+    // empty last one — is a full set of real grid items and gets its hairline borders like any
+    // other row, instead of a row with missing gridlines/borders on the un-rendered cells.
     const cellsSoFar = firstDow + daysInMonth;
-    const minCells = 35;
+    const rowsNeeded = Math.max(5, Math.ceil(cellsSoFar/7));
+    const minCells = rowsNeeded*7;
     for(let i=cellsSoFar; i<minCells; i++) html += `<div class="ric-cell ric-empty"></div>`;
     grid.innerHTML = html;
+    // .ric-grid's CSS default assumes 6 week-rows; keep the actual row count in sync so a
+    // 5-row month doesn't reserve a 6th, fully empty row's worth of height (blank space with no
+    // border at all, since it would have zero grid items in it).
+    grid.style.gridTemplateRows = `auto repeat(${rowsNeeded}, 1fr)`;
 
     // Whatever date was pinned/hovered before a re-render (e.g. month navigation) may no longer
     // exist in this month — fall back to today if visible, else the 1st of the displayed month,

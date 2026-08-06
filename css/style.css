@@ -96,7 +96,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible,
 /* ---------- Smooth, consistent micro-interactions on every clickable surface — a small,
    fast transform+shadow lift on hover reads as "premium" and gives immediate feedback that
    something is interactive, without being distracting. ---------- */
-.btn, .form-control, .form-select, .kpi-card, .stat-card, .rec-card, .insight-card,
+.btn, .form-control, .form-select, .kpi-card, .stat-card, .insight-card,
 .channel-perf-card, .room-card, .competitor-card, .card-surface, .section-card, .chart-card,
 .ticker-card, .property-card, .table-modern tbody tr,
 .pagination .page-link, .icon-btn, .nav-link{
@@ -458,6 +458,26 @@ input:focus-visible, select:focus-visible, textarea:focus-visible,
 .chip-check label:hover{ border-color:var(--brand-300); }
 .chip-check input:focus-visible + label{ outline:2px solid var(--brand-300); outline-offset:2px; }
 
+/* ---------- Channel preview card (Add Channel) — a live icon/color/name preview of whichever
+   channel is currently selected, same visual language as the channelBadge() pills shown
+   elsewhere in the app, so it's obvious at a glance what's about to be saved instead of reading
+   a plain "Channel ID 1002" text line. ---------- */
+.channel-preview-card{
+  display:flex; align-items:center; gap:12px; padding:12px 14px;
+  border:1px solid var(--border-1); border-radius:12px; background:var(--bg-surface-2);
+  min-height:60px;
+}
+.channel-preview-empty{
+  display:flex; align-items:center; gap:8px; color:var(--text-3); font-size:.82rem;
+}
+.channel-preview-icon{
+  width:38px; height:38px; border-radius:11px; flex:0 0 auto;
+  display:flex; align-items:center; justify-content:center; font-size:1.05rem;
+}
+.channel-preview-info{ display:flex; flex-direction:column; gap:2px; min-width:0; }
+.channel-preview-name{ font-weight:700; font-size:.92rem; color:var(--text-1); }
+.channel-preview-meta{ font-size:.74rem; color:var(--text-3); }
+
 /* ---------- Linked Rate Plans rows (Add Room) — a clear filled/highlighted state when checked,
    plus hover feedback, so a long list of plans stays scannable for which ones are linked to this
    room without having to read every checkbox individually. ---------- */
@@ -577,25 +597,12 @@ input:focus-visible, select:focus-visible, textarea:focus-visible,
   backdrop-filter:blur(var(--glass-blur)); -webkit-backdrop-filter:blur(var(--glass-blur));
 }
 
-/* Sticky context bar for the Rate Calendar — behaves like a compact top navbar */
-.cal-context-bar{
-  position:sticky; top:0; z-index:1015;
-  display:flex; align-items:center; gap:14px; flex-wrap:wrap;
-  background:var(--glass-bg-strong); border:1px solid var(--glass-border); border-radius:var(--radius-md);
-  padding:12px 18px; box-shadow:var(--shadow-sm); margin-bottom:18px;
-  backdrop-filter:blur(var(--glass-blur)); -webkit-backdrop-filter:blur(var(--glass-blur));
-}
-.cal-context-bar .form-select{width:auto; min-width:220px}
-.cal-context-bar .cal-context-note{font-size:.78rem; color:var(--text-3); flex:1 1 260px}
-body:not(.cal-embed) .cal-context-bar{top:var(--header-h)}
-
 /* ---------- Empty / Loading ---------- */
 .empty-state{text-align:center;padding:60px 20px;color:var(--text-3)}
 .empty-state i{font-size:2.6rem;color:var(--border-1);margin-bottom:14px;display:block}
 .empty-state h5{color:var(--text-1);margin-bottom:4px}
 .skeleton{background:linear-gradient(90deg,var(--bg-surface-2) 25%,var(--border-2) 37%,var(--bg-surface-2) 63%);background-size:400% 100%;animation:sk 1.4s ease infinite;border-radius:8px}
 @keyframes sk{0%{background-position:100% 50%}100%{background-position:0 50%}}
-.skeleton-row{height:16px;margin-bottom:10px}
 
 /* ---------- Toast ---------- */
 .toast-stack{position:fixed;top:20px;right:20px;z-index:2000;display:flex;flex-direction:column;gap:10px}
@@ -665,33 +672,73 @@ body:not(.cal-embed) .cal-context-bar{top:var(--header-h)}
   position:sticky; left:0; z-index:2;
   background:color-mix(in srgb, var(--bg-surface) 88%, transparent);
   backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
-  width:230px; min-width:230px; max-width:230px; white-space:normal;
+  width:230px; min-width:230px; max-width:230px;
   border-right:1px solid var(--border-1) !important;
 }
+/* `.grid-table th,.grid-table td{white-space:nowrap}` above (two selectors) is MORE specific
+   than a bare `.grid-sticky-col{white-space:normal}` (one selector) would be, so that nowrap
+   always won regardless of source order — wrapping never actually applied here, content just
+   silently overflowed the fixed-width column instead of dropping to a second line. Matching
+   `.grid-table`'s own selector shape is what actually beats it. */
+.grid-table th.grid-sticky-col, .grid-table td.grid-sticky-col{ white-space:normal; }
 /* Date-column width — shared by every date <th> (via this class) and every price <td> (via
-   .grid-price-cell, below). min-width lets columns stretch to fill available space when few are
-   showing (7D/14D) instead of leaving empty space to the right; max-width caps how far that
-   stretch goes (7D would otherwise balloon to fill the whole card), which keeps the per-column
-   width jump when switching to a range with more columns (14D/30D/90D) noticeably smaller —
-   less of a visual "shake" on the switch. */
-.grid-date-col{ min-width:92px; max-width:160px; }
+   .grid-price-cell, below). Only a MINIMUM width is set, no cap — same fully-fluid fill as the
+   Revenue Intelligence Calendar's 1fr grid columns: whatever date range is showing always
+   stretches to occupy the grid's full available width rather than leaving empty space to the
+   right (or getting boxed into a fixed column size) once there are few enough columns to fit;
+   once there are too many to fit at the minimum, the grid falls back to its own horizontal
+   scroll instead. */
+.grid-date-col{ min-width:92px; }
 .grid-table thead th.grid-sticky-col{
   z-index:5; text-align:left;
   background:color-mix(in srgb, var(--bg-surface-2) 92%, transparent);
 }
 
-.grid-room-row td.grid-sticky-col{background:color-mix(in srgb, var(--bg-surface-2) 92%, transparent);font-weight:400;color:var(--text-1)}
+/* Compact, single-line room label — nowrap + ellipsis instead of letting the bed-type/capacity
+   description wrap onto a second line, which would otherwise make every room's divider row
+   taller than a plain data row for no reason. Truncating (rather than shrinking further) keeps
+   the room name itself always fully legible; only the parenthetical detail gets cut with "…" if
+   the 230px column is too narrow for it. */
+/* Room name + bed type/capacity detail wraps onto a second line rather than truncating with an
+   ellipsis — cutting off mid-word ("3 gue…") read as broken; letting the row grow taller instead
+   keeps every detail fully readable, and the column stays the same 230px width either way. */
+.grid-room-row td.grid-sticky-col{
+  background:color-mix(in srgb, var(--bg-surface-2) 92%, transparent);font-weight:400;color:var(--text-1);
+  padding:8px 14px; font-size:.8rem; white-space:normal; line-height:1.4;
+}
 .grid-plan-header-row td.grid-sticky-col{background:color-mix(in srgb, var(--bg-surface-2) 92%, transparent)}
 
-.grid-plan-label{padding:10px 14px}
-.grid-plan-label .name{font-size:.83rem;font-weight:600;color:var(--text-1)}
-.grid-plan-label .meta{font-size:.71rem;font-weight:500;color:var(--text-3)}
+.grid-plan-label{padding:7px 14px}
+.grid-plan-label .name{font-size:.8rem;font-weight:600;color:var(--text-1)}
+.grid-plan-label .meta{font-size:.68rem;font-weight:500;color:var(--text-3)}
+/* Room name, folded into the top of each plan-header row (see renderGrid()'s roomLabelLine())
+   instead of its own dedicated row above the room's plans. A tinted chip (not just plain text)
+   reads as a distinct "which room this is" label at a glance. */
+.grid-room-inline{ margin-bottom:4px; }
+.grid-room-chip{
+  display:inline-block; font-size:.66rem; font-weight:700; letter-spacing:.02em; text-transform:uppercase;
+  color:var(--brand-600); background:color-mix(in srgb, var(--brand-500) 10%, transparent);
+  padding:2px 8px; border-radius:6px; line-height:1.5;
+}
+[data-theme="dark"] .grid-room-chip{ color:var(--brand-300); background:rgba(56,97,251,.18); }
 .grid-occ-badge{
-  display:inline-flex; align-items:center; gap:3px; font-size:.72rem; font-weight:400;
-  padding:1px 7px; border-radius:20px; background:var(--bg-surface-2); color:var(--text-2); line-height:1.6;
+  display:inline-flex; align-items:center; gap:3px; font-size:.7rem; font-weight:400;
+  padding:1px 7px; border-radius:20px; background:var(--bg-surface-2); color:var(--text-2); line-height:1.5;
 }
 [data-theme="dark"] .grid-occ-badge{background:var(--bg-surface-2)}
-.grid-price-cell{min-width:92px;max-width:160px;text-align:center;cursor:pointer;transition:background .15s ease}
+/* The room's own base-occupancy row (rp.baseOccupancy, always synced to the room's own base
+   occupancy — see js/add-rate-plan.js) — a filled badge + tinted row background instead of small
+   muted "(base)" text, so it reads clearly at a glance instead of being easy to miss while
+   scanning down a rate plan's occupancy rows. */
+.grid-occ-badge-base{ background:var(--brand-500); color:#fff; font-weight:600; }
+[data-theme="dark"] .grid-occ-badge-base{ background:var(--brand-500); }
+.grid-base-tag{
+  font-size:.62rem; font-weight:700; text-transform:uppercase; letter-spacing:.02em;
+  color:var(--brand-600); margin-left:4px;
+}
+[data-theme="dark"] .grid-base-tag{ color:var(--brand-300); }
+.grid-base-occ-row td.grid-sticky-col{ background:color-mix(in srgb, var(--brand-500) 6%, transparent); }
+.grid-price-cell{min-width:92px;text-align:center;cursor:pointer;transition:background .15s ease}
 .grid-price-cell:hover{background:var(--bg-surface-2)}
 .grid-price-cell.today-col{background:rgba(56,97,251,.05)}
 .gp-cell-inner{padding:10px 8px}

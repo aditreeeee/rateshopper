@@ -48,6 +48,17 @@ document.addEventListener('DOMContentLoaded', ()=>{
   function refreshRooms(channelId){
     const rooms = channelId ? DB.rooms.byChannel(channelId) : [];
     roomSelect.innerHTML = rooms.length ? rooms.map(r=>`<option value="${r.id}">${r.name}</option>`).join('') : `<option value="">No rooms on this channel — add one first</option>`;
+    syncBaseOccupancy();
+  }
+  // Base Occupancy always mirrors the selected room's own base occupancy (Room's "Base Occupancy"
+  // field, room.capacity) — a rate plan's included-guest count existing independently of the room
+  // it's attached to (previously a plain, editable "2" default) meant a room with a 3-guest base
+  // could silently end up with a rate plan whose base was still 2, charging an extra-adult
+  // surcharge for a guest the room itself considers included. The field is read-only (see the
+  // HTML) specifically so this can never drift again.
+  function syncBaseOccupancy(){
+    const room = DB.rooms.get(roomSelect.value);
+    document.getElementById('f_baseOcc').value = room ? room.capacity : 2;
   }
   propertySelect.addEventListener('change', ()=>{
     refreshChannels(propertySelect.value);
@@ -56,6 +67,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     APP.setBreadcrumb(breadcrumbFor(propertySelect.value));
   });
   channelSelect.addEventListener('change', ()=> refreshRooms(channelSelect.value));
+  roomSelect.addEventListener('change', syncBaseOccupancy);
 
   if(existing){
     document.getElementById('submitLabel').textContent = 'Update Rate Plan';
@@ -64,13 +76,13 @@ document.addEventListener('DOMContentLoaded', ()=>{
     channelSelect.value = existing.channelId;
     refreshRooms(existing.channelId);
     roomSelect.value = existing.roomId;
+    syncBaseOccupancy();
     document.getElementById('f_name').value = existing.name;
     document.getElementById('f_meal').value = existing.mealPlan;
     document.getElementById('f_refundable').value = String(existing.refundable);
     document.getElementById('f_minStay').value = existing.minStay;
     document.getElementById('f_maxStay').value = existing.maxStay;
     document.getElementById('f_cancellation').value = existing.cancellationPolicy;
-    document.getElementById('f_baseOcc').value = existing.baseOccupancy;
     document.getElementById('f_extraAdult').value = existing.extraAdultPrice;
     document.getElementById('f_extraChild').value = existing.extraChildPrice;
     document.getElementById('f_status').value = existing.status;

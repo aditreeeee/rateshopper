@@ -347,7 +347,7 @@ const DB = (() => {
           minStay: pick([1,1,1,2,3]),
           maxStay: pick([7,14,30]),
           cancellationPolicy: refundable ? 'Free cancellation up to 24 hours before check-in' : 'Non-refundable. No changes or cancellations allowed.',
-          baseOccupancy: 2,
+          baseOccupancy: r.capacity,
           extraAdultPrice: rand(500,1500),
           extraChildPrice: rand(250,800),
           status: Math.random()>0.1?'active':'inactive',
@@ -647,6 +647,20 @@ const DB = (() => {
         ratePlansChanged = true;
       }
     });
+    // Self-heal any rate plan whose baseOccupancy doesn't match its own room's base occupancy
+    // (room.capacity) — previously every rate plan defaulted to a flat 2 regardless of the room
+    // it was on, so a 3-guest-base room could end up with a plan that still thought only 2 guests
+    // were included, silently charging an extra-adult surcharge for a guest the room itself
+    // considers standard. Add Rate Plan now keeps this field read-only/synced going forward (see
+    // js/add-rate-plan.js); this backfills anything saved before that existed.
+    const roomById = {}; allRooms.forEach(r=> roomById[r.id]=r);
+    allRatePlans.forEach(rp=>{
+      const room = roomById[rp.roomId];
+      if(room && rp.baseOccupancy !== room.capacity){
+        rp.baseOccupancy = room.capacity;
+        ratePlansChanged = true;
+      }
+    });
     // Backfill sortOrder (Rate Plans list's Move Up/Down) on any rate plan saved before that
     // feature existed — per-room counters, assigned in existing array order, so a first-time
     // reorder starts from exactly the order the list was already showing rather than jumbling it.
@@ -678,7 +692,7 @@ const DB = (() => {
   }
 
   return { seed, ensureChannels, uid, get, set, rand, pick, fmtDate, MEAL_PLANS, MEAL_LABELS, CHANNEL_TYPES,
-    CHANNEL_CATALOG, CHANNEL_TYPE_CODES, MASTER_CHANNEL_CODE, channelCatalogEntry, NOTIF_CATEGORIES,
+    OTA_CHANNEL_TYPES, CHANNEL_CATALOG, CHANNEL_TYPE_CODES, MASTER_CHANNEL_CODE, channelCatalogEntry, NOTIF_CATEGORIES,
     properties, channels, rooms, ratePlans, rates, notifications, settings, users };
 })();
 

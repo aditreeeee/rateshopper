@@ -66,6 +66,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   document.getElementById('rm_viewGrid').addEventListener('click', ()=> setRoomsView('grid'));
   document.getElementById('rm_viewList').addEventListener('click', ()=> setRoomsView('list'));
   document.getElementById('rpChannelFilter').addEventListener('change', renderRatePlans);
+  document.getElementById('rpMealFilter').addEventListener('change', renderRatePlans);
 
   // Rate Calendar tab: the live grid is embedded directly (no click-through), scoped to this property.
   // This is the only place the rate calendar is ever shown — there is no standalone full-page version.
@@ -132,7 +133,24 @@ function populateChannelFilters(){
   const channels = DB.channels.byProperty(p.id);
   const opts = `<option value="">All Channels</option>` + channels.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
   document.getElementById('roomsChannelFilter').innerHTML = opts;
-  document.getElementById('rpChannelFilter').innerHTML = opts;
+
+  // Rate Plans' Channel filter groups its options under <optgroup> labels (Direct / OTA
+  // Channels / Customised Channels, from each channel's own `type`) instead of one flat list —
+  // a property with many OTA channels reads far faster grouped than alphabetically flat.
+  const GROUP_LABELS = { master:'Direct', custom:'Customised Channels' };
+  const groups = { master:[], ota:[], custom:[] };
+  channels.forEach(c=>{
+    (DB.OTA_CHANNEL_TYPES.includes(c.type) ? groups.ota : (groups[c.type] || groups.custom)).push(c);
+  });
+  const groupHtml = (label, list)=> list.length
+    ? `<optgroup label="${label}">${list.map(c=>`<option value="${c.id}">${c.name}</option>`).join('')}</optgroup>` : '';
+  document.getElementById('rpChannelFilter').innerHTML = `<option value="">All Channels</option>` +
+    groupHtml(GROUP_LABELS.master, groups.master) +
+    groupHtml('OTA Channels', groups.ota) +
+    groupHtml(GROUP_LABELS.custom, groups.custom);
+
+  document.getElementById('rpMealFilter').innerHTML = `<option value="">All Meal Plans</option>` +
+    DB.MEAL_PLANS.map(mp=>`<option value="${mp}" title="${DB.MEAL_LABELS[mp]}">${mp}</option>`).join('');
 }
 
 function renderOverview(){
@@ -300,31 +318,54 @@ function moveRoom(roomId, dir){
 function renderRatePlans(){
   const p = currentProperty;
   const channelId = document.getElementById('rpChannelFilter').value;
+  const mealPlan = document.getElementById('rpMealFilter').value;
   let ratePlans = DB.ratePlans.byProperty(p.id);
   if(channelId) ratePlans = ratePlans.filter(rp=>rp.channelId===channelId);
+  if(mealPlan) ratePlans = ratePlans.filter(rp=>rp.mealPlan===mealPlan);
   const canEdit = RBAC.can(RBAC.MODULES.RATE_PLANS, 'edit');
   const canCreate = RBAC.can(RBAC.MODULES.RATE_PLANS, 'create');
   const canDelete = RBAC.can(RBAC.MODULES.RATE_PLANS, 'delete');
   document.getElementById('rpCount').textContent = `${ratePlans.length} rate plan(s)`;
 
-  // Grouped by room (then sortOrder within each room) rather than raw array order, so a room's
-  // rate plans always sit together — "move up/down" only ever means "within this room's own
-  // list," never jumping across a totally different room's plans that just happen to be adjacent
-  // in storage. Move Up/Down are disabled at each room's own first/last plan, not the table's.
+  // Grouped by ROOM NAME (not room record/channel) — a room type is a separate DB record per
+  // channel (its own id, own sortOrder), so a property with the same room type listed on several
+  // channels would otherwise repeat that same room name as its own group over and over, once per
+  // channel, for no useful reason — just wasted vertical space with nothing new to say. Grouping
+  // by name merges all of a room type's plans together regardless of which channel each one is
+  // actually on (still shown via each row's own Channel column). Sort order and Move Up/Down
+  // stay scoped to each plan's own room record/channel exactly as before — only the VISUAL
+  // grouping changes here.
   ratePlans = [...ratePlans].sort((a,b)=>{
     const roomA = DB.rooms.get(a.roomId), roomB = DB.rooms.get(b.roomId);
     return (roomA?roomA.name:'').localeCompare(roomB?roomB.name:'') || (a.sortOrder||0)-(b.sortOrder||0);
   });
 
-  document.getElementById('rpBody').innerHTML = ratePlans.length ? ratePlans.map(rp=>{
+  // Rendered as room group headers (reusing the .rc-group-row pattern from Room Rate
+  // Comparison) rather than a per-row Room column — plans are already sorted room-by-room
+  // above, so a header row per room reads faster than reading the same room name repeated
+  // down a column, and it's one less column competing for width.
+  const groups = {}; const roomNameOrder = [];
+  ratePlans.forEach(rp=>{
     const room = DB.rooms.get(rp.roomId);
-    const roomSiblings = DB.ratePlans.byRoom(rp.roomId).sort((a,b)=>(a.sortOrder||0)-(b.sortOrder||0));
-    const posInRoom = roomSiblings.findIndex(x=>x.id===rp.id);
-    const isFirst = posInRoom<=0, isLast = posInRoom>=roomSiblings.length-1;
-    return `<tr>
+    const groupKey = room ? room.name : 'Unassigned Room';
+    if(!groups[groupKey]){ groups[groupKey] = []; roomNameOrder.push(groupKey); }
+    groups[groupKey].push(rp);
+  });
+
+  document.getElementById('rpBody').innerHTML = ratePlans.length ? roomNameOrder.map(groupKey=>{
+    const roomPlans = groups[groupKey];
+    const groupHeader = `<tr class="rc-group-row"><td colspan="6">
+      <i class="bi bi-door-open me-2 text-muted"></i><strong>${groupKey}</strong>
+      <span class="text-muted ms-2" style="font-size:.72rem">${roomPlans.length} rate plan${roomPlans.length===1?'':'s'}</span>
+    </td></tr>`;
+    return groupHeader + roomPlans.map(rp=>{
+      const room = DB.rooms.get(rp.roomId);
+      const roomSiblings = DB.ratePlans.byRoom(rp.roomId).sort((a,b)=>(a.sortOrder||0)-(b.sortOrder||0));
+      const posInRoom = roomSiblings.findIndex(x=>x.id===rp.id);
+      const isFirst = posInRoom<=0, isLast = posInRoom>=roomSiblings.length-1;
+      return `<tr>
       <td class="fw-semibold">${rp.name}</td>
       <td>${channelBadge(rp.channelId)}</td>
-      <td>${room?room.name:'-'}</td>
       <td><span class="badge bg-primary-subtle text-primary">${rp.mealPlan}</span></td>
       <td class="small text-muted">${rp.refundable?'Refundable':'Non-Refundable'}</td>
       <td><span class="badge-status ${rp.status==='active'?'badge-active':'badge-inactive'}">${rp.status}</span></td>
@@ -339,7 +380,8 @@ function renderRatePlans(){
         ${canDelete ? `<button class="btn btn-sm-icon btn-light-danger" title="Delete Rate Plan" onclick="deletePropertyRatePlan('${rp.id}')"><i class="bi bi-trash3"></i></button>` : ''}
       </td>
     </tr>`;
-  }).join('') : `<tr><td colspan="7"><div class="empty-state"><i class="bi bi-tags"></i><h5>No rate plans</h5></div></td></tr>`;
+    }).join('');
+  }).join('') : `<tr><td colspan="6"><div class="empty-state"><i class="bi bi-tags"></i><h5>No rate plans</h5></div></td></tr>`;
 }
 
 // Swaps this rate plan's sortOrder with its neighbor within the SAME room's own ordered list

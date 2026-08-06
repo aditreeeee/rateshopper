@@ -34,8 +34,30 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
   const propertySelect = document.getElementById('f_property');
   const channelSelect = document.getElementById('f_channel');
-  const channelCodeLabel = document.getElementById('f_channelCode');
+  const previewEl = document.getElementById('channelPreview');
   const cancelBtn = document.getElementById('cancelBtn');
+
+  // Same legacy-type lookup the submit handler uses, just run early so the preview can show
+  // the right icon/color before the channel is ever saved.
+  function typeForCode(channelCode){
+    if(channelCode === DB.MASTER_CHANNEL_CODE) return 'master';
+    return Object.keys(DB.CHANNEL_TYPE_CODES).find(k=> DB.CHANNEL_TYPE_CODES[k]===channelCode && k!=='master') || 'custom';
+  }
+  function renderChannelPreview(){
+    const channelCode = Number(channelSelect.value);
+    const catalogEntry = DB.channelCatalogEntry(channelCode);
+    if(!channelSelect.value || !catalogEntry){
+      previewEl.innerHTML = `<div class="channel-preview-empty"><i class="bi bi-arrow-up-short"></i>Pick a channel above to preview it here.</div>`;
+      return;
+    }
+    const meta = DB.CHANNEL_TYPES[typeForCode(channelCode)] || DB.CHANNEL_TYPES.custom;
+    previewEl.innerHTML = `
+      <span class="channel-preview-icon" style="background:${meta.color}1a;color:${meta.color}"><i class="bi ${meta.icon}"></i></span>
+      <span class="channel-preview-info">
+        <span class="channel-preview-name">${catalogEntry.name}</span>
+        <span class="channel-preview-meta">Channel ID ${channelCode} · picked from the fixed channel catalog for consistent reporting</span>
+      </span>`;
+  }
 
   propertySelect.innerHTML = RBAC.filterProperties(DB.properties.all()).map(p=>`<option value="${p.id}">${p.name}</option>`).join('');
 
@@ -60,18 +82,18 @@ document.addEventListener('DOMContentLoaded', ()=>{
       ? available.map(c=> `<option value="${c.code}">${c.code} — ${c.name}</option>`).join('')
       : `<option value="">No unassigned channels left for this property</option>`;
     if(existing) channelSelect.value = existing.channelCode;
-    channelCodeLabel.textContent = channelSelect.value || '-';
+    renderChannelPreview();
   }
 
   if(isMaster){
     // The Master Channel's identity is fixed — only its status is editable here.
     channelSelect.innerHTML = `<option value="${DB.MASTER_CHANNEL_CODE}">${DB.MASTER_CHANNEL_CODE} — ${DB.CHANNEL_TYPES.master.label}</option>`;
     channelSelect.disabled = true;
-    channelCodeLabel.textContent = DB.MASTER_CHANNEL_CODE;
+    renderChannelPreview();
   } else {
     refreshChannelOptions();
   }
-  channelSelect.addEventListener('change', ()=>{ channelCodeLabel.textContent = channelSelect.value || '-'; });
+  channelSelect.addEventListener('change', renderChannelPreview);
 
   if(existing){
     document.getElementById('submitLabel').textContent = 'Update Channel';
@@ -107,8 +129,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
     // type stays a loose legacy key purely for icon/color lookups elsewhere (they all fall back
     // to the generic 'custom' style for any code outside the 5 originally-special-cased OTAs).
-    const legacyType = Object.keys(DB.CHANNEL_TYPE_CODES).find(k=> DB.CHANNEL_TYPE_CODES[k]===channelCode && k!=='master');
-    const type = isMaster ? 'master' : (legacyType || 'custom');
+    const type = typeForCode(channelCode);
 
     const payload = {
       id: existing ? existing.id : undefined,

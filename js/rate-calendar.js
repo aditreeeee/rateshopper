@@ -13,7 +13,7 @@
 // outside" it in the card's own padding gutter. Measuring both elements' real
 // getBoundingClientRect and taking the difference sidesteps that padding-box confusion entirely.
 function alignEdgeZonesToHeader(card, host, leftId, rightId){
-  const wrap = host && (host.querySelector('.grid-table-wrap') || host.querySelector('.grid-header-scroll'));
+  const wrap = host && host.querySelector('.grid-table-wrap');
   const thead = host && host.querySelector('thead');
   if(!thead || !wrap || !card) return;
   const cardRect = card.getBoundingClientRect();
@@ -28,11 +28,9 @@ function alignEdgeZonesToHeader(card, host, leftId, rightId){
   if(leftEl){
     leftEl.style.top = `${top}px`; leftEl.style.height = `${h}px`;
     // Sits INSIDE the end of the sticky column, not spilling over into the first date column, so
-    // the first date column starts exactly where it should. A small gap (not flush/touching)
-    // keeps it visually connected to the Property/Room column it belongs to, rather than reading
-    // as glued directly onto the date header next to it.
+    // the first date column starts exactly where it should.
     const leftElWidth = leftEl.getBoundingClientRect().width || 34;
-    const gap = 6;
+    const gap = -12;
     leftEl.style.left = `${(wrapRect.left - cardRect.left) + stickyWidth - leftElWidth - gap}px`;
     leftEl.style.right = 'auto';
   }
@@ -292,11 +290,10 @@ function setupDateRangePicker(){
       ? calFmtShort(calRangeStart) : `${calFmtShort(calRangeStart)} – ${calFmtShort(calRangeEnd)}`;
 
     // Range-shift arrows live embedded in the grid's own date header row (the .mx-edge-left/right
-    // zones) and only make sense once the window is wide enough that paging by a whole period is
-    // actually useful — Next 30/90 Days or Custom, never This/Next Week or Next 14 Days
-    // (rate-matrix.css hides them entirely otherwise).
-    const shiftablePresets = ['next30','next90','30','custom'];
-    document.querySelector('.cal-grid-card').classList.toggle('mx-range-shiftable', shiftablePresets.includes(presetKey));
+    // zones). Always shown on the Rate Calendar regardless of preset — stepping a whole week/14
+    // days forward or back is just as useful as stepping 30/90 days, so unlike Rate Matrix these
+    // are never conditionally hidden here.
+    document.querySelector('.cal-grid-card').classList.add('mx-range-shiftable');
 
     // Cross-fade the grid instead of an instant column-count jump — going from 7D to 14D/30D
     // roughly doubles the date columns, which felt like a jarring, "choppy" jump when swapped in
@@ -427,38 +424,54 @@ function renderGrid(){
     return `<th class="grid-date-col ${isToday?'today-col':''}">${d.toLocaleDateString('en-IN',{weekday:'short'})}<br>${d.getDate()} ${d.toLocaleDateString('en-IN',{month:'short'})}</th>`;
   }).join('');
 
+  // The room name/bed-type/capacity line used to be its own dedicated row above a room's rate
+  // plans; it's now folded into each plan-header row instead (a small muted line above the plan
+  // name) — one less row per room, and the room's own scroll-height only ever grows in the same
+  // place its plan info already does. Reused for the "no rate plans" fallback row too, since that
+  // no longer has a separate room-row above it to identify which room it belongs to.
+  const roomLabelLine = room=> `<div class="grid-room-inline"><span class="grid-room-chip">${room.name}</span></div>`;
+
   let bodyRows = '';
   rooms.forEach(room=>{
-    bodyRows += `<tr class="grid-room-row"><td class="grid-sticky-col" colspan="1"><i class="bi bi-door-open me-2"></i>${room.name} <span class="text-muted fw-normal" style="font-size:.72rem">(${room.bedType}, ${room.capacity} guests)</span></td>${dates.map(()=>'<td></td>').join('')}</tr>`;
     const plans = DB.ratePlans.byRoom(room.id);
     if(!plans.length){
-      bodyRows += `<tr><td class="grid-sticky-col"><div class="grid-plan-label text-muted small"><i class="bi bi-exclamation-circle me-1"></i>No rate plans linked to this room</div></td>${dates.map(()=>'<td></td>').join('')}</tr>`;
+      bodyRows += `<tr><td class="grid-sticky-col"><div class="grid-plan-label">${roomLabelLine(room)}<div class="text-muted small mt-1"><i class="bi bi-exclamation-circle me-1"></i>No rate plans linked to this room</div></div></td>${dates.map(()=>'<td></td>').join('')}</tr>`;
       return;
     }
     plans.forEach(rp=>{
       const planRates = gridWorking[rp.id] || {};
       const maxOcc = Math.max(room.maxOccupancy||1, rp.baseOccupancy||1);
 
-      // Plan header row: name, meal plan, cancellation policy — no price cells.
-      // Rate plan editing lives on the Rate Plans screen, not here.
+      // Plan header row: room + name, meal plan, cancellation policy — no price cells. Content
+      // wraps onto as many lines as it needs (height grows, the 230px column width never does),
+      // so the divider bar next to it — same <tr>, so it always matches this cell's real height
+      // via ordinary table row sizing — never looks flatter/shorter than what's actually in the
+      // sticky column while scrolling past it. Rate plan editing lives on the Rate Plans screen,
+      // not here.
       bodyRows += `<tr class="grid-plan-header-row">
         <td class="grid-sticky-col">
           <div class="grid-plan-label">
+            ${roomLabelLine(room)}
             <div class="name">${rp.name}</div>
-            <div class="meta">${rp.mealPlan} • ${rp.refundable?'Refundable':'Non-Refundable'}</div>
+            <div class="meta">${rp.mealPlan} • ${rp.refundable?'Refundable':'Non-Refundable'} • ${room.capacity} guests</div>
           </div>
         </td>
         <td colspan="${dates.length}" class="bg-body-tertiary"></td>
       </tr>`;
 
-      // One row per occupancy level, 1 pax up to the room's max occupancy
+      // One row per occupancy level, 1 pax up to the room's max occupancy. The room's own base
+      // occupancy row (rp.baseOccupancy, always synced to room.capacity — see js/add-rate-plan.js
+      // and ensureChannels() in js/data.js) is marked with a filled badge and a tinted row
+      // background instead of small muted "(base)" text, so which occupancy level the room's
+      // standard/included price applies to is obvious at a glance while scanning the calendar.
       for(let occ=1; occ<=maxOcc; occ++){
-        bodyRows += `<tr>
+        const isBaseOcc = occ===rp.baseOccupancy;
+        bodyRows += `<tr class="${isBaseOcc?'grid-base-occ-row':''}">
           <td class="grid-sticky-col">
-            <div class="grid-plan-label py-2 d-flex align-items-center justify-content-between gap-2">
+            <div class="grid-plan-label py-1 d-flex align-items-center justify-content-between gap-2">
               <span>
-                <span class="grid-occ-badge"><i class="bi bi-people"></i>${occ} Pax</span>
-                ${occ===rp.baseOccupancy?'<span class="text-muted" style="font-size:.65rem"> (base)</span>':''}
+                <span class="grid-occ-badge ${isBaseOcc?'grid-occ-badge-base':''}"><i class="bi bi-people"></i>${occ} Pax</span>
+                ${isBaseOcc?'<span class="grid-base-tag">Room Base</span>':''}
               </span>
               <button type="button" class="btn btn-sm-icon btn-soft parity-btn" style="width:24px;height:24px" title="Compare across channels" data-room="${room.id}" data-plan="${rp.id}" data-occ="${occ}"><img src="https://www.eglobe-solutions.com/channelmanager/images/parity-view.png" alt="Rate Parity" class="parity-icon"></button>
             </div>
@@ -469,7 +482,7 @@ function renderGrid(){
             const occPrice = (data.occPrices && data.occPrices[occ]!=null) ? data.occPrices[occ] : data.price;
             const isToday = key===todayKey;
             return `<td class="grid-price-cell ${isToday?'today-col':''}" data-plan="${rp.id}" data-date="${key}" data-occ="${occ}">
-              <div class="py-2 px-1">
+              <div class="py-1 px-1">
                 <div class="gp-price">${APP.fmtCurrency(occPrice)}</div>
               </div>
             </td>`;
@@ -479,8 +492,8 @@ function renderGrid(){
     });
   });
 
-  host.innerHTML = `<div class="grid-table-wrap"><table class="grid-table">
-    <thead><tr><th class="grid-sticky-col">Room / Rate Plan / Occupancy</th>${theadDates}</tr></thead>
+  host.innerHTML = `<div class="grid-table-wrap" tabindex="0" role="group" aria-label="Rate Calendar, scrollable with arrow keys"><table class="grid-table">
+    <thead><tr><th class="grid-sticky-col" scope="col">Room / Rate Plan / Occupancy</th>${theadDates}</tr></thead>
     <tbody>${bodyRows}</tbody>
   </table></div>`;
   fitDateColumnsToWidth(host, dates.length);

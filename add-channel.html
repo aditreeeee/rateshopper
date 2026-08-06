@@ -18,7 +18,10 @@
 <div class="row g-3">
   <div class="col-lg-7">
     <div class="section-card mb-3">
-      <div class="section-title mb-3">Channel Details</div>
+      <div class="rc-section-title">
+        <span class="rc-section-icon"><i class="bi bi-diagram-3-fill"></i></span>
+        <div class="section-title">Channel Details</div>
+      </div>
       <div class="row g-3">
         <div class="col-md-6">
           <label class="form-label">Property *</label>
@@ -27,7 +30,12 @@
         <div class="col-md-6">
           <label class="form-label">Channel *</label>
           <select class="form-select" id="f_channel" required></select>
-          <div class="form-text">Channel ID <span id="f_channelCode">-</span> — picked from the fixed channel catalog so it stays consistent for reporting and future backend integration.</div>
+        </div>
+        <div class="col-12">
+          <!-- Live preview of the selected channel — icon/color/name/ID, same visual language
+               as the channel badges shown elsewhere in the app, updated on every selection
+               change so it's obvious at a glance what's about to be saved. -->
+          <div id="channelPreview" class="channel-preview-card"></div>
         </div>
         <div class="col-md-6">
           <label class="form-label">Status</label>
@@ -47,13 +55,19 @@
 
   <div class="col-lg-5">
     <div class="section-card mb-3">
-      <div class="section-title mb-2">About Channels</div>
+      <div class="rc-section-title mb-1">
+        <span class="rc-section-icon"><i class="bi bi-info-circle-fill"></i></span>
+        <div class="section-title">About Channels</div>
+      </div>
       <p class="text-muted small mb-0">Every property always has one Master Channel (its own direct inventory). Add OTA channels like Goibibo or MakeMyTrip — or a customised channel — to list rooms and rate plans there for rate-shopping comparisons.</p>
     </div>
     <div class="section-card">
-      <div class="section-title mb-2">Save Channel</div>
+      <div class="rc-section-title mb-1">
+        <span class="rc-section-icon"><i class="bi bi-save-fill"></i></span>
+        <div class="section-title">Save Channel</div>
+      </div>
       <p class="text-muted small">Once saved, add rooms and rate plans for this channel from the property's Rooms and Rate Plans tabs.</p>
-      <button type="submit" class="btn btn-primary w-100 mb-2"><i class="bi bi-check2-circle me-1"></i><span id="submitLabel">Save Channel</span></button>
+      <button type="submit" class="btn btn-primary w-100 mb-2 mt-2"><i class="bi bi-check2-circle me-1"></i><span id="submitLabel">Save Channel</span></button>
       <a href="properties.html" id="cancelBtn" class="btn btn-light w-100">Cancel</a>
     </div>
   </div>
