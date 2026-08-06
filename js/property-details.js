@@ -370,7 +370,7 @@ function renderRatePlans(){
       <td class="small text-muted">${rp.refundable?'Refundable':'Non-Refundable'}</td>
       <td><span class="badge-status ${rp.status==='active'?'badge-active':'badge-inactive'}">${rp.status}</span></td>
       <td class="text-end">
-        ${canEdit ? `
+        ${canEdit && channelId ? `
           <div class="btn-group btn-group-sm me-1" role="group" aria-label="Reorder within ${room?room.name:'room'}">
             <button class="btn btn-sm-icon btn-soft btn-reorder" title="Move up" ${isFirst?'disabled':''} onclick="moveRatePlan('${rp.id}',-1)"><i class="bi bi-arrow-up"></i></button>
             <button class="btn btn-sm-icon btn-soft btn-reorder" title="Move down" ${isLast?'disabled':''} onclick="moveRatePlan('${rp.id}',1)"><i class="bi bi-arrow-down"></i></button>
