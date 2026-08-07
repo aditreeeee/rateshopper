@@ -346,6 +346,26 @@
   margin-bottom:4px; text-transform:uppercase; letter-spacing:.02em;
 }
 
+/* Replaces the old "Price Action" dropdown (Fixed/Increase/Decrease/%) — Bulk Update only ever
+   sets a fixed price now, so a plain byline states that instead of a control with nothing left
+   to choose. */
+.bu-set-price-byline{
+  display:inline-flex; align-items:center; font-weight:700; font-size:.85rem; color:var(--brand-600);
+  background:var(--brand-50); border:1px solid var(--brand-100); border-radius:8px;
+  padding:6px 12px; margin-bottom:14px;
+}
+[data-theme="dark"] .bu-set-price-byline{ background:rgba(56,97,251,.14); border-color:rgba(56,97,251,.3); }
+
+/* Bigger, bolder price inputs — this is the one thing Bulk Update actually does now (no more
+   Increase/Decrease/% modes to compete for attention), so the fields it edits should look like
+   the main event: a bigger rectangle with large, legible digits, not a compact form field. */
+.bu-price-input{
+  height:52px; font-size:1.15rem; font-weight:700; text-align:center;
+  font-variant-numeric:tabular-nums; border-radius:10px; border-width:1.5px;
+}
+.bu-price-input:focus{ border-color:var(--brand-500); box-shadow:0 0 0 .2rem color-mix(in srgb, var(--brand-500) 18%, transparent); }
+.bu-price-input::placeholder{ font-weight:400; font-size:1rem; }
+
 .bu-summary{
   margin-top:6px; padding:10px 14px; border-radius:12px;
   background:color-mix(in srgb, var(--brand-500) 8%, transparent);

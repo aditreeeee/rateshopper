@@ -119,7 +119,10 @@
             </div>
             <div class="col-md-4">
               <label class="form-label">Room</label>
-              <select class="form-select" id="bu_room"><option value="">All Rooms</option></select>
+              <div class="dropdown">
+                <button type="button" class="form-select text-start dropdown-toggle text-truncate" id="bu_roomBtn" data-bs-toggle="dropdown" data-bs-auto-close="outside">All Rooms</button>
+                <div class="dropdown-menu p-1" id="bu_roomMenu" style="max-height:220px;overflow-y:auto;min-width:220px"></div>
+              </div>
             </div>
             <div class="col-md-4">
               <label class="form-label">Rate Plan</label>
@@ -141,15 +144,7 @@
 
         <div class="bu-section">
           <div class="bu-section-title"><i class="bi bi-currency-rupee"></i>Pricing</div>
-          <label class="form-label">Price Action</label>
-          <select class="form-select mb-3" id="bu_priceAction">
-            <option value="fixed">Set Fixed Price</option>
-            <option value="incAmt">Increase by Amount</option>
-            <option value="decAmt">Decrease by Amount</option>
-            <option value="incPct">Increase by %</option>
-            <option value="decPct">Decrease by %</option>
-            <option value="none">Don't Change Price</option>
-          </select>
+          <div class="bu-set-price-byline"><i class="bi bi-tag-fill me-1"></i>Set Fixed Price</div>
 
           <!-- One pricing card per targeted room (built by renderBulkRoomPricing() in
                js/rate-calendar.js) so "All Rooms" shows exactly which room each set of

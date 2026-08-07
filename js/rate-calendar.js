@@ -212,7 +212,6 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
   document.getElementById('bulkModal').addEventListener('show.bs.modal', refreshBulkTargetOptions);
   document.getElementById('bu_channel').addEventListener('change', refreshBulkRoomOptions);
-  document.getElementById('bu_room').addEventListener('change', refreshBulkPlanOptions);
   document.getElementById('bu_ratePlan').addEventListener('change', function(){ renderBulkRoomPricing(); updateBulkSummary(); });
   document.getElementById('bu_apply').addEventListener('click', applyBulkUpdate);
   document.getElementById('bu_clearRates').addEventListener('click', clearBulkRates);
@@ -603,7 +602,6 @@ function refreshBulkTargetOptions(){
   document.getElementById('bu_fromDate').value = '';
   document.getElementById('bu_toDate').value = '';
   resetBulkWeekdays();
-  document.getElementById('bu_priceAction').value = 'fixed';
   refreshBulkRoomOptions();
 }
 function bulkTargetRooms(){
@@ -611,26 +609,60 @@ function bulkTargetRooms(){
   const channelId = document.getElementById('bu_channel').value;
   return channelId ? DB.rooms.byChannel(channelId) : DB.rooms.byProperty(propertyId);
 }
+// The Room field is a multi-select checkbox dropdown, not a single <select> — "All Rooms" is
+// the default (every checkbox starts checked) rather than a separate option, so narrowing to a
+// subset just means unchecking the ones you don't want.
+function bulkAllRoomIds(){
+  return [...document.querySelectorAll('#bu_roomMenu input[type="checkbox"]')].map(cb=>cb.value);
+}
+function bulkSelectedRoomIds(){
+  return [...document.querySelectorAll('#bu_roomMenu input[type="checkbox"]:checked')].map(cb=>cb.value);
+}
+// True when every room is checked (or there's nothing to check yet) — i.e. "All Rooms", the
+// same as no room filter at all rather than a real subset.
+function bulkRoomsAreAllSelected(){
+  const all = bulkAllRoomIds();
+  return all.length===0 || bulkSelectedRoomIds().length===all.length;
+}
+function updateBulkRoomButtonLabel(){
+  const btn = document.getElementById('bu_roomBtn');
+  const all = bulkAllRoomIds();
+  const selected = bulkSelectedRoomIds();
+  if(!all.length || selected.length===all.length){ btn.textContent = 'All Rooms'; return; }
+  if(!selected.length){ btn.textContent = 'No Rooms Selected'; return; }
+  if(selected.length===1){
+    const label = document.querySelector(`#bu_roomMenu input[value="${selected[0]}"]`);
+    btn.textContent = label ? label.parentElement.textContent.trim() : '1 Room';
+    return;
+  }
+  btn.textContent = `${selected.length} Rooms Selected`;
+}
 function refreshBulkRoomOptions(){
   const rooms = bulkTargetRooms();
-  const roomSel = document.getElementById('bu_room');
-  roomSel.innerHTML = `<option value="">All Rooms</option>` + rooms.map(r=>`<option value="${r.id}">${r.name}</option>`).join('');
+  const menu = document.getElementById('bu_roomMenu');
+  menu.innerHTML = rooms.length
+    ? rooms.map(r=>`<label class="mx-check-row"><input type="checkbox" value="${r.id}" checked>${r.name}</label>`).join('')
+    : `<div class="text-muted small px-2 py-1">No rooms found.</div>`;
+  menu.querySelectorAll('input[type="checkbox"]').forEach(cb=> cb.addEventListener('change', ()=>{
+    updateBulkRoomButtonLabel();
+    refreshBulkPlanOptions();
+  }));
+  updateBulkRoomButtonLabel();
   refreshBulkPlanOptions();
 }
 // Rooms that pricing cards should be rendered for: the specific room if one is picked, the
-// specific rate plan's room if a rate plan is picked, otherwise every room the Channel filter
-// resolves to — this is what lets "All Rooms" list out a distinct pricing card per room.
+// specific rate plan's room if a rate plan is picked, the checked subset if some (but not all)
+// rooms are selected, otherwise every room the Channel filter resolves to — this is what lets
+// "All Rooms" list out a distinct pricing card per room.
 function resolveBulkRooms(){
   const ratePlanId = document.getElementById('bu_ratePlan').value;
-  const roomId = document.getElementById('bu_room').value;
   if(ratePlanId){
     const rp = DB.ratePlans.get(ratePlanId);
     const room = rp ? DB.rooms.get(rp.roomId) : null;
     return room ? [room] : [];
   }
-  if(roomId){
-    const room = DB.rooms.get(roomId);
-    return room ? [room] : [];
+  if(!bulkRoomsAreAllSelected()){
+    return bulkSelectedRoomIds().map(id=>DB.rooms.get(id)).filter(Boolean);
   }
   return bulkTargetRooms();
 }
@@ -646,25 +678,33 @@ function renderBulkRoomPricing(){
       <div class="bu-room-card-title"><i class="bi bi-door-open"></i>${r.name}</div>
       <label class="form-label mb-2 small">Occupancy Pricing</label>
       <div class="bu-occ-grid">
-        <div class="bu-occ-field"><label>1 Guest</label><input type="number" class="form-control form-control-sm bu-occ-input" data-occ="1" min="0" placeholder="—"></div>
-        <div class="bu-occ-field"><label>2 Guests</label><input type="number" class="form-control form-control-sm bu-occ-input" data-occ="2" min="0" placeholder="—"></div>
-        <div class="bu-occ-field"><label>3 Guests</label><input type="number" class="form-control form-control-sm bu-occ-input" data-occ="3" min="0" placeholder="—"></div>
-        <div class="bu-occ-field"><label>4 Guests</label><input type="number" class="form-control form-control-sm bu-occ-input" data-occ="4" min="0" placeholder="—"></div>
+        <div class="bu-occ-field"><label>1 Guest</label><input type="number" class="form-control bu-price-input bu-occ-input" data-occ="1" min="0" placeholder="—"></div>
+        <div class="bu-occ-field"><label>2 Guests</label><input type="number" class="form-control bu-price-input bu-occ-input" data-occ="2" min="0" placeholder="—"></div>
+        <div class="bu-occ-field"><label>3 Guests</label><input type="number" class="form-control bu-price-input bu-occ-input" data-occ="3" min="0" placeholder="—"></div>
+        <div class="bu-occ-field"><label>4 Guests</label><input type="number" class="form-control bu-price-input bu-occ-input" data-occ="4" min="0" placeholder="—"></div>
       </div>
       <div class="bu-occ-grid bu-occ-grid-2 mt-2">
-        <div class="bu-occ-field"><label>Extra Adult</label><input type="number" class="form-control form-control-sm bu-extra-adult" min="0" placeholder="—"></div>
-        <div class="bu-occ-field"><label>Extra Child</label><input type="number" class="form-control form-control-sm bu-extra-child" min="0" placeholder="—"></div>
+        <div class="bu-occ-field"><label>Extra Adult</label><input type="number" class="form-control bu-price-input bu-extra-adult" min="0" placeholder="—"></div>
+        <div class="bu-occ-field"><label>Extra Child</label><input type="number" class="form-control bu-price-input bu-extra-child" min="0" placeholder="—"></div>
       </div>
       <div class="text-muted small mt-2">Leave an occupancy blank to leave its price unchanged. A room with fewer guest slots simply ignores the extra fields.</div>
     </div>
   `).join('');
 }
+// Union of rate plans across every currently-checked room, de-duplicated — used whenever the
+// Room field is narrowed to a real subset (not "All Rooms").
+function bulkPlansForSelectedRooms(){
+  const seen = new Set(); const plans = [];
+  bulkSelectedRoomIds().forEach(rid=> DB.ratePlans.byRoom(rid).forEach(rp=>{
+    if(!seen.has(rp.id)){ seen.add(rp.id); plans.push(rp); }
+  }));
+  return plans;
+}
 function refreshBulkPlanOptions(){
-  const roomId = document.getElementById('bu_room').value;
   const channelId = document.getElementById('bu_channel').value;
   const propertyId = currentPropertyId;
   let plans;
-  if(roomId) plans = DB.ratePlans.byRoom(roomId);
+  if(!bulkRoomsAreAllSelected()) plans = bulkPlansForSelectedRooms();
   else if(channelId) plans = DB.ratePlans.byChannel(channelId);
   else plans = DB.ratePlans.byProperty(propertyId);
   document.getElementById('bu_ratePlan').innerHTML = `<option value="">All Rate Plans</option>` + plans.map(rp=>`<option value="${rp.id}">${rp.name}</option>`).join('');
@@ -674,10 +714,9 @@ function refreshBulkPlanOptions(){
 function bulkTargetPlanIds(){
   const propertyId = currentPropertyId;
   const channelId = document.getElementById('bu_channel').value;
-  const roomId = document.getElementById('bu_room').value;
   const ratePlanId = document.getElementById('bu_ratePlan').value;
   if(ratePlanId) return [ratePlanId];
-  if(roomId) return DB.ratePlans.byRoom(roomId).map(rp=>rp.id);
+  if(!bulkRoomsAreAllSelected()) return bulkPlansForSelectedRooms().map(rp=>rp.id);
   if(channelId) return DB.ratePlans.byChannel(channelId).map(rp=>rp.id);
   return DB.ratePlans.byProperty(propertyId).map(rp=>rp.id);
 }
@@ -717,14 +756,6 @@ function collectBulkDates(){
   return dates;
 }
 
-function applyBulkPrice(curPrice, action, value){
-  if(action==='fixed') return value;
-  if(action==='incAmt') return curPrice + value;
-  if(action==='decAmt') return Math.max(0, curPrice - value);
-  if(action==='incPct') return Math.round(curPrice * (1 + value/100));
-  if(action==='decPct') return Math.max(0, Math.round(curPrice * (1 - value/100)));
-  return curPrice;
-}
 // Reads one room card's inputs — each targeted room gets its own occupancy/surcharge values
 // rather than one shared set applied to every room, since a room's price tiers/max occupancy
 // are its own.
@@ -748,13 +779,12 @@ function applyBulkUpdate(){
   if(!dates.length){ APP.toast('No Dates Selected', 'Please specify a valid date range and at least one weekday.', 'danger'); return; }
   if(!planIds.length){ APP.toast('No Rate Plans', 'The selected room/property has no rate plans to update.', 'danger'); return; }
 
-  const priceAction = document.getElementById('bu_priceAction').value;
   const rooms = resolveBulkRooms();
   const roomEdits = {};
   let hasAnyEdit = false;
   rooms.forEach(room=>{
     const v = bulkRoomCardValues(room.id);
-    const hasOccEdit = Object.keys(v.occValues).length > 0 && priceAction !== 'none';
+    const hasOccEdit = Object.keys(v.occValues).length > 0;
     const hasExtraEdit = v.extraAdultRaw !== '' || v.extraChildRaw !== '';
     roomEdits[room.id] = { ...v, hasOccEdit, hasExtraEdit };
     if(hasOccEdit || hasExtraEdit) hasAnyEdit = true;
@@ -790,8 +820,7 @@ function applyBulkUpdate(){
           Object.keys(edit.occValues).forEach(occStr=>{
             const occ = Number(occStr);
             if(occ > maxOcc) return;
-            const curOccPrice = occPrices[occ]!=null ? occPrices[occ] : cur.price;
-            occPrices[occ] = applyBulkPrice(curOccPrice, priceAction, edit.occValues[occ]);
+            occPrices[occ] = edit.occValues[occ];
           });
           const basePrice = occPrices[rp.baseOccupancy] != null ? occPrices[rp.baseOccupancy] : cur.price;
           gridWorking[rp.id][key] = { price: basePrice, occPrices };
@@ -803,8 +832,8 @@ function applyBulkUpdate(){
     if(edit.hasExtraEdit){
       roomPlans.forEach(rp=>{
         const updated = {...rp};
-        if(edit.extraAdultRaw !== '') updated.extraAdultPrice = applyBulkPrice(rp.extraAdultPrice||0, priceAction, Number(edit.extraAdultRaw));
-        if(edit.extraChildRaw !== '') updated.extraChildPrice = applyBulkPrice(rp.extraChildPrice||0, priceAction, Number(edit.extraChildRaw));
+        if(edit.extraAdultRaw !== '') updated.extraAdultPrice = Number(edit.extraAdultRaw);
+        if(edit.extraChildRaw !== '') updated.extraChildPrice = Number(edit.extraChildRaw);
         DB.ratePlans.save(updated);
         extraPlanCount++;
       });
