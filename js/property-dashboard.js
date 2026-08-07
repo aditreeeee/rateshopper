@@ -51,33 +51,33 @@ document.addEventListener('DOMContentLoaded', ()=>{
   // ---- Section 1: Your Property ----
   document.getElementById('kpiYourProperty').innerHTML = [
     PWIDGETS.kpiCard({icon:'bi-cash-coin', color:'#0041d9', bg:'#e6e6fa', label:'Current Hotel Rate', value:APP.fmtCurrency(myRate), sub:`${rateChangePct>=0?'+':''}${rateChangePct}% vs yesterday`, subDir: rateChangePct>=0?'up':'down',
-      desc:"Your own property's rate for today, on your Direct (Master) channel."}),
+      desc:"Today's rate, Direct channel."}),
     PWIDGETS.kpiCard({icon:'bi-percent', color: rateChangePct>=0?'#12b76a':'#ff4d5e', bg: rateChangePct>=0?'#e7faf1':'#fff0f1', label:'Rate Change %', value:`${rateChangePct>=0?'+':''}${rateChangePct}%`,
-      desc:"How much your own rate has moved compared to yesterday."}),
+      desc:"Change vs. yesterday."}),
     PWIDGETS.kpiCard({icon:'bi-speedometer', color:'#0073cf', bg:'#e6e6fa', label:'Price Index', value:`${priceIndex}`, sub:'vs. market = 100',
-      desc:'Your rate as a percentage of the market average. 100 = exactly at market; above 100 means you\'re priced higher than the market, below means lower.'}),
+      desc:'Above 100 = pricier than market, below = cheaper.'}),
     PWIDGETS.kpiCard({icon:'bi-signpost-split', color:'#0041d9', bg:'#e6e6fa', label:'Rate Position', value:ratePosition,
-      desc:"Whether your rate sits below, within, or above the range set by your cheapest and most expensive comparison properties."}),
+      desc:"Where you sit vs. cheapest–priciest competitor."}),
     PWIDGETS.kpiCard({icon:'bi-shield-check', color:'#00c2a8', bg:'#e6fbf8', label:'Rate Parity Score', value:`${parityScore}/100`,
-      desc:'How consistently your rate is honored across channels — a lower score means one or more OTAs may be undercutting your Direct rate.'}),
+      desc:'Lower score = an OTA may be undercutting you.'}),
   ].join('');
 
   // ---- Section 2: Market Overview — every card mentions the total tracked competitor count ----
   document.getElementById('kpiMarketOverview').innerHTML = [
     PWIDGETS.kpiCard({icon:'bi-bar-chart', color:'#8c5cf7', bg:'#f3eeff', label:'Market Average', value:APP.fmtCurrency(marketAvg), sub:`across ${comps.length} competitors tracked`, subDir:'flat',
-      desc:"The average rate across all your assigned comparison properties for today."}),
+      desc:"Average across tracked competitors."}),
     PWIDGETS.kpiCard({icon:'bi-arrow-down-circle', color:'#12b76a', bg:'#e7faf1', label:'Lowest Market Rate', value:APP.fmtCurrency(lowest), sub:`out of ${comps.length} competitors tracked`, subDir:'flat',
-      desc:'The cheapest rate among your comparison properties today.'}),
+      desc:'Lowest competitor rate today.'}),
     PWIDGETS.kpiCard({icon:'bi-arrow-up-circle', color:'#ff4d5e', bg:'#fff0f1', label:'Highest Market Rate', value:APP.fmtCurrency(highest), sub:`out of ${comps.length} competitors tracked`, subDir:'flat',
-      desc:'The most expensive rate among your comparison properties today.'}),
+      desc:'Highest competitor rate today.'}),
     // Value leads with the rate (a short number, like every other card in this row) and the
     // property name moves to the sub-line — a full competitor name as the headline "value" could
     // run to two lines on a narrow 1/5-width card, stretching every other card in the same row
     // to match its height and leaving them with an odd gap of empty space underneath.
     PWIDGETS.kpiCard({icon:'bi-trophy', color:'#12b76a', bg:'#e7faf1', label:'Cheapest Competitor', value: cheapestComp ? APP.fmtCurrency(PORTALDATA.competitorRateOnDate(cheapestComp,today)) : '—', sub: cheapestComp ? cheapestComp.name : `out of ${comps.length} tracked`, subDir:'flat',
-      desc:'Which comparison property currently has the lowest rate.'}),
+      desc:'Currently the cheapest competitor.'}),
     PWIDGETS.kpiCard({icon:'bi-gem', color:'#ff4d5e', bg:'#fff0f1', label:'Most Expensive Competitor', value: priciestComp ? APP.fmtCurrency(PORTALDATA.competitorRateOnDate(priciestComp,today)) : '—', sub: priciestComp ? priciestComp.name : `out of ${comps.length} tracked`, subDir:'flat',
-      desc:'Which comparison property currently has the highest rate.'}),
+      desc:'Currently the priciest competitor.'}),
   ].join('');
 
   function avgCompRateOn(dk){
@@ -342,22 +342,6 @@ document.addEventListener('DOMContentLoaded', ()=>{
       </div>
     </div>`;
   }).join('');
-
-  // Channel performance widget (top channels by ADR) — a "vs Direct" chip per channel makes the
-  // list answer "which channels are undercutting my own Direct rate" without a separate lookup.
-  document.getElementById('channelPerfChip').textContent = `${PORTALDATA.CHANNELS.length} Channels`;
-  document.getElementById('channelPerfWidget').innerHTML = `<div class="d-flex flex-column gap-2">${PORTALDATA.CHANNELS.slice(0,5).map(ch=>{
-    const rate = PORTALDATA.channelRate(myRate, ch.key, today);
-    const diffPct = myRate ? ((rate-myRate)/myRate*100) : 0;
-    const isDirect = ch.key === 'direct';
-    return `<div class="d-flex align-items-center justify-content-between">
-      ${PWIDGETS.channelChip(ch.key)}
-      <div class="text-end d-flex align-items-center gap-2">
-        ${isDirect ? '' : `<span class="dash-chip ${diffPct<0?'dash-chip-down':'dash-chip-up'}">${diffPct>=0?'+':''}${diffPct.toFixed(0)}%</span>`}
-        <span class="fw-semibold" style="font-size:.8rem">${APP.fmtCurrency(rate)}</span>
-      </div>
-    </div>`;
-  }).join('')}</div>`;
 });
 
 /* ==========================================================================
@@ -370,6 +354,34 @@ document.addEventListener('DOMContentLoaded', ()=>{
    (PORTALDATA.myRateOnDate/competitorRateOnDate/firstParityViolation) so this calendar never
    disagrees with the rest of the dashboard about what's happening on a given date.
    ========================================================================== */
+// Rate heatmap — low→high stops, muted via color-mix against the calendar's own surface (see
+// .ric-cell in css/portal.css) rather than used at full saturation, so "instant visual
+// comparison" doesn't come at the cost of looking like a bright status-light grid or fighting
+// with the calendar's own blue interactive states.
+const RIC_HEAT_STOPS = [
+  [27,127,59],   // #1B7F3B — Excellent
+  [93,187,99],   // #5DBB63 — High
+  [169,216,110], // #A9D86E — Good
+  [246,211,101], // #F6D365 — Neutral
+  [247,166,90],  // #F7A65A — Moderate
+  [229,90,78],   // #E55A4E — High
+  [179,38,30],   // #B3261E — Critical
+];
+function ricHeatColor(t){
+  t = Math.max(0, Math.min(1, t));
+  const segs = RIC_HEAT_STOPS.length - 1;
+  const pos = t * segs;
+  const i = Math.min(segs-1, Math.floor(pos));
+  const localT = pos - i;
+  const [r1,g1,b1] = RIC_HEAT_STOPS[i], [r2,g2,b2] = RIC_HEAT_STOPS[i+1];
+  const r = Math.round(r1 + (r2-r1)*localT), g = Math.round(g1 + (g2-g1)*localT), b = Math.round(b1 + (b2-b1)*localT);
+  // 34% mix keeps the tint clearly readable at a glance while staying soft/desaturated rather
+  // than a saturated block of color — same "blend toward the surface" technique used everywhere
+  // else in this card (--ric-hover-bg, --ric-chip-bg, etc.), so it also self-adjusts for
+  // light/dark theme instead of needing two hand-tuned palettes.
+  return `color-mix(in srgb, rgb(${r},${g},${b}) 34%, var(--ric-surface))`;
+}
+
 function initRevenueCalendar(propertyId, comps){
   const grid = document.getElementById('ric_grid');
   const detail = document.getElementById('ric_detail');
@@ -549,26 +561,38 @@ function initRevenueCalendar(propertyId, comps){
   function render(){
     document.getElementById('ric_monthLabel').textContent = anchor.toLocaleDateString('en-IN',{month:'long',year:'numeric'});
     const year = anchor.getFullYear(), month = anchor.getMonth();
+    document.getElementById('ric_monthSelect').value = String(month);
+    document.getElementById('ric_yearInput').value = String(year);
     const firstDow = new Date(year,month,1).getDay();
     const daysInMonth = new Date(year,month+1,0).getDate();
     const todayKey = DB.fmtDate(new Date());
     const dowLabels = ['S','M','T','W','T','F','S'];
 
+    const dayInfos = [];
+    for(let d=1; d<=daysInMonth; d++) dayInfos.push(dayInfo(new Date(year,month,d)));
+
     let html = dowLabels.map(d=>`<div class="ric-dow">${d}</div>`).join('');
     for(let i=0;i<firstDow;i++) html += `<div class="ric-cell ric-empty"></div>`;
-    for(let d=1; d<=daysInMonth; d++){
+    dayInfos.forEach((info,idx)=>{
+      const d = idx+1;
       const date = new Date(year,month,d);
-      const dk = DB.fmtDate(date);
-      const info = dayInfo(date);
+      const dk = info.dk;
       const cellClasses = ['ric-cell', `tone-${info.tone}`];
       if(dk===todayKey) cellClasses.push('is-today');
       if(info.action!=='Hold') cellClasses.push('has-action');
-      html += `<button type="button" class="${cellClasses.join(' ')}" data-dk="${dk}" aria-label="${date.toDateString()}: ${info.action} recommended, our rate ${APP.fmtCurrency(info.myR)}">
+      // Same metric as the Opportunity/Risk legend and the action-dot tone (info.gapPct — rate
+      // vs. market average), not a separate "cheapest/priciest day this month" scale, so the
+      // heatmap, the legend, and the byline ("Below market rate = Opportunity · Above market
+      // rate = Risk") all agree on what the color actually means. Clamped to ±20% since gapPct
+      // is unbounded but real-world spread rarely exceeds that — beyond it just pins to the
+      // palette's own Excellent/Critical ends rather than needing a wider, mostly-unused range.
+      const heatT = Math.max(0, Math.min(1, (info.gapPct + 20) / 40));
+      html += `<button type="button" class="${cellClasses.join(' ')}" data-dk="${dk}" style="--heat-bg:${ricHeatColor(heatT)}" aria-label="${date.toDateString()}: ${info.action} recommended, our rate ${APP.fmtCurrency(info.myR)}">
         <span class="ric-date">${d}${dk===todayKey?'<i class=\"ric-today-dot\"></i>':''}</span>
         <span class="ric-rate">${APP.fmtCurrency(info.myR)}</span>
         <span class="ric-action-dot"></span>
       </button>`;
-    }
+    });
     // Always render full weeks (a whole number of 7-cell rows), minimum 5 — some months (e.g. a
     // 28-day February starting on Sunday) only need 4 rows of real dates, and any month can end
     // mid-row (e.g. August 2026 needs 6 rows but the last one only has 2 real dates in it).
@@ -607,6 +631,27 @@ function initRevenueCalendar(propertyId, comps){
 
   document.getElementById('ric_prevMonth').addEventListener('click', ()=>{ anchor.setMonth(anchor.getMonth()-1); render(); });
   document.getElementById('ric_nextMonth').addEventListener('click', ()=>{ anchor.setMonth(anchor.getMonth()+1); render(); });
+
+  // Month & Year dropdown — jumps directly to any month/year (no adjacency limit, unlike
+  // stepping the arrows one month at a time). Populated once; render() keeps both controls in
+  // sync with whatever month is currently showing so reopening the dropdown never looks stale.
+  const monthSelect = document.getElementById('ric_monthSelect');
+  monthSelect.innerHTML = Array.from({length:12}).map((_,m)=>
+    `<option value="${m}">${new Date(2000,m,1).toLocaleDateString('en-IN',{month:'long'})}</option>`).join('');
+  monthSelect.addEventListener('change', ()=>{ anchor.setMonth(Number(monthSelect.value)); render(); });
+
+  const yearInput = document.getElementById('ric_yearInput');
+  yearInput.addEventListener('change', ()=>{
+    const y = Number(yearInput.value);
+    if(Number.isFinite(y) && y>0) anchor.setFullYear(y);
+    render();
+  });
+
+  document.getElementById('ric_jumpToday').addEventListener('click', ()=>{
+    anchor = new Date(); anchor.setDate(1); anchor.setHours(0,0,0,0);
+    render();
+    bootstrap.Dropdown.getOrCreateInstance(document.getElementById('ric_monthBtn')).hide();
+  });
 
   render();
 }

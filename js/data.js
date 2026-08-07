@@ -689,6 +689,115 @@ const DB = (() => {
       if(!n.category){ n.category = titleToCategory[n.title] || 'accounts'; notificationsChanged = true; }
     });
     if(notificationsChanged) set(KEYS.notifications, allNotifications);
+
+    seedRoomMappingDemoProperty();
+  }
+
+  // ---- One-time demo property for exercising Room Mapping with mismatched room names ----
+  // Every regular seeded property draws its room names from the same shared ROOM_TYPES pool
+  // (see seed() above), so two properties often end up with identically-named rooms — a trivial
+  // 100%-confidence auto-match that never exercises the mapping review workflow. This adds one
+  // more real property with its OWN bespoke room names (deliberately close-but-not-identical to
+  // the shared pool: "Superior"/"Deluxe" instead of "Superior Room"/"Deluxe Room", plus "Studio"
+  // and "Grand Suite" which don't exist in the shared pool at all) so Room Mapping has a genuine
+  // mix of exact, fuzzy, and no-name-match cases to show off. Runs once (guarded by a fixed
+  // hmsPropertyId sentinel below), then assigns it as one of Kavita Nair's competitor properties
+  // (RBAC.comparisonPropertyIds() reads a Property Owner's own `assignedProperties` field) —
+  // non-destructive, same backfill pattern as the rest of ensureChannels(), so it appears for
+  // anyone with existing browser data without needing a full reseed.
+  const DEMO_MAP_HMS_ID = 'EGS-P-DEMOMAP01';
+  function seedRoomMappingDemoProperty(){
+    if(properties.all().find(p=>p.hmsPropertyId===DEMO_MAP_HMS_ID)) return;
+
+    const p = {
+      id: uid('prop'), hmsPropertyId: DEMO_MAP_HMS_ID, name:'Silver Oak Suites',
+      type:'Boutique Hotel', city:'Udaipur', state:'Rajasthan', country:'India',
+      brand: pick(PROPERTY_BRANDS), code:'PRC-DEMO1',
+      address:'Lake Pichola Road, Udaipur 313001',
+      phone:'+91 98'+rand(10000000,99999999),
+      email:'silveroaksuites@hotelmail.com', website:'www.silveroaksuites.com',
+      status:'active', logo:'https://images.unsplash.com/photo-1582719508461-905c673771fd?w=800&q=60',
+      stars: rand(3,5), rooms: rand(40,120),
+      description:'Silver Oak Suites is a boutique lakeside property in Udaipur, seeded specifically to demo Room Mapping against rooms named differently than the rest of the portfolio.',
+      amenities:['Free WiFi','Swimming Pool','Spa','Restaurant','Parking','24x7 Front Desk'],
+      createdAt: fmtDate(new Date(Date.now()-45*86400000))
+    };
+    const allProps = properties.all(); allProps.push(p); set(KEYS.properties, allProps);
+
+    const demoChannels = [{ id: uid('chan'), propertyId: p.id, channelCode: MASTER_CHANNEL_CODE, name: CHANNEL_TYPES.master.label, type:'master', status:'active', createdAt: p.createdAt }];
+    OTA_CHANNEL_TYPES.forEach(type=>{
+      demoChannels.push({ id: uid('chan'), propertyId: p.id, channelCode: CHANNEL_TYPE_CODES[type], name: CHANNEL_TYPES[type].label, type, status: Math.random()>0.1?'active':'inactive', createdAt: p.createdAt });
+    });
+    const allChannels = channels.all().concat(demoChannels); set(KEYS.channels, allChannels);
+
+    const DEMO_ROOM_TYPES = [
+      {name:'Superior', bed:'Queen Bed', cap:2, category:'Deluxe', img:'https://images.unsplash.com/photo-1590490360182-c33d57733427?w=700&q=60'},
+      {name:'Deluxe', bed:'King Bed', cap:2, category:'Deluxe', img:'https://images.unsplash.com/photo-1611892440504-42a792e24d32?w=700&q=60'},
+      {name:'Junior Suite', bed:'King Bed', cap:3, category:'Suite', img:'https://images.unsplash.com/photo-1591088398332-8a7791972843?w=700&q=60'},
+      {name:'Studio', bed:'Twin Beds', cap:2, category:'Standard', img:'https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?w=700&q=60'},
+      {name:'Grand Suite', bed:'King Bed', cap:4, category:'Suite', img:'https://images.unsplash.com/photo-1560185127-6ed189bf02f4?w=700&q=60'}
+    ];
+    const demoRooms = [];
+    const masterChan = demoChannels[0];
+    demoChannels.forEach(chan=>{
+      const roomTypesForChannel = chan.type==='master' ? DEMO_ROOM_TYPES : shuffle(DEMO_ROOM_TYPES).slice(0, rand(2,3));
+      const channelPriceBias = chan.type==='master' ? 1 : (0.92 + Math.random()*0.16);
+      roomTypesForChannel.forEach(rt=>{
+        const roomMealPlans = MEAL_PLANS.filter(()=>Math.random()>0.35);
+        demoRooms.push({
+          id: uid('room'), propertyId: p.id, channelId: chan.id,
+          name: rt.name, category: rt.category, bedType: rt.bed, capacity: rt.cap,
+          maxOccupancy: rt.cap + rand(0,1), totalRooms: rand(5,30), size: rand(22,65),
+          basePrice: Math.round(rand(2500,12000)*channelPriceBias/10)*10,
+          status:'active', img: rt.img,
+          amenities:['AC','TV','Mini Bar','Balcony','Room Service','Safe'].filter(()=>Math.random()>0.3),
+          mealPlans: roomMealPlans.length ? roomMealPlans : [MEAL_PLANS[0]]
+        });
+      });
+    });
+    const allRooms = rooms.all().concat(demoRooms); set(KEYS.rooms, allRooms);
+
+    const demoRatePlans = [];
+    demoRooms.forEach(r=>{
+      const meal = pick(MEAL_PLANS), refundable = Math.random()>0.4;
+      demoRatePlans.push({
+        id: uid('rp'), propertyId: r.propertyId, channelId: r.channelId, roomId: r.id,
+        name: `${r.name} - ${meal} ${refundable?'Flexible':'Non-Refundable'}`,
+        mealPlan: meal, refundable, minStay: pick([1,1,1,2,3]), maxStay: pick([7,14,30]),
+        cancellationPolicy: refundable ? 'Free cancellation up to 24 hours before check-in' : 'Non-refundable. No changes or cancellations allowed.',
+        baseOccupancy: r.capacity, extraAdultPrice: rand(500,1500), extraChildPrice: rand(250,800),
+        status:'active', sortOrder:0, createdAt: p.createdAt
+      });
+    });
+    const allRatePlans = ratePlans.all().concat(demoRatePlans); set(KEYS.ratePlans, allRatePlans);
+
+    const allRates = rates.all();
+    const today = new Date();
+    demoRatePlans.forEach(rp=>{
+      const room = demoRooms.find(r=>r.id===rp.roomId);
+      const maxOcc = room ? room.maxOccupancy : 2;
+      allRates[rp.id] = {};
+      for(let d=-7; d<97; d++){
+        const date = new Date(today); date.setDate(today.getDate()+d);
+        const key = fmtDate(date);
+        const isWeekend = [0,6].includes(date.getDay());
+        const base = room ? room.basePrice : 5000;
+        const price = Math.round((base + (isWeekend?base*0.25:0) + rand(-300,400))/10)*10;
+        allRates[rp.id][key] = { price, occPrices: buildOccPrices(price, rp.baseOccupancy, rp.extraAdultPrice, maxOcc) };
+      }
+    });
+    set(KEYS.rates, allRates);
+
+    // Assign as a competitor property to Kavita Nair specifically (the user asked for this
+    // exact assignment) — appended to her assignedProperties, same field
+    // RBAC.comparisonPropertyIds() already reads for every other competitor property.
+    const allUsers = users.all();
+    const kavita = allUsers.find(u=> u.name==='Kavita Nair');
+    if(kavita){
+      kavita.assignedProperties = kavita.assignedProperties || [];
+      if(!kavita.assignedProperties.includes(p.id)) kavita.assignedProperties.push(p.id);
+      set(KEYS.users, allUsers);
+    }
   }
 
   return { seed, ensureChannels, uid, get, set, rand, pick, fmtDate, MEAL_PLANS, MEAL_LABELS, CHANNEL_TYPES,

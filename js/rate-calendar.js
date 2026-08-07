@@ -214,10 +214,9 @@ document.addEventListener('DOMContentLoaded', ()=>{
   document.getElementById('bu_channel').addEventListener('change', refreshBulkRoomOptions);
   document.getElementById('bu_room').addEventListener('change', refreshBulkPlanOptions);
   document.getElementById('bu_ratePlan').addEventListener('change', function(){ renderBulkRoomPricing(); updateBulkSummary(); });
-  document.getElementById('bu_scope').addEventListener('change', function(){ updateBulkScopeUI(); updateBulkSummary(); });
   document.getElementById('bu_apply').addEventListener('click', applyBulkUpdate);
   document.getElementById('bu_clearRates').addEventListener('click', clearBulkRates);
-  ['bu_singleDate','bu_fromDate','bu_toDate','bu_wdFrom','bu_wdTo'].forEach(id=>{
+  ['bu_fromDate','bu_toDate'].forEach(id=>{
     document.getElementById(id).addEventListener('change', updateBulkSummary);
   });
   document.getElementById('bu_weekdayBtns').addEventListener('click', ()=> setTimeout(updateBulkSummary));
@@ -244,9 +243,17 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
 function buildWeekdayButtons(){
   const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  // All weekdays start checked (active) — the common case is "every day in the range", per the
+  // Bulk Clear spec: unchecking narrows it down to specific weekdays (e.g. Fri/Sat only).
   document.getElementById('bu_weekdayBtns').innerHTML = days.map((d,i)=>
-    `<button type="button" class="btn btn-outline-primary btn-sm wd-btn" data-dow="${i}">${d}</button>`).join('');
-  document.querySelectorAll('.wd-btn').forEach(b=> b.addEventListener('click', ()=> b.classList.toggle('active')||b.classList.toggle('btn-soft')));
+    `<button type="button" class="btn btn-outline-primary btn-sm wd-btn active" data-dow="${i}">${d}</button>`).join('');
+  document.querySelectorAll('.wd-btn').forEach(b=> b.addEventListener('click', ()=> b.classList.toggle('active')));
+}
+// Resets every weekday button back to checked — called whenever the Bulk Clear modal opens, so
+// it always starts from "every day in the range" rather than whatever was left checked/unchecked
+// from a previous use.
+function resetBulkWeekdays(){
+  document.querySelectorAll('.wd-btn').forEach(b=> b.classList.add('active'));
 }
 
 function keyOf(d){ return DB.fmtDate(d); }
@@ -593,6 +600,9 @@ function refreshBulkTargetOptions(){
   const channels = DB.channels.byProperty(propertyId);
   channelSel.innerHTML = `<option value="">All Channels</option>` + channels.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
   channelSel.value = currentChannelId; // default to whatever the page-level Channel filter is set to
+  document.getElementById('bu_fromDate').value = '';
+  document.getElementById('bu_toDate').value = '';
+  resetBulkWeekdays();
   document.getElementById('bu_priceAction').value = 'fixed';
   refreshBulkRoomOptions();
 }
@@ -671,6 +681,9 @@ function bulkTargetPlanIds(){
   if(channelId) return DB.ratePlans.byChannel(channelId).map(rp=>rp.id);
   return DB.ratePlans.byProperty(propertyId).map(rp=>rp.id);
 }
+// Live preview — recomputed on every relevant change so what's shown here always exactly
+// matches what Apply Update/Clear Rates would actually do: exactly which dates, rate plans, and
+// rooms are in scope, before anything is applied.
 function updateBulkSummary(){
   const summary = document.getElementById('bu_summary');
   if(!summary) return;
@@ -678,46 +691,28 @@ function updateBulkSummary(){
   const planIds = bulkTargetPlanIds();
   const roomIds = new Set(planIds.map(id=>{ const rp = DB.ratePlans.get(id); return rp ? rp.roomId : null; }).filter(Boolean));
   if(!dates.length || !planIds.length){
-    summary.innerHTML = `<i class="bi bi-exclamation-circle me-1"></i>Select a valid date scope and target to see what will be updated.`;
+    summary.innerHTML = `<i class="bi bi-exclamation-circle me-1"></i>Pick a date range (and at least one weekday) to see exactly which dates will be affected.`;
     summary.classList.add('bu-summary-warn');
     return;
   }
   summary.classList.remove('bu-summary-warn');
-  summary.innerHTML = `<i class="bi bi-check-circle me-1"></i>This will update <strong>${planIds.length}</strong> rate plan(s) across <strong>${roomIds.size}</strong> room(s) for <strong>${dates.length}</strong> date(s).`;
+  const firstLast = dates.length>1 ? `${keyOf(new Date(dates[0]+'T00:00:00'))} → ${keyOf(new Date(dates[dates.length-1]+'T00:00:00'))}` : dates[0];
+  summary.innerHTML = `<i class="bi bi-check-circle me-1"></i>This will affect <strong>${dates.length}</strong> date(s) (${firstLast}) across <strong>${planIds.length}</strong> rate plan(s) on <strong>${roomIds.size}</strong> room(s).`;
 }
 
-function updateBulkScopeUI(){
-  const scope = document.getElementById('bu_scope').value;
-  document.getElementById('bu_singleWrap').classList.toggle('d-none', scope!=='single');
-  document.getElementById('bu_rangeWrap').classList.toggle('d-none', scope!=='range');
-  document.getElementById('bu_weekdaysWrap').classList.toggle('d-none', scope!=='weekdays');
-}
-
+// Date Range + Weekdays merged into one control (no separate "Apply To" scope-type dropdown):
+// a custom range affects every day in it by default (all weekdays checked); unchecking weekdays
+// narrows it to just those days of the week within the range — e.g. only Fri/Sat for a
+// "weekends only" update — without needing a dedicated scope option for that case.
 function collectBulkDates(){
-  const scope = document.getElementById('bu_scope').value;
-  let dates = [];
-  if(scope==='single'){
-    const v = document.getElementById('bu_singleDate').value;
-    if(v) dates.push(v);
-  } else if(scope==='range'){
-    const from = document.getElementById('bu_fromDate').value;
-    const to = document.getElementById('bu_toDate').value;
-    if(from && to){
-      for(let d=new Date(from+'T00:00:00'); d<=new Date(to+'T00:00:00'); d.setDate(d.getDate()+1)) dates.push(keyOf(d));
+  const from = document.getElementById('bu_fromDate').value;
+  const to = document.getElementById('bu_toDate').value;
+  const activeDows = [...document.querySelectorAll('.wd-btn.active')].map(b=>Number(b.dataset.dow));
+  const dates = [];
+  if(from && to && activeDows.length){
+    for(let d=new Date(from+'T00:00:00'); d<=new Date(to+'T00:00:00'); d.setDate(d.getDate()+1)){
+      if(activeDows.includes(d.getDay())) dates.push(keyOf(d));
     }
-  } else if(scope==='visible'){
-    dates = currentDates().map(d=>keyOf(d));
-  } else if(scope==='weekdays'){
-    const from = document.getElementById('bu_wdFrom').value;
-    const to = document.getElementById('bu_wdTo').value;
-    const activeDows = [...document.querySelectorAll('.wd-btn.active')].map(b=>Number(b.dataset.dow));
-    if(from && to && activeDows.length){
-      for(let d=new Date(from+'T00:00:00'); d<=new Date(to+'T00:00:00'); d.setDate(d.getDate()+1)){
-        if(activeDows.includes(d.getDay())) dates.push(keyOf(d));
-      }
-    }
-  } else if(scope==='weekends'){
-    dates = currentDates().filter(d=> d.getDay()===5 || d.getDay()===6 || d.getDay()===0).map(d=>keyOf(d));
   }
   return dates;
 }
@@ -750,7 +745,7 @@ function bulkRoomCardValues(roomId){
 function applyBulkUpdate(){
   const dates = collectBulkDates();
   const planIds = bulkTargetPlanIds();
-  if(!dates.length){ APP.toast('No Dates Selected', 'Please specify valid dates for the chosen scope.', 'danger'); return; }
+  if(!dates.length){ APP.toast('No Dates Selected', 'Please specify a valid date range and at least one weekday.', 'danger'); return; }
   if(!planIds.length){ APP.toast('No Rate Plans', 'The selected room/property has no rate plans to update.', 'danger'); return; }
 
   const priceAction = document.getElementById('bu_priceAction').value;
@@ -828,7 +823,7 @@ function applyBulkUpdate(){
 function clearBulkRates(){
   const dates = collectBulkDates();
   const planIds = bulkTargetPlanIds();
-  if(!dates.length || !planIds.length){ APP.toast('Nothing to Clear', 'Select a valid scope and target first.', 'warn'); return; }
+  if(!dates.length || !planIds.length){ APP.toast('Nothing to Clear', 'Pick a valid date range/weekday selection and target first.', 'warn'); return; }
   pushGridHistory();
   planIds.forEach(planId=>{
     if(!gridWorking[planId]) return;
@@ -841,7 +836,8 @@ function clearBulkRates(){
   });
   markGridDirty();
   renderGrid();
-  APP.toast('Rates Cleared', `Cleared pricing for ${dates.length} date(s) across ${planIds.length} rate plan(s).`, 'warn');
+  bootstrap.Modal.getInstance(document.getElementById('bulkModal')).hide();
+  APP.toast('Rates Cleared', `Cleared pricing for ${dates.length} date(s) across ${planIds.length} rate plan(s) in draft. Click "Save Changes" to publish.`, 'warn');
 }
 
 /* ==========================================================================

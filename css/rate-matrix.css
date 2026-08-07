@@ -335,6 +335,8 @@
 }
 .bu-room-card-title i{ color:var(--brand-500); }
 
+/* .bu-occ-grid/.bu-occ-field are also used by Add Rate Plan's own occupancy-pricing fields
+   (add-rate-plan.html) — not exclusive to the Rate Calendar's bulk tooling. */
 .bu-occ-grid{
   display:grid; grid-template-columns:repeat(4, 1fr); gap:10px;
 }

@@ -840,10 +840,11 @@ input:focus-visible, select:focus-visible, textarea:focus-visible,
 
 /* ---------- Company Dashboard (portfolio administration) ---------- */
 .kpi-card{
-  background:var(--glass-bg); border:1px solid var(--glass-border); border-radius:var(--radius-md);
+  background:color-mix(in srgb, var(--brand-50) 60%, var(--glass-bg)); border:1px solid var(--glass-border); border-radius:var(--radius-md);
   box-shadow:var(--shadow-sm); padding:16px 18px; display:flex; align-items:center; gap:12px;
   height:100%; cursor:default; backdrop-filter:blur(var(--glass-blur)); -webkit-backdrop-filter:blur(var(--glass-blur));
 }
+[data-theme="dark"] .kpi-card{ background:color-mix(in srgb, var(--brand-50) 14%, var(--glass-bg)); }
 .kpi-card:hover{transform:translateY(-4px); box-shadow:var(--shadow-lg); border-color:var(--brand-200)}
 [data-theme="dark"] .kpi-card:hover{border-color:rgba(92,134,255,.35)}
 .kpi-icon{width:42px;height:42px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex:0 0 auto}

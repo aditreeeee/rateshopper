@@ -67,12 +67,13 @@
 /* ---------- KPI grid (glass — overrides the Company Dashboard .kpi-card block flex layout in
    css/style.css since the Property Portal's KPI card is a stacked, not a row, layout) ---------- */
 .kpi-card{
-  background:var(--glass-bg); border:1px solid var(--glass-border); border-radius:16px;
+  background:color-mix(in srgb, var(--brand-50) 60%, var(--glass-bg)); border:1px solid var(--glass-border); border-radius:16px;
   padding:16px 18px; box-shadow:var(--shadow-sm); height:100%;
   display:flex; flex-direction:column; text-align:center;
   gap:6px; position:relative; overflow:hidden;
   backdrop-filter:blur(var(--glass-blur)); -webkit-backdrop-filter:blur(var(--glass-blur));
 }
+[data-theme="dark"] .kpi-card{ background:color-mix(in srgb, var(--brand-50) 14%, var(--glass-bg)); }
 .kpi-card:hover{ transform:translateY(-4px); box-shadow:var(--shadow-lg); border-color:var(--brand-200); }
 [data-theme="dark"] .kpi-card:hover{ border-color:rgba(92,134,255,.35); }
 .kpi-card .kpi-icon{
@@ -507,10 +508,13 @@
   --ric-hover-bg: color-mix(in srgb, var(--ric-1) 20%, transparent);
   --ric-surface: color-mix(in srgb, var(--ric-1) 7%, var(--bg-surface));
   --ric-chip-bg: color-mix(in srgb, var(--ric-1) 16%, var(--bg-surface));
-  /* Opportunity (below-market, room to raise) reads lighter/calmer; risk (above-market) reads
-     darker/heavier — same hue, different weight on the scale. */
-  --ric-opp: var(--ric-2);
-  --ric-risk: var(--ric-4);
+  /* Opportunity/Risk now conform to the same heatmap palette the calendar cells use (low=green,
+     high=red — css/property-dashboard.js's RIC_HEAT_STOPS), rather than the blue interactive
+     scale: Opportunity (below-market, room to raise) reuses the heatmap's low/green end, Risk
+     (above-market, losing competitiveness) reuses its high/red end. Blue stays reserved purely
+     for hover/selection/focus, never a data signal. */
+  --ric-opp: #44CE1B;
+  --ric-risk: #E51F1F;
   --ric-alert: var(--ric-5);
   /* Glassmorphism tokens — frosted-glass cell surface, delicate border, and a soft ambient
      shadow that deepens (not darkens/changes hue) on hover, so "elevated" reads as physical
@@ -520,6 +524,16 @@
   --ric-glass-shadow: 0 1px 2px color-mix(in srgb, var(--ric-5) 6%, transparent), 0 6px 16px -8px color-mix(in srgb, var(--ric-4) 20%, transparent);
   --ric-glass-shadow-hover: 0 2px 6px color-mix(in srgb, var(--ric-5) 10%, transparent), 0 14px 28px -10px color-mix(in srgb, var(--ric-3) 35%, transparent);
   --ric-glow: 0 0 0 1px color-mix(in srgb, var(--ric-2) 55%, transparent), 0 0 18px color-mix(in srgb, var(--ric-2) 35%, transparent);
+  /* Month & Year selector accent — deliberately NOT blue (the app's primary accent, reserved for
+     interactive states: hover/selection/focus/buttons) and NOT anywhere near the heatmap's
+     green→yellow→orange→red range (would blur "which color means what"). Same quiet tinted-pill
+     treatment as the prev/next arrow buttons next to it (.ric-nav-btn/.ric-chip-bg) — not a
+     solid filled button, just that pill recolored to a bright neon violet text/icon/glow so it
+     still reads as its own distinct control without looking like a different UI element bolted
+     onto the toolbar. */
+  --ric-accent: #9B00FF;
+  --ric-accent-bg: color-mix(in srgb, var(--ric-accent) 18%, var(--bg-surface));
+  --ric-accent-border: color-mix(in srgb, var(--ric-accent) 45%, transparent);
 }
 [data-theme="dark"] .ric-card{
   --ric-text: var(--ric-1);
@@ -528,19 +542,27 @@
   --ric-hover-bg: color-mix(in srgb, var(--ric-3) 30%, transparent);
   --ric-surface: color-mix(in srgb, var(--ric-5) 38%, var(--bg-surface-2));
   --ric-chip-bg: color-mix(in srgb, var(--ric-3) 24%, var(--bg-surface-2));
-  --ric-opp: var(--ric-1);
-  --ric-risk: var(--ric-2);
+  /* Same heatmap-conforming green/risk-red as the light theme, lightened slightly so they still
+     pop clearly against a dark surface instead of reading muddy. */
+  --ric-opp: #6FE13E;
+  --ric-risk: #FF5B5B;
   --ric-alert: var(--ric-1);
   --ric-glass-bg: color-mix(in srgb, var(--bg-surface-2) 45%, transparent);
   --ric-glass-border: color-mix(in srgb, var(--ric-1) 20%, transparent);
   --ric-glass-shadow: 0 1px 2px rgba(0,0,0,.25), 0 6px 16px -8px rgba(0,0,0,.5);
   --ric-glass-shadow-hover: 0 2px 6px rgba(0,0,0,.35), 0 14px 28px -10px rgba(0,0,0,.6);
   --ric-glow: 0 0 0 1px color-mix(in srgb, var(--ric-1) 55%, transparent), 0 0 18px color-mix(in srgb, var(--ric-1) 30%, transparent);
+  --ric-accent: #C24DFF;
+  --ric-accent-bg: color-mix(in srgb, var(--ric-accent) 22%, var(--bg-surface-2));
+  --ric-accent-border: color-mix(in srgb, var(--ric-accent) 55%, transparent);
 }
 .ric-header{ display:flex; justify-content:space-between; align-items:flex-start; gap:16px; flex-wrap:wrap; margin-bottom:14px; }
 .ric-controls{ display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
 
 .ric-legend{ display:flex; align-items:center; gap:6px; }
+/* Short byline explaining what the Opportunity/Risk chips (and by extension the cell heatmap
+   they summarize) actually mean, instead of leaving it to be inferred from color alone. */
+.ric-legend-note{ font-size:.64rem; color:var(--ric-text-muted); margin-top:3px; text-align:right; }
 .ric-legend-chip{
   display:inline-flex; align-items:center; gap:6px; font-size:.67rem; font-weight:600; color:var(--ric-text);
   background:var(--ric-chip-bg); border:1px solid var(--ric-border); border-radius:20px; padding:4px 10px 4px 8px;
@@ -560,8 +582,51 @@
 }
 [data-theme="dark"] .ric-nav-btn{ color:var(--ric-1); }
 .ric-nav-btn:hover{ background:var(--ric-hover-bg); color:var(--ric-3); }
-.ric-month-label{ font-size:.77rem; font-weight:700; min-width:104px; text-align:center; color:var(--ric-4); letter-spacing:.01em; }
-[data-theme="dark"] .ric-month-label{ color:var(--ric-1); }
+
+/* Month & Year jump — a proper dropdown instead of a static label, so any month (past or
+   future, no range limit) is reachable in one interaction instead of holding down the arrow.
+   Sits INSIDE the same .ric-nav pill as the prev/next arrows (shared background/border there,
+   see .ric-nav above) — at rest this is transparent, exactly like .ric-nav-btn, so the whole bar
+   reads as one continuous segmented control instead of "arrow, then a separate purple button,
+   then another arrow". The purple only shows up as this segment's own text color (+ a tinted
+   hover, matching how the arrows tint blue on hover) — that's enough to read as its own distinct
+   control without looking like a different UI element bolted onto the toolbar. */
+.ric-month-btn{
+  display:flex; align-items:center; gap:6px; height:26px; padding:0 10px; border-radius:7px; border:none;
+  background:transparent; color:var(--ric-accent); font-size:.77rem; font-weight:700; letter-spacing:.01em;
+  cursor:pointer; transition:background var(--dur-fast) ease;
+}
+.ric-month-btn:hover, .ric-month-btn:focus-visible{ background:var(--ric-accent-bg); outline:none; }
+.ric-month-btn::after{ display:none; } /* hide Bootstrap's default dropdown caret */
+.ric-month-menu{
+  padding:14px; border-radius:12px; border:1px solid var(--ric-accent-border);
+  background:var(--ric-surface); box-shadow:var(--ric-glass-shadow-hover); width:260px;
+}
+.ric-month-menu .form-label{ font-size:.65rem; font-weight:700; text-transform:uppercase; letter-spacing:.03em; color:var(--ric-text-muted); margin-bottom:4px; }
+.ric-month-menu select, .ric-month-menu input{
+  border-color:var(--ric-border); color:var(--ric-text); background:var(--ric-surface); font-size:.82rem;
+  min-width:0; padding:.375rem .5rem;
+}
+/* The year field is a plain 4-digit number — it needs noticeably less width than the month
+   name dropdown next to it (which has to fit "September"), so the split is asymmetric rather
+   than an even 50/50 that starves the year field. Native spinner arrows are hidden since they
+   ate into the little space a 4-digit number already needs; the field is still a real
+   type="number" input (arrow keys / scroll still work), just without the visual stepper. */
+.ric-month-menu .col-year{ flex:0 0 96px; max-width:96px; }
+.ric-month-menu .col-month{ flex:1 1 auto; min-width:0; }
+.ric-month-menu input[type="number"]::-webkit-outer-spin-button,
+.ric-month-menu input[type="number"]::-webkit-inner-spin-button{ -webkit-appearance:none; margin:0; }
+.ric-month-menu input[type="number"]{ -moz-appearance:textfield; text-align:center; }
+.ric-month-menu select:focus, .ric-month-menu input:focus{
+  border-color:var(--ric-accent); box-shadow:0 0 0 .2rem color-mix(in srgb, var(--ric-accent) 20%, transparent);
+}
+.ric-month-jump-today{
+  width:100%; margin-top:10px; padding:6px; border-radius:8px; border:1px solid var(--ric-border);
+  background:transparent; color:var(--ric-text); font-size:.76rem; font-weight:600; cursor:pointer;
+  transition:background var(--dur-fast) ease, border-color var(--dur-fast) ease;
+}
+.ric-month-jump-today:hover{ background:var(--ric-hover-bg); border-color:var(--ric-2); color:var(--ric-3); }
+[data-theme="dark"] .ric-month-jump-today:hover{ color:var(--ric-1); }
 
 /* ---- Two-column body: calendar grid + persistent detail panel. Now that the card spans the
    full dashboard width (not squeezed into the old col-xxl-8), both columns scale proportionally
@@ -607,12 +672,19 @@
 
 .ric-cell{
   position:relative; min-height:58px; height:100%; padding:7px 8px;
-  background:transparent; overflow:hidden;
+  /* --heat-bg is set inline per cell (js/property-dashboard.js's render()) — a rate-value
+     heatmap color already muted via color-mix against this card's own surface, so it stays
+     "soft/elegant" and theme-aware without any extra desaturation math. Falls back to fully
+     transparent for filler cells, which never get the variable set. Kept on the BASE rule (not
+     inline background-color directly) specifically so :hover/.is-today/.is-pinned below — plain
+     class rules with normal specificity — still win over it: blue stays reserved for those
+     interactive/selected states, the heatmap only ever shows at rest. */
+  background:var(--heat-bg, transparent); overflow:hidden;
   display:flex; flex-direction:column; align-items:flex-start; justify-content:space-between;
   cursor:pointer; -webkit-tap-highlight-color:transparent;
   transition:background var(--dur-fast) ease;
 }
-.ric-cell.ric-empty{ cursor:default; }
+.ric-cell.ric-empty{ background:transparent; cursor:default; }
 .ric-cell:not(.ric-empty):hover, .ric-cell:not(.ric-empty):focus-visible{
   background:var(--ric-hover-bg); outline:none;
 }

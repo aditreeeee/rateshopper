@@ -17,9 +17,9 @@
 <div class="quick-actions-bar" id="quickActionsBar"></div>
 
 <!-- Your Property / Market Overview — wrapped in the same titled section-card language as every
-     other block on this page (Revenue Brief, Leaderboard, Channel Performance, etc.) instead of
-     a plain bold label directly on the page background, so the two KPI rows read as one
-     consistent dashboard rather than two floating grids bolted onto the top of the page. -->
+     other block on this page (Revenue Brief, Leaderboard, etc.) instead of a plain bold label
+     directly on the page background, so the two KPI rows read as one consistent dashboard rather
+     than two floating grids bolted onto the top of the page. -->
 <div class="section-card mb-3">
   <div class="rc-section-title mb-3">
     <span class="rc-section-icon"><i class="bi bi-speedometer2"></i></span>
@@ -44,10 +44,6 @@
 
 <div class="row g-3">
   <div class="col-xxl-8">
-    <div class="rc-section-title mb-2">
-      <span class="rc-section-icon"><i class="bi bi-bar-chart-line-fill"></i></span>
-      <div class="fw-bold">Dashboard Charts</div>
-    </div>
     <div class="chart-card mb-3">
       <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
         <div class="rc-section-title mb-0">
@@ -109,14 +105,6 @@
       </div>
       <div id="leaderboardWidget"></div>
     </div>
-
-    <div class="section-card">
-      <div class="d-flex justify-content-between align-items-center mb-2">
-        <div class="rc-section-title mb-0"><span class="rc-section-icon"><i class="bi bi-diagram-3-fill"></i></span><div class="fw-bold">Channel Performance</div></div>
-        <span class="dash-chip" id="channelPerfChip"></span>
-      </div>
-      <div id="channelPerfWidget"></div>
-    </div>
   </div>
 </div>
 
@@ -130,13 +118,33 @@
       </div>
     </div>
     <div class="ric-controls">
-      <div class="ric-legend">
-        <span class="ric-legend-chip"><i class="ric-dot tone-opp"></i>Opportunity</span>
-        <span class="ric-legend-chip"><i class="ric-dot tone-risk"></i>Risk</span>
+      <div>
+        <div class="ric-legend">
+          <span class="ric-legend-chip"><i class="ric-dot tone-opp"></i>Opportunity</span>
+          <span class="ric-legend-chip"><i class="ric-dot tone-risk"></i>Risk</span>
+        </div>
+        <div class="ric-legend-note">Below market rate = Opportunity · Above market rate = Risk</div>
       </div>
       <div class="ric-nav">
         <button type="button" class="ric-nav-btn" id="ric_prevMonth" aria-label="Previous month"><i class="bi bi-chevron-left"></i></button>
-        <span class="ric-month-label" id="ric_monthLabel">-</span>
+        <div class="dropdown">
+          <button type="button" class="ric-month-btn dropdown-toggle" id="ric_monthBtn" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-label="Jump to month and year">
+            <span class="ric-month-label" id="ric_monthLabel">-</span>
+          </button>
+          <div class="dropdown-menu ric-month-menu">
+            <div class="d-flex gap-2">
+              <div class="col-month">
+                <label class="form-label" for="ric_monthSelect">Month</label>
+                <select class="form-select form-select-sm" id="ric_monthSelect"></select>
+              </div>
+              <div class="col-year">
+                <label class="form-label" for="ric_yearInput">Year</label>
+                <input type="number" class="form-control form-control-sm" id="ric_yearInput">
+              </div>
+            </div>
+            <button type="button" class="ric-month-jump-today" id="ric_jumpToday">Jump to Today</button>
+          </div>
+        </div>
         <button type="button" class="ric-nav-btn" id="ric_nextMonth" aria-label="Next month"><i class="bi bi-chevron-right"></i></button>
       </div>
     </div>

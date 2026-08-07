@@ -97,7 +97,10 @@
 
 </div>
 
-<!-- Bulk Update Modal -->
+<!-- Bulk Update Modal — Date Range and Weekdays are merged into one control (no separate
+     "Apply To" scope-type dropdown): a range clears/updates every day in it by default (all
+     weekdays checked); unchecking weekdays narrows it to just those days within the range —
+     e.g. only Fri/Sat — without needing a dedicated scope option for that case. -->
 <div class="modal fade" id="bulkModal" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered modal-lg">
     <div class="modal-content bu-modal" style="border-radius:18px;border:none">
@@ -126,35 +129,14 @@
         </div>
 
         <div class="bu-section">
-          <div class="bu-section-title"><i class="bi bi-calendar3"></i>Date Scope</div>
-          <div class="mb-2">
-            <label class="form-label">Apply To</label>
-            <select class="form-select" id="bu_scope">
-              <option value="single">Single Date</option>
-              <option value="range">Date Range</option>
-              <option value="visible">Currently Visible Dates</option>
-              <option value="weekdays">Selected Weekdays</option>
-              <option value="weekends">Weekends Only (Fri/Sat/Sun)</option>
-            </select>
-          </div>
-          <div class="row g-2" id="bu_singleWrap">
-            <div class="col-md-6">
-              <label class="form-label">Date</label>
-              <input type="date" class="form-control" id="bu_singleDate">
-            </div>
-          </div>
-          <div class="row g-2 d-none" id="bu_rangeWrap">
+          <div class="bu-section-title"><i class="bi bi-calendar3"></i>Date Range</div>
+          <div class="row g-2 mb-3">
             <div class="col-md-6"><label class="form-label">From</label><input type="date" class="form-control" id="bu_fromDate"></div>
             <div class="col-md-6"><label class="form-label">To</label><input type="date" class="form-control" id="bu_toDate"></div>
           </div>
-          <div class="d-none" id="bu_weekdaysWrap">
-            <label class="form-label d-block">Weekdays</label>
-            <div class="btn-group flex-wrap" role="group" id="bu_weekdayBtns"></div>
-            <div class="row g-2 mt-2">
-              <div class="col-md-6"><label class="form-label">From</label><input type="date" class="form-control" id="bu_wdFrom"></div>
-              <div class="col-md-6"><label class="form-label">To</label><input type="date" class="form-control" id="bu_wdTo"></div>
-            </div>
-          </div>
+          <label class="form-label d-block">Weekdays</label>
+          <div class="text-muted small mb-2">All days selected by default — uncheck any weekday to skip it. Only checked weekdays that fall inside the date range above are affected.</div>
+          <div class="btn-group flex-wrap" role="group" id="bu_weekdayBtns"></div>
         </div>
 
         <div class="bu-section">
@@ -178,7 +160,7 @@
         <div class="bu-summary" id="bu_summary"></div>
       </div>
       <div class="modal-footer border-0 d-flex justify-content-between">
-        <button class="btn btn-outline-danger btn-sm" id="bu_clearRates" type="button"><i class="bi bi-eraser me-1"></i>Clear Rates for This Scope</button>
+        <button class="btn btn-outline-danger btn-sm" id="bu_clearRates" type="button"><i class="bi bi-eraser me-1"></i>Clear Rates for This Range</button>
         <div class="d-flex gap-2">
           <button class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
           <button class="btn btn-primary" id="bu_apply"><i class="bi bi-check2-circle me-1"></i>Apply Update</button>

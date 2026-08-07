@@ -191,10 +191,10 @@ document.addEventListener('DOMContentLoaded', ()=>{
   // list is never longer than what could possibly match something.
   const roomCategories = [...new Set(ourRooms.map(r=>r.category).filter(Boolean))].sort();
   document.getElementById('mx_roomCategory').innerHTML += roomCategories.map(cat=>`<option value="${cat}">${cat}</option>`).join('');
-  // Market Segment — each tracked comparison property's own type (Resort/Business Hotel/Heritage
+  // Property Types — each tracked comparison property's own type (Resort/Business Hotel/Heritage
   // Hotel/Boutique Hotel), the same classification used everywhere else a property is described.
-  const marketSegments = [...new Set(comps.map(c=>{ const cp = DB.properties.get(c.realPropertyId); return cp ? cp.type : null; }).filter(Boolean))].sort();
-  document.getElementById('mx_marketSegment').innerHTML += marketSegments.map(seg=>`<option value="${seg}">${seg}</option>`).join('');
+  const propertyTypes = [...new Set(comps.map(c=>{ const cp = DB.properties.get(c.realPropertyId); return cp ? cp.type : null; }).filter(Boolean))].sort();
+  document.getElementById('mx_propertyTypes').innerHTML += propertyTypes.map(t=>`<option value="${t}">${t}</option>`).join('');
 
   function renderCompetitorMenu(){
     const menu = document.getElementById('mx_competitorMenu');
@@ -266,7 +266,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   function buildGroups(){
     const roomFilter = document.getElementById('mx_room').value;
     const categoryFilter = document.getElementById('mx_roomCategory').value;
-    const segmentFilter = document.getElementById('mx_marketSegment').value;
+    const propertyTypeFilter = document.getElementById('mx_propertyTypes').value;
     const comparisonType = document.getElementById('mx_comparisonType').value;
     const search = document.getElementById('mx_search').value.trim().toLowerCase();
 
@@ -279,10 +279,10 @@ document.addEventListener('DOMContentLoaded', ()=>{
     comps.forEach(c=>{
       if(mxHiddenGroups.has(c.id)) return;
       if(!mxSelectedCompetitors.has(c.id)) return;
-      // Market Segment — the comparison property's own type (Resort/Business Hotel/etc.).
-      if(segmentFilter){
+      // Property Types — the comparison property's own type (Resort/Business Hotel/etc.).
+      if(propertyTypeFilter){
         const cp = DB.properties.get(c.realPropertyId);
-        if(!cp || cp.type !== segmentFilter) return;
+        if(!cp || cp.type !== propertyTypeFilter) return;
       }
       MAPPING.ensureAutoMapped(propertyId, c.realPropertyId);
       const ev = MAPPING.evaluate(propertyId, c.realPropertyId);
@@ -604,7 +604,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     document.getElementById('mx_mealPlan').value = '';
     document.getElementById('mx_channel').value = ourMaster ? ourMaster.id : '';
     document.getElementById('mx_ratePlan').value = '';
-    document.getElementById('mx_marketSegment').value = '';
+    document.getElementById('mx_propertyTypes').value = '';
     document.getElementById('mx_comparisonType').value = 'matched';
     document.getElementById('mx_search').value = '';
     mxSelectedCompetitors = new Set(comps.map(c=>c.id));
@@ -863,7 +863,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
   // ---- Wiring ----
 
-  ['mx_room','mx_roomCategory','mx_occ','mx_mealPlan','mx_channel','mx_ratePlan','mx_marketSegment','mx_comparisonType'].forEach(id=>{
+  ['mx_room','mx_roomCategory','mx_occ','mx_mealPlan','mx_channel','mx_ratePlan','mx_propertyTypes','mx_comparisonType'].forEach(id=>{
     document.getElementById(id).addEventListener('change', renderGrid);
   });
   document.getElementById('mx_search').addEventListener('input', renderGrid);
