@@ -43,7 +43,6 @@
 .grid-room-row td{ background:color-mix(in srgb, var(--bg-surface-2) 60%, transparent); border-bottom:1px solid var(--border-1); }
 .grid-room-row td.grid-sticky-col{ background:color-mix(in srgb, var(--bg-surface-2) 92%, transparent); }
 .grid-room-row td.grid-sticky-col.mx-mine{ background:var(--brand-50) !important; }
-.mx-group-label{ padding:2px 0; }
 
 .mx-legend-dot{
   display:inline-block; width:10px; height:10px; border-radius:3px; background:var(--brand-50);
@@ -57,7 +56,7 @@
 /* Consistent icon/name alignment on every divider row — the chevron slot (real for
    competitors, an invisible placeholder for "My Property") keeps every row's name starting
    at the same x position, whether or not that row also has a star icon next to it. */
-.mx-group-label{ display:inline-flex; align-items:center; gap:7px; }
+.mx-group-label{ display:inline-flex; align-items:center; gap:7px; padding:2px 0; }
 .mx-group-label > i{ flex-shrink:0; }
 .mx-group-name{
   font-family:var(--font); font-weight:700; font-size:.86rem;

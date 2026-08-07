@@ -18,7 +18,12 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
   const limitNote = (!existing && me.role === RBAC.ROLES.PROPERTY_OWNER && me.propertyLimit != null)
     ? ` (${RBAC.propertyLimitRemaining(me)} of ${me.propertyLimit} remaining)` : '';
-  APP.mount({
+  // A Property Owner editing their own property should see the Rate Shopper IQ portal chrome,
+  // not the Company/Admin sidebar — mirrors property-details.js/add-room.js/add-channel.js/
+  // add-rate-plan.js, which already use PORTAL.mountForRole() for this exact reason. This page
+  // was the one spot still calling APP.mount() unconditionally, leaking the Company portal
+  // sidebar into a Property Owner's own workflow.
+  PORTAL.mountForRole({
     title: existing ? 'Edit Property' : 'Add New Property',
     subtitle: (existing ? `Update details for ${existing.name}` : 'Create a new property listing for your portfolio.') + limitNote,
     breadcrumb:[{label:'Home',href:'dashboard.html'},{label:'Properties',href:'properties.html'},{label: existing ? 'Edit' : 'Add New'}]

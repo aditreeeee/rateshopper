@@ -393,7 +393,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible,
   width:40px;height:40px;border-radius:12px;border:1px solid var(--border-1);background:var(--bg-surface-2);
   display:flex;align-items:center;justify-content:center;color:var(--text-2);position:relative;cursor:pointer;transition:.15s;
 }
-.icon-btn:hover{background:var(--brand-50);color:var(--brand-600)}
+.icon-btn:hover{background:var(--brand-50);color:var(--brand-600);transform:translateY(-1px);box-shadow:var(--shadow-sm)}
 [data-theme="dark"] .icon-btn:hover{background:var(--brand-900);color:#cfe}
 .icon-btn .dot{position:absolute;top:6px;right:7px;width:8px;height:8px;border-radius:50%;background:var(--danger);border:2px solid var(--bg-surface)}
 .page-body{padding:26px}
@@ -423,10 +423,6 @@ input:focus-visible, select:focus-visible, textarea:focus-visible,
 .stat-icon{width:50px;height:50px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:1.25rem;flex:0 0 auto}
 .stat-card h3{font-size:1.5rem;font-weight:700;margin:0}
 .stat-card .stat-label{font-size:.78rem;color:var(--text-3);font-weight:600;text-transform:uppercase;letter-spacing:.03em}
-.stat-trend{font-size:.75rem;font-weight:600;display:inline-flex;align-items:center;gap:4px;margin-top:2px}
-.stat-trend.up{color:var(--success)}
-.stat-trend.down{color:var(--danger)}
-
 .section-card{
   background:var(--glass-bg); border:1px solid var(--glass-border); border-radius:var(--radius-md);
   box-shadow:var(--shadow-sm); padding:22px;
@@ -505,7 +501,6 @@ input:focus-visible, select:focus-visible, textarea:focus-visible,
 .btn-light-danger{background:#fff0f1;color:var(--danger);border:1px solid #ffd6da}
 .btn-light-danger:hover{background:var(--danger);color:#fff}
 .btn-sm-icon{width:34px;height:34px;padding:0;display:inline-flex;align-items:center;justify-content:center;border-radius:9px}
-.icon-btn:hover{ transform:translateY(-1px); box-shadow:var(--shadow-sm); }
 
 /* ---------- Reorder (Move up/down) buttons — Rooms and Rate Plans lists. When a button is at
    the top/bottom of its group it's disabled; Bootstrap's default ~65% opacity still reads as "a

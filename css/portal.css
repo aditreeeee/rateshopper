@@ -364,6 +364,7 @@
   background:var(--glass-bg); border:1px solid var(--glass-border); border-radius:14px; padding:12px 14px;
   box-shadow:var(--shadow-sm); height:100%; cursor:pointer; border-left:3px solid transparent;
   backdrop-filter:blur(var(--glass-blur)); -webkit-backdrop-filter:blur(var(--glass-blur));
+  animation:ticker-in .4s var(--ease-premium) both;
 }
 .ticker-card:hover{ transform:translateY(-5px) scale(1.01); box-shadow:var(--shadow-lg); }
 .ticker-card.is-me{ border-left-color:var(--brand-500); background:linear-gradient(180deg, var(--brand-50), var(--glass-bg) 60%); }
@@ -380,7 +381,6 @@
 /* Staggered fade-up entrance so the ticker row feels alive on load rather than all cards
    popping in simultaneously. */
 @keyframes ticker-in{ from{ opacity:0; transform:translateY(10px); } to{ opacity:1; transform:none; } }
-.ticker-card{ animation:ticker-in .4s var(--ease-premium) both; }
 
 .ticker-chart-card{
   background:var(--glass-bg); border:1px solid var(--glass-border); border-radius:16px; padding:18px;

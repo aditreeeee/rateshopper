@@ -107,10 +107,6 @@
 @keyframes cdRise{ from{ opacity:0; transform:translateY(10px) scale(.98); } to{ opacity:1; transform:none; } }
 @keyframes cdFadeUp{ from{ opacity:0; transform:translateY(14px); } to{ opacity:1; transform:none; } }
 
-/* ---- Charts: smaller footprint, tidier surrounding chrome ---- */
-.company-dashboard canvas{ max-height: 108px; }
-.company-dashboard #ownerChart{ max-height: 118px; }
-
 /* ---- Table: refined header, gentler hover, crisper corners ---- */
 .company-dashboard .card-surface{ border-radius: var(--cd-radius-sm); border-color: var(--cd-border); box-shadow: var(--cd-shadow); }
 .company-dashboard .table-modern thead th{
