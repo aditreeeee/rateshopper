@@ -128,7 +128,12 @@
     </div>
     <div class="card-surface p-0 overflow-hidden">
       <table class="table-modern w-100">
-        <thead><tr><th>Rate Plan</th><th>Channel</th><th>Meal Plan</th><th>Cancellation</th><th>Status</th><th class="text-end">Actions</th></tr></thead>
+        <thead><tr>
+          <th>Rate Plan</th>
+          <th class="th-sortable" id="rp_groupChannel" title="Group by Channel">Channel <i class="bi bi-chevron-down"></i></th>
+          <th class="th-sortable" id="rp_groupMeal" title="Group by Meal Plan">Meal Plan <i class="bi bi-chevron-down"></i></th>
+          <th>Cancellation</th><th>Status</th><th class="text-end">Actions</th>
+        </tr></thead>
         <tbody id="rpBody"></tbody>
       </table>
     </div>

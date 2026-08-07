@@ -508,8 +508,8 @@ function initRevenueCalendar(propertyId, comps){
               <span class="ric-detail-confidence">${info.confidence}% Confidence</span>
             </div>
             <div class="ric-confidence-track"><div class="ric-confidence-fill" style="width:${info.confidence}%"></div></div>
-            <div class="ric-detail-rec-sub">${rationale}</div>
-            ${info.action!=='Hold' ? `<div class="ric-detail-rec-sub">Suggested: <b>${APP.fmtCurrency(info.suggested)}</b></div>` : ''}
+            <div class="ric-detail-rec-sub ric-rationale">${rationale}</div>
+            <div class="ric-detail-rec-sub" ${info.action==='Hold' ? 'style="visibility:hidden"' : ''}>Suggested: <b>${APP.fmtCurrency(info.suggested)}</b></div>
           </div>
         </div>
       </div>

@@ -6,8 +6,8 @@ document.addEventListener('DOMContentLoaded', ()=>{
   // in the portal bell dropdown instead.
   if(RBAC.currentRole() === RBAC.ROLES.PROPERTY_OWNER){ location.href = 'property-dashboard.html'; return; }
   APP.mount({
-    title:'Notifications', subtitle:'Stay up to date on user accounts, roles, and access changes.',
-    breadcrumb:[{label:'Home',href:'dashboard.html'},{label:'Notifications'}]
+    title:'Activity Log', subtitle:'Stay up to date on user accounts, roles, and access changes.',
+    breadcrumb:[{label:'Home',href:'dashboard.html'},{label:'Activity Log'}]
   });
 
   document.getElementById('categoryFilter').innerHTML += Object.entries(DB.NOTIF_CATEGORIES)
@@ -45,17 +45,20 @@ function render(){
 
   const mutedCategories = new Set((DB.settings.get().mutedNotifCategories)||[]);
 
+  const unreadCount = DB.notifications.all().filter(n=>!n.read).length;
+  document.getElementById('activityCount').textContent = `${list.length} item${list.length===1?'':'s'}${unreadCount ? ` · ${unreadCount} unread` : ''}`;
+
   const wrap = document.getElementById('notifListFull');
   const empty = document.getElementById('notifEmpty');
   if(!list.length){
     wrap.innerHTML = ''; empty.classList.remove('d-none');
-    empty.innerHTML = `<div class="empty-state"><i class="bi bi-bell-slash"></i><h5>No notifications</h5><p>You're all caught up!</p></div>`;
+    empty.innerHTML = `<div class="empty-state"><i class="bi bi-clock-history"></i><h5>No activity yet</h5><p>You're all caught up!</p></div>`;
     return;
   }
   empty.classList.add('d-none');
 
   wrap.innerHTML = list.map(n=>`
-    <div class="d-flex align-items-start gap-3 p-3 border-bottom" style="border-color:var(--border-2) !important;${!n.read?'background:var(--bg-surface-2)':''}">
+    <div class="activity-log-row d-flex align-items-start gap-3 p-3 border-bottom" style="border-color:var(--border-2) !important;${!n.read?'background:var(--bg-surface-2)':''}">
       <div class="activity-ico" style="background:${colors[n.color]}1a;color:${colors[n.color]}"><i class="bi ${n.icon}"></i></div>
       <div class="flex-grow-1">
         <div class="d-flex justify-content-between">

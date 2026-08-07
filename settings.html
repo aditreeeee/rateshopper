@@ -9,18 +9,19 @@
 <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link href="css/style.css" rel="stylesheet">
+<link href="css/portal.css" rel="stylesheet">
 </head>
 <body>
 <div id="app-shell">
 
 <div class="row g-3">
   <div class="col-lg-3">
-    <div class="section-card p-2">
-      <div class="nav flex-column nav-pills" id="settingsTabs">
-        <button class="nav-link active text-start" data-tab="company"><i class="bi bi-building me-2"></i>Company Information</button>
-        <button class="nav-link text-start" data-tab="currency"><i class="bi bi-currency-exchange me-2"></i>Currency & Taxes</button>
-        <button class="nav-link text-start" data-tab="notif"><i class="bi bi-bell me-2"></i>Notifications</button>
-        <button class="nav-link text-start" data-tab="prefs"><i class="bi bi-sliders me-2"></i>Preferences</button>
+    <div class="section-card p-2 settings-nav-card">
+      <div class="nav flex-column nav-pills settings-nav" id="settingsTabs">
+        <button class="nav-link active text-start" data-tab="company"><i class="bi bi-building"></i><span>Company Information</span></button>
+        <button class="nav-link text-start" data-tab="currency"><i class="bi bi-currency-exchange"></i><span>Currency & Taxes</span></button>
+        <button class="nav-link text-start" data-tab="notif"><i class="bi bi-clock-history"></i><span>Activity Log</span></button>
+        <button class="nav-link text-start" data-tab="prefs"><i class="bi bi-sliders"></i><span>Preferences</span></button>
       </div>
     </div>
   </div>
@@ -29,7 +30,10 @@
     <form id="settingsForm">
     <div id="tab-company">
       <div class="section-card">
-        <div class="section-title mb-3">Company Information</div>
+        <div class="rc-section-title">
+          <span class="rc-section-icon"><i class="bi bi-building-fill"></i></span>
+          <div class="section-title">Company Information</div>
+        </div>
         <div class="row g-3">
           <div class="col-md-6"><label class="form-label">Company Name *</label><input class="form-control" id="s_companyName" required></div>
           <div class="col-md-6"><label class="form-label">Company Email *</label><input type="email" class="form-control" id="s_companyEmail" required></div>
@@ -42,7 +46,10 @@
 
     <div id="tab-currency" class="d-none">
       <div class="section-card">
-        <div class="section-title mb-3">Currency & Taxes</div>
+        <div class="rc-section-title">
+          <span class="rc-section-icon"><i class="bi bi-currency-exchange"></i></span>
+          <div class="section-title">Currency & Taxes</div>
+        </div>
         <div class="row g-3">
           <div class="col-md-4">
             <label class="form-label">Currency</label>
@@ -65,17 +72,46 @@
 
     <div id="tab-notif" class="d-none">
       <div class="section-card">
-        <div class="section-title mb-1">Notification Preferences</div>
-        <div class="section-sub mb-3 text-muted small">Choose which categories of account/access activity appear in your Notifications feed and bell badge. This app only ever notifies on account, access, and security events — never hotel operations (bookings/check-ins live inside each property, not here).</div>
-        <div class="form-check form-switch py-2"><input class="form-check-input" type="checkbox" id="s_notifyAccounts"><label class="form-check-label">Account Changes <span class="text-muted small">— users created, activated, or deactivated</span></label></div>
-        <div class="form-check form-switch py-2"><input class="form-check-input" type="checkbox" id="s_notifyAccess"><label class="form-check-label">Access & Permissions <span class="text-muted small">— role and module-permission changes</span></label></div>
-        <div class="form-check form-switch py-2"><input class="form-check-input" type="checkbox" id="s_notifySecurity"><label class="form-check-label">Security Events <span class="text-muted small">— sign-ins and password resets</span></label></div>
+        <div class="rc-section-title mb-1">
+          <span class="rc-section-icon"><i class="bi bi-clock-history"></i></span>
+          <div class="section-title">Activity Log Preferences</div>
+        </div>
+        <div class="section-sub mb-3 text-muted small">Choose which categories of account/access activity appear in your Activity Log feed and bell badge. This app only ever logs account, access, and security events — never hotel operations (bookings/check-ins live inside each property, not here).</div>
+        <div class="settings-alert-list">
+          <label class="settings-alert-row">
+            <span class="settings-alert-icon"><i class="bi bi-people-fill"></i></span>
+            <span class="settings-alert-text">
+              <span class="t">Account Changes</span>
+              <span class="d">Users created, activated, or deactivated</span>
+            </span>
+            <span class="form-check form-switch mb-0"><input class="form-check-input" type="checkbox" id="s_notifyAccounts"></span>
+          </label>
+          <label class="settings-alert-row">
+            <span class="settings-alert-icon"><i class="bi bi-shield-lock-fill"></i></span>
+            <span class="settings-alert-text">
+              <span class="t">Access & Permissions</span>
+              <span class="d">Role and module-permission changes</span>
+            </span>
+            <span class="form-check form-switch mb-0"><input class="form-check-input" type="checkbox" id="s_notifyAccess"></span>
+          </label>
+          <label class="settings-alert-row">
+            <span class="settings-alert-icon"><i class="bi bi-key-fill"></i></span>
+            <span class="settings-alert-text">
+              <span class="t">Security Events</span>
+              <span class="d">Sign-ins and password resets</span>
+            </span>
+            <span class="form-check form-switch mb-0"><input class="form-check-input" type="checkbox" id="s_notifySecurity"></span>
+          </label>
+        </div>
       </div>
     </div>
 
     <div id="tab-prefs" class="d-none">
       <div class="section-card">
-        <div class="section-title mb-3">Preferences</div>
+        <div class="rc-section-title">
+          <span class="rc-section-icon"><i class="bi bi-sliders"></i></span>
+          <div class="section-title">Preferences</div>
+        </div>
         <label class="form-label d-block mb-2">Theme</label>
         <div class="btn-group mb-3">
           <button type="button" class="btn btn-soft" id="prefLight"><i class="bi bi-sun me-1"></i>Light</button>

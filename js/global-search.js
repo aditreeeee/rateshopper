@@ -36,7 +36,7 @@ const GLOBAL_SEARCH = (() => {
     { label:'Properties', icon:'bi-building', href:'properties.html', keywords:'properties hotels portfolio list' },
     { label:'Users', icon:'bi-people', href:'users.html', keywords:'users accounts staff team roles' },
     { label:'Settings', icon:'bi-gear', href:'settings.html', keywords:'settings preferences company currency notifications' },
-    { label:'Notifications', icon:'bi-bell', href:'notifications.html', keywords:'notifications alerts activity' },
+    { label:'Activity Log', icon:'bi-clock-history', href:'notifications.html', keywords:'notifications alerts activity log' },
     { label:'My Profile', icon:'bi-person-circle', href:'profile.html', keywords:'profile account password' }
   ];
   const PROPERTY_PAGES = [

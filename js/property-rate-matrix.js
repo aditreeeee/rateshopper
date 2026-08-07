@@ -47,7 +47,7 @@ function syncHeaderColumnWidths(host){
 }
 
 let mxRangeStart = null, mxRangeEnd = null; // the matrix's active date range — drives the grid, CSV export, and Rate Parity alike
-let mxPreset = '14'; // longer default window than before, so a first-time visitor sees two weeks of rate movement instead of just one
+let mxPreset = 'next14'; // longer default window than before, so a first-time visitor sees two weeks of rate movement instead of just one
 
 // Cross-fade a grid re-render instead of swapping its content instantly. The previous version of
 // this swapped content after a single requestAnimationFrame — only ~16ms after the fade-out
@@ -139,18 +139,27 @@ function mxPresetRange(key){
   const today = mxStartOfDay(new Date());
   if(key==='today') return { start:today, end:today };
   if(key==='yesterday'){ const y=mxAddDays(today,-1); return { start:y, end:y }; }
+  // This/Next Week both run Sunday–Saturday, matching the custom-range calendar's own week
+  // layout (its grid starts each row on Sunday) — same convention as the Rate Calendar's own
+  // Quick Range dropdown, which this mirrors.
+  if(key==='thisWeek'){ const start = mxAddDays(today, -today.getDay()); return { start, end: mxAddDays(start,6) }; }
+  if(key==='nextWeek'){ const start = mxAddDays(today, -today.getDay()+7); return { start, end: mxAddDays(start,6) }; }
   if(key==='7') return { start:today, end:mxAddDays(today,6) };
-  if(key==='14') return { start:today, end:mxAddDays(today,13) };
-  if(key==='30') return { start:today, end:mxAddDays(today,29) };
-  if(key==='90') return { start:today, end:mxAddDays(today,89) };
+  if(key==='14' || key==='next14') return { start:today, end:mxAddDays(today,13) };
+  if(key==='30' || key==='next30') return { start:today, end:mxAddDays(today,29) };
+  if(key==='90' || key==='next90') return { start:today, end:mxAddDays(today,89) };
   if(key==='lastMonth'){
     const firstOfThisMonth = new Date(today.getFullYear(), today.getMonth(), 1);
     const lastMonthEnd = mxAddDays(firstOfThisMonth,-1);
     const lastMonthStart = new Date(lastMonthEnd.getFullYear(), lastMonthEnd.getMonth(), 1);
     return { start:lastMonthStart, end:lastMonthEnd };
   }
-  return { start:today, end:mxAddDays(today,6) };
+  return { start:today, end:mxAddDays(today,13) };
 }
+// Labels for the Quick Range dropdown's own trigger button — mirrors Rate Calendar's
+// CAL_QUICK_RANGE_LABELS (js/rate-calendar.js) so setActiveSeg() can tell a Quick Range preset
+// apart from "custom" without a separate flag.
+const MX_QUICK_RANGE_LABELS = { thisWeek:'This Week', nextWeek:'Next Week', next14:'Next 14 Days', next30:'Next 30 Days', next90:'Next 90 Days' };
 
 document.addEventListener('DOMContentLoaded', ()=>{
   // Rendered inline as part of Rate Shopper (not a standalone page) — the page chrome
@@ -655,6 +664,17 @@ document.addEventListener('DOMContentLoaded', ()=>{
       b.classList.toggle('active', active);
       b.setAttribute('aria-pressed', String(active));
     });
+    // The trigger button always reads "Quick Range" — it's a menu label, not a value display —
+    // but still gets an .active look whenever one of ITS options (not Custom) is the active
+    // range, and the currently-selected option inside the menu gets a checkmark, so the
+    // selection is still visible at a glance without the button text having to change. Mirrors
+    // Rate Calendar's own setActiveSeg() (js/rate-calendar.js).
+    const quickBtn = document.getElementById('mx_quickRangeBtn');
+    const isQuickRangeActive = !!MX_QUICK_RANGE_LABELS[presetKey];
+    if(quickBtn) quickBtn.classList.toggle('active', isQuickRangeActive);
+    document.querySelectorAll('#mx_quickRangeMenu .dropdown-item').forEach(item=>{
+      item.classList.toggle('active', isQuickRangeActive && item.dataset.preset===presetKey);
+    });
   }
 
   function applyRange(start, end, presetKey){
@@ -666,9 +686,10 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
     // Prev/Next range-shift arrows live embedded in the grid's own date header row (the
     // .mx-edge-left/right zones) and only make sense once the window is wide enough that paging
-    // by a whole period is actually useful — 30D/90D/Custom, never 7D/14D (the CSS in
-    // rate-matrix.css hides them entirely unless this class is present).
-    document.querySelector('.mx-grid-card').classList.toggle('mx-range-shiftable', presetKey!=='7' && presetKey!=='14');
+    // by a whole period is actually useful — Next 30/90 Days or Custom, never This/Next Week or
+    // Next 14 Days (the CSS in rate-matrix.css hides them entirely unless this class is present).
+    const shiftablePresets = ['next30','next90','30','90','custom'];
+    document.querySelector('.mx-grid-card').classList.toggle('mx-range-shiftable', shiftablePresets.includes(presetKey));
 
     // Cross-fade the grid instead of an instant column-count jump — going from 7D to 14D roughly
     // doubles the date columns, which felt like a jarring, "choppy" jump when swapped in instantly.
@@ -739,8 +760,9 @@ document.addEventListener('DOMContentLoaded', ()=>{
     bootstrap.Dropdown.getOrCreateInstance(document.getElementById('mx_customBtn')).hide();
   }
 
-  // 7D/14D/30D/90D — plain single-select pills, applied immediately on click.
-  document.querySelectorAll('.mx-seg-btn[data-preset]:not(#mx_customBtn)').forEach(btn=>{
+  // Quick Range dropdown (This Week / Next Week / Next 14/30/90 Days) — applied immediately on
+  // click. Mirrors Rate Calendar's own Quick Range wiring (js/rate-calendar.js).
+  document.querySelectorAll('#mx_quickRangeMenu [data-preset]').forEach(btn=>{
     btn.addEventListener('click', ()=>{
       const { start, end } = mxPresetRange(btn.dataset.preset);
       applyRange(start, end, btn.dataset.preset);

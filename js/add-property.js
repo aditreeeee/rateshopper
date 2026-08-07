@@ -26,9 +26,9 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
   document.getElementById('amenitiesGrid').innerHTML = AMENITY_LIST.map(a=>`
     <div class="col-md-4 col-6">
-      <div class="form-check">
-        <input class="form-check-input amenity-check" type="checkbox" value="${a}" id="am_${a.replace(/\s/g,'')}">
-        <label class="form-check-label small" for="am_${a.replace(/\s/g,'')}">${a}</label>
+      <div class="chip-check">
+        <input class="amenity-check" type="checkbox" value="${a}" id="am_${a.replace(/\s/g,'')}">
+        <label for="am_${a.replace(/\s/g,'')}"><i class="bi bi-check2"></i>${a}</label>
       </div>
     </div>`).join('');
 

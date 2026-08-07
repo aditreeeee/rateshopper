@@ -12,7 +12,7 @@ const APP = (() => {
     {href:'properties.html', icon:'bi-building', label:'Properties', module:'properties', match:['properties.html','property-details.html','add-property.html','add-channel.html','add-room.html','add-rate-plan.html']},
     {href:'users.html', icon:'bi-people', label:'Users', module:'users', match:['users.html','add-user.html']},
     {section:'Account'},
-    {href:'notifications.html', icon:'bi-bell', label:'Notifications', showCount:true},
+    {href:'notifications.html', icon:'bi-clock-history', label:'Activity Log', showCount:true},
     {href:'profile.html', icon:'bi-person-circle', label:'Profile'},
     {href:'settings.html', icon:'bi-gear', label:'Settings', companyOnly:true},
   ];
@@ -108,7 +108,7 @@ const APP = (() => {
       </div>
       <div class="d-flex align-items-center gap-2">
         <div class="theme-toggle-switch d-none d-md-block" onclick="APP.toggleTheme()" title="Toggle theme"><div class="knob"></div></div>
-        <a href="notifications.html" class="icon-btn" title="Notifications"><i class="bi bi-bell"></i>${unread>0?'<span class="dot"></span>':''}</a>
+        <a href="notifications.html" class="icon-btn" title="Activity Log"><i class="bi bi-bell"></i>${unread>0?'<span class="dot"></span>':''}</a>
         ${RBAC.isCompanyLevel() ? `<a href="settings.html" class="icon-btn d-none d-sm-flex" title="Settings"><i class="bi bi-gear"></i></a>` : ''}
         <a href="profile.html" class="d-flex align-items-center gap-2 text-decoration-none ms-1">
           <img src="${user ? user.avatar : 'https://ui-avatars.com/api/?name=User'}" class="avatar-thumb" style="width:38px;height:38px">

@@ -1,4 +1,7 @@
 let currentProperty = null;
+// Rate Plans table's active Group By — 'room' (default), 'channel', or 'mealPlan'. Toggled by
+// clicking the Channel/Meal Plan column headers (see renderRatePlans()).
+let rpGroupBy = 'room';
 
 document.addEventListener('DOMContentLoaded', ()=>{
   const id = APP.qs('id');
@@ -67,6 +70,8 @@ document.addEventListener('DOMContentLoaded', ()=>{
   document.getElementById('rm_viewList').addEventListener('click', ()=> setRoomsView('list'));
   document.getElementById('rpChannelFilter').addEventListener('change', renderRatePlans);
   document.getElementById('rpMealFilter').addEventListener('change', renderRatePlans);
+  document.getElementById('rp_groupChannel').addEventListener('click', ()=>{ rpGroupBy = rpGroupBy==='channel' ? 'room' : 'channel'; renderRatePlans(); });
+  document.getElementById('rp_groupMeal').addEventListener('click', ()=>{ rpGroupBy = rpGroupBy==='mealPlan' ? 'room' : 'mealPlan'; renderRatePlans(); });
 
   // Rate Calendar tab: the live grid is embedded directly (no click-through), scoped to this property.
   // This is the only place the rate calendar is ever shown — there is no standalone full-page version.
@@ -327,38 +332,58 @@ function renderRatePlans(){
   const canDelete = RBAC.can(RBAC.MODULES.RATE_PLANS, 'delete');
   document.getElementById('rpCount').textContent = `${ratePlans.length} rate plan(s)`;
 
-  // Grouped by ROOM NAME (not room record/channel) — a room type is a separate DB record per
-  // channel (its own id, own sortOrder), so a property with the same room type listed on several
-  // channels would otherwise repeat that same room name as its own group over and over, once per
-  // channel, for no useful reason — just wasted vertical space with nothing new to say. Grouping
-  // by name merges all of a room type's plans together regardless of which channel each one is
-  // actually on (still shown via each row's own Channel column). Sort order and Move Up/Down
-  // stay scoped to each plan's own room record/channel exactly as before — only the VISUAL
-  // grouping changes here.
+  // Group By: Room (default) / Channel / Meal Plan — clicking the Channel or Meal Plan column
+  // header (rp_groupChannel/rp_groupMeal, wired in populateChannelFilters's caller below) toggles
+  // which one drives the grouping. Whichever is active, rows always sort by two keys: primary —
+  // identical group values stay together; secondary — the grouped values themselves in A–Z order
+  // (and within a group, by the group's own natural row order).
+  document.getElementById('rp_groupChannel').classList.toggle('active', rpGroupBy==='channel');
+  document.getElementById('rp_groupMeal').classList.toggle('active', rpGroupBy==='mealPlan');
+
+  function groupKeyFor(rp){
+    if(rpGroupBy==='channel'){ const c = DB.channels.get(rp.channelId); return c ? c.name : 'Unassigned Channel'; }
+    if(rpGroupBy==='mealPlan') return DB.MEAL_LABELS[rp.mealPlan] || rp.mealPlan;
+    const room = DB.rooms.get(rp.roomId); return room ? room.name : 'Unassigned Room';
+  }
+
   ratePlans = [...ratePlans].sort((a,b)=>{
-    const roomA = DB.rooms.get(a.roomId), roomB = DB.rooms.get(b.roomId);
-    return (roomA?roomA.name:'').localeCompare(roomB?roomB.name:'') || (a.sortOrder||0)-(b.sortOrder||0);
+    const keyCompare = groupKeyFor(a).localeCompare(groupKeyFor(b));
+    if(keyCompare) return keyCompare;
+    // Secondary order within a group: Room grouping keeps each room's own manual sortOrder
+    // (what Move Up/Down controls); Channel/Meal Plan grouping has no single room's sortOrder to
+    // fall back on since a group can span many rooms, so it falls back to the rate plan's own name.
+    if(rpGroupBy==='room') return (a.sortOrder||0)-(b.sortOrder||0);
+    return a.name.localeCompare(b.name);
   });
 
-  // Rendered as room group headers (reusing the .rc-group-row pattern from Room Rate
-  // Comparison) rather than a per-row Room column — plans are already sorted room-by-room
-  // above, so a header row per room reads faster than reading the same room name repeated
-  // down a column, and it's one less column competing for width.
-  const groups = {}; const roomNameOrder = [];
+  // Rendered as group header rows (reusing the .rc-group-row pattern from Room Rate Comparison)
+  // rather than a per-row Room column — plans are already grouped above, so a header row per
+  // group reads faster than reading the same value repeated down a column, and it's one less
+  // column competing for width.
+  const groups = {}; const groupOrder = [];
   ratePlans.forEach(rp=>{
-    const room = DB.rooms.get(rp.roomId);
-    const groupKey = room ? room.name : 'Unassigned Room';
-    if(!groups[groupKey]){ groups[groupKey] = []; roomNameOrder.push(groupKey); }
+    const groupKey = groupKeyFor(rp);
+    if(!groups[groupKey]){ groups[groupKey] = []; groupOrder.push(groupKey); }
     groups[groupKey].push(rp);
   });
 
-  document.getElementById('rpBody').innerHTML = ratePlans.length ? roomNameOrder.map(groupKey=>{
-    const roomPlans = groups[groupKey];
-    const groupHeader = `<tr class="rc-group-row"><td colspan="6">
-      <i class="bi bi-door-open me-2 text-muted"></i><strong>${groupKey}</strong>
-      <span class="text-muted ms-2" style="font-size:.72rem">${roomPlans.length} rate plan${roomPlans.length===1?'':'s'}</span>
+  // Move Up/Down only means something within Room grouping (sortOrder is scoped to one room's
+  // own plan list) — Channel/Meal Plan grouping mixes plans from many rooms into one group, where
+  // "up/down" wouldn't map to anything coherent, so it's hidden there the same way it already is
+  // when "All Channels" is selected.
+  const canReorder = canEdit && channelId && rpGroupBy==='room';
+
+  document.getElementById('rpBody').innerHTML = ratePlans.length ? groupOrder.map(groupKey=>{
+    const groupPlans = groups[groupKey];
+    // A tinted brand-colored chip (same room-label treatment as the Rate Calendar's own grid,
+    // css/style.css's .grid-room-chip) instead of a plain muted icon+bold-text row — groups and
+    // plain rate-plan rows were reading as visually interchangeable otherwise, since both were
+    // just plain table rows differing only by boldness.
+    const groupHeader = `<tr class="rp-room-group-row"><td colspan="6">
+      <span class="grid-room-chip">${groupKey}</span>
+      <span class="text-muted ms-2" style="font-size:.72rem">${groupPlans.length} rate plan${groupPlans.length===1?'':'s'}</span>
     </td></tr>`;
-    return groupHeader + roomPlans.map(rp=>{
+    return groupHeader + groupPlans.map(rp=>{
       const room = DB.rooms.get(rp.roomId);
       const roomSiblings = DB.ratePlans.byRoom(rp.roomId).sort((a,b)=>(a.sortOrder||0)-(b.sortOrder||0));
       const posInRoom = roomSiblings.findIndex(x=>x.id===rp.id);
@@ -370,7 +395,7 @@ function renderRatePlans(){
       <td class="small text-muted">${rp.refundable?'Refundable':'Non-Refundable'}</td>
       <td><span class="badge-status ${rp.status==='active'?'badge-active':'badge-inactive'}">${rp.status}</span></td>
       <td class="text-end">
-        ${canEdit && channelId ? `
+        ${canReorder ? `
           <div class="btn-group btn-group-sm me-1" role="group" aria-label="Reorder within ${room?room.name:'room'}">
             <button class="btn btn-sm-icon btn-soft btn-reorder" title="Move up" ${isFirst?'disabled':''} onclick="moveRatePlan('${rp.id}',-1)"><i class="bi bi-arrow-up"></i></button>
             <button class="btn btn-sm-icon btn-soft btn-reorder" title="Move down" ${isLast?'disabled':''} onclick="moveRatePlan('${rp.id}',1)"><i class="bi bi-arrow-down"></i></button>

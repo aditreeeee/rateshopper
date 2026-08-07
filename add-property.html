@@ -9,6 +9,7 @@
 <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link href="css/style.css" rel="stylesheet">
+<link href="css/portal.css" rel="stylesheet">
 </head>
 <body>
 <div id="app-shell">
@@ -17,7 +18,10 @@
 <div class="row g-3">
   <div class="col-lg-8">
     <div class="section-card mb-3">
-      <div class="section-title mb-3">Basic Information</div>
+      <div class="rc-section-title">
+        <span class="rc-section-icon"><i class="bi bi-building-fill"></i></span>
+        <div class="section-title">Basic Information</div>
+      </div>
       <div class="row g-3">
         <div class="col-12 d-none" id="ownerLockNotice">
           <div class="alert alert-warning py-2 px-3 mb-0 d-flex align-items-center gap-2" style="font-size:.82rem">
@@ -94,7 +98,10 @@
     </div>
 
     <div class="section-card mb-3">
-      <div class="section-title mb-3">Contact Details</div>
+      <div class="rc-section-title">
+        <span class="rc-section-icon"><i class="bi bi-telephone-fill"></i></span>
+        <div class="section-title">Contact Details</div>
+      </div>
       <div class="row g-3">
         <div class="col-md-4">
           <label class="form-label">Phone Number *</label>
@@ -123,14 +130,20 @@
     </div>
 
     <div class="section-card mb-3">
-      <div class="section-title mb-3">Amenities</div>
+      <div class="rc-section-title">
+        <span class="rc-section-icon"><i class="bi bi-stars"></i></span>
+        <div class="section-title">Amenities</div>
+      </div>
       <div class="row g-2" id="amenitiesGrid">
         ${''}
       </div>
     </div>
 
     <div class="section-card" id="channelsCard">
-      <div class="section-title mb-1">Channel Connections</div>
+      <div class="rc-section-title mb-1">
+        <span class="rc-section-icon"><i class="bi bi-diagram-3-fill"></i></span>
+        <div class="section-title">Channel Connections</div>
+      </div>
       <div class="section-sub mb-3">Direct is included automatically for every property and never appears below. Pick any other channels this property sells through — the list only ever shows channels that aren't connected yet.</div>
 
       <div id="connectedChannelsWrap" class="d-none mb-3">
@@ -156,7 +169,10 @@
 
   <div class="col-lg-4">
     <div class="section-card mb-3">
-      <div class="section-title mb-3">Property Logo / Cover</div>
+      <div class="rc-section-title">
+        <span class="rc-section-icon"><i class="bi bi-image-fill"></i></span>
+        <div class="section-title">Property Logo / Cover</div>
+      </div>
       <div class="text-center mb-3">
         <img id="logoPreview" src="https://images.unsplash.com/photo-1566073771259-6a8506099945?w=400&q=60" class="logo-preview">
       </div>
@@ -168,9 +184,12 @@
     </div>
 
     <div class="section-card">
-      <div class="section-title mb-2">Save Property</div>
+      <div class="rc-section-title mb-1">
+        <span class="rc-section-icon"><i class="bi bi-save-fill"></i></span>
+        <div class="section-title">Save Property</div>
+      </div>
       <p class="text-muted small">Review the details before saving. You can edit this property anytime.</p>
-      <button type="submit" class="btn btn-primary w-100 mb-2"><i class="bi bi-check2-circle me-1"></i><span id="submitLabel">Save Property</span></button>
+      <button type="submit" class="btn btn-primary w-100 mb-2 mt-2"><i class="bi bi-check2-circle me-1"></i><span id="submitLabel">Save Property</span></button>
       <a href="properties.html" class="btn btn-light w-100">Cancel</a>
     </div>
   </div>
